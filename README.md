@@ -32,7 +32,7 @@ Add this repository as a Git submodule at `process/`, pinned to a release tag:
 
 ```powershell
 git submodule add https://github.com/immregistries/content-publishing-templates.git process
-git -C process checkout v0.2.0
+git -C process checkout v0.2.1
 ```
 
 Clone a project that uses it with `git clone --recurse-submodules`, or run

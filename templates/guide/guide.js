@@ -398,15 +398,13 @@
       quoteText.textContent = "“" + quote + "”";
       form.appendChild(quoteText);
     }
-    var label = document.createElement("label");
-    label.className = "aira-visually-hidden";
-    label.textContent = "Comment";
     var textarea = document.createElement("textarea");
     textarea.className = "aira-textarea";
     textarea.required = true;
+    textarea.placeholder = "Add a comment (Ctrl+Enter to save, Esc to cancel)";
+    textarea.setAttribute("aria-label", "Comment");
     textarea.value = existing ? existing.text : "";
-    label.appendChild(textarea);
-    form.appendChild(label);
+    form.appendChild(textarea);
 
     var actions = document.createElement("div");
     actions.className = "guide-comment-actions";

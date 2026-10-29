@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.2.1
+
+- Fix: the comment box in the web guide was hidden, so typing was invisible.
+
 ## v0.2.0
 
 - Web guide: `tools/build_guide.py` builds a self-contained HTML page styled
