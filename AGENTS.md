@@ -20,6 +20,10 @@
 - Keep the tools free of third-party Python dependencies.
 - Keep the `AIRA2` table style ID in the Word reference document, or update
   `tools/apply_word_table_style.py` and its callers together.
+- `templates/guide/aira.css` and the logo are copies from `immregistries/aira-web`.
+  Do not edit them; replace them from a named aira-web release and record the
+  version in `templates/guide/README.md` and the changelog. Guide-specific
+  styling goes in `guide.css`.
 - A change that alters built output or tool behavior needs a CHANGELOG entry and
   a new release tag. Projects adopt it deliberately.
 

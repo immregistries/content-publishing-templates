@@ -1,0 +1,10 @@
+{
+  "id": "example-core-document",
+  "status": "Draft",
+  "interophubTopic": 7,
+  "repository": "https://github.com/immregistries/content-publishing-templates",
+  "license": "Content CC BY 4.0",
+  "navLabels": {
+    "summary": "Summary"
+  }
+}

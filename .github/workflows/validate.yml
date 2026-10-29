@@ -26,9 +26,17 @@ jobs:
           python -m py_compile tools/build_core_markdown.py
           python -m py_compile tools/check_content.py
           python -m py_compile tools/apply_word_table_style.py
+          python -m py_compile tools/build_guide.py
+          python -m py_compile tools/import_guide_comments.py
+
+      - name: Install pandoc
+        run: sudo apt-get update && sudo apt-get install -y pandoc
 
       - name: Verify fixture reading copy
         run: python tools/build_core_markdown.py --root tests/fixture-project --assembly Example.qmd --check
+
+      - name: Build fixture guide
+        run: python tools/build_guide.py --root tests/fixture-project --assembly Example.qmd --output "$RUNNER_TEMP/guide.html" --version test
 
       - name: Check fixture content
         run: python tools/check_content.py --root tests/fixture-project
