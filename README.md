@@ -19,6 +19,7 @@ guidance/          the process and the conventions content projects follow
 templates/word/    Word reference document for Quarto builds (AIRA styles)
 templates/product/ starting points for content modules, product briefs, and manifests
 templates/guide/   web guide template: AIRA Web styles, layout, and comments
+templates/powerpoint/ rapid presentation template (AIRA styles) and example slide source
 tools/             build and validation tools shared by content projects
 tests/             a minimal fixture project used to test the tools
 ```
@@ -32,7 +33,7 @@ Add this repository as a Git submodule at `process/`, pinned to a release tag:
 
 ```powershell
 git submodule add https://github.com/immregistries/content-publishing-templates.git process
-git -C process checkout v0.2.1
+git -C process checkout v0.3.0
 ```
 
 Clone a project that uses it with `git clone --recurse-submodules`, or run
@@ -67,11 +68,16 @@ python process/tools/build_guide.py --assembly Project.qmd --version v0.1.0
 
 # Turn comment files downloaded from the guide into a review record.
 python process/tools/import_guide_comments.py comments.json
+
+# Build an editable PowerPoint deck from a JSON slide source
+# (needs python-pptx; see templates/powerpoint/README.md).
+python process/tools/build_rapid_presentation.py --template "process/templates/powerpoint/AIRA Rapid Presentation Template.pptx" --source slides.json --output output/deck.pptx
 ```
 
 Building Word and HTML output requires [Quarto](https://quarto.org/). The web
 guide needs pandoc, either installed directly or the copy bundled with Quarto.
-The tools require Python 3.12 or later and no other packages.
+The tools require Python 3.12 or later. Only the PowerPoint generator needs a
+third-party package, `python-pptx`, pinned in `requirements-pptx.txt`.
 
 ## Releases
 

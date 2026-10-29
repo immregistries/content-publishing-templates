@@ -1,0 +1,116 @@
+{
+  "core_release": "v0.0.0",
+  "slides": [
+    {
+      "layout": "Rapid - Title - Green Light",
+      "title": "Example Presentation",
+      "subtitle": "Presenter name · Date",
+      "content": [],
+      "speaker_notes": "Opening remarks.",
+      "sources": [
+        "content/00-summary.md"
+      ]
+    },
+    {
+      "layout": "Rapid - Section - Green Dark",
+      "title": "First Section",
+      "subtitle": "What this section is about",
+      "content": [],
+      "speaker_notes": "Transition into the first section.",
+      "sources": [
+        "content/00-summary.md"
+      ]
+    },
+    {
+      "layout": "Rapid - Title and Content - Green",
+      "title": "One assertion-style title states the main point",
+      "content": [
+        [
+          {
+            "text": "First supporting point"
+          },
+          {
+            "text": "Second supporting point"
+          },
+          {
+            "text": "Detail under the second point",
+            "level": 1
+          }
+        ]
+      ],
+      "speaker_notes": "Detail belongs in the notes rather than on the slide.",
+      "sources": [
+        "content/01-detail.md"
+      ]
+    },
+    {
+      "layout": "Rapid - Title and Two Content - Green",
+      "title": "Two regions side by side",
+      "content": [
+        [
+          {
+            "text": "Left region"
+          }
+        ],
+        [
+          {
+            "text": "Right region"
+          }
+        ]
+      ],
+      "speaker_notes": "Either region can hold an image.",
+      "sources": [
+        "content/01-detail.md"
+      ]
+    },
+    {
+      "layout": "Rapid - Comparison - Green",
+      "title": "Compare two alternatives",
+      "content": [
+        [
+          {
+            "text": "Option A",
+            "bold": true
+          }
+        ],
+        [
+          {
+            "text": "What makes A different"
+          }
+        ],
+        [
+          {
+            "text": "Option B",
+            "bold": true
+          }
+        ],
+        [
+          {
+            "text": "What makes B different"
+          }
+        ]
+      ],
+      "speaker_notes": "Comparison content regions are filled in placeholder order.",
+      "sources": [
+        "content/01-detail.md"
+      ]
+    },
+    {
+      "layout": "Rapid - Title Only - Green",
+      "title": "A title above a custom diagram",
+      "content": [],
+      "speaker_notes": "Add the diagram or image by hand after generation.",
+      "sources": [
+        "content/01-detail.md"
+      ]
+    },
+    {
+      "layout": "Rapid - Blank - Blue",
+      "content": [],
+      "speaker_notes": "Blank layouts have no title; add the composition by hand.",
+      "sources": [
+        "content/01-detail.md"
+      ]
+    }
+  ]
+}

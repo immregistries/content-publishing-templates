@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.3.0
+
+- PowerPoint support: the AIRA rapid presentation template (18 layouts, author
+  names removed, sample photograph replaced with a placeholder), its layout
+  contract, the build checklist, and `tools/build_rapid_presentation.py` with an
+  example slide source. Requires `python-pptx` (`requirements-pptx.txt`).
+- The presentation generator now accepts a subtitle on Section layouts, which
+  use a body placeholder for it, and slides without a title on Blank layouts.
+
 ## v0.2.1
 
 - Fix: the comment box in the web guide was hidden, so typing was invisible.

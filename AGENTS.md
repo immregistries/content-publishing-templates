@@ -17,7 +17,10 @@
 
 - Keep the tools generic. Project names, titles, and paths come from arguments
   or the project's own files, never from constants here.
-- Keep the tools free of third-party Python dependencies.
+- Keep the tools free of third-party Python dependencies, except the PowerPoint
+  generator, which uses the pinned `python-pptx` in `requirements-pptx.txt`.
+- Strip author names from Office files and use only images that may be
+  redistributed publicly.
 - Keep the `AIRA2` table style ID in the Word reference document, or update
   `tools/apply_word_table_style.py` and its callers together.
 - `templates/guide/aira.css` and the logo are copies from `immregistries/aira-web`.

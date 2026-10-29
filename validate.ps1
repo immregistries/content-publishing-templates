@@ -30,4 +30,17 @@ if ($LASTEXITCODE -ne 0) {
     throw "Fixture guide build failed."
 }
 
+& $python.Source -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('pptx') else 1)"
+if ($LASTEXITCODE -eq 0) {
+    & $python.Source (Join-Path $tools 'build_rapid_presentation.py') `
+        --template (Join-Path $PSScriptRoot 'templates/powerpoint/AIRA Rapid Presentation Template.pptx') `
+        --source (Join-Path $PSScriptRoot 'templates/powerpoint/example-slides.json') `
+        --output (Join-Path $PSScriptRoot 'output/example-deck.pptx')
+    if ($LASTEXITCODE -ne 0) {
+        throw "Example PowerPoint build failed."
+    }
+} else {
+    Write-Host "python-pptx not installed; skipping the PowerPoint check."
+}
+
 Write-Host "Repository validation passed."

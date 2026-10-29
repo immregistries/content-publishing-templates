@@ -1,0 +1,144 @@
+template:
+  id: aira-rapid-presentation
+  status: in-development
+  version: 0.2
+  automation_file: AIRA Rapid Presentation Template.pptx
+  visual_authority: Original AIRA presentation template, held by AIRA and not distributed in this repository
+  aspect_ratio: "16:9"
+
+theme:
+  heading_font: Open Sans Light
+  body_font: Open Sans
+  colors:
+    dark_blue: "#1C3C50"
+    green: "#629F44"
+    blue_gray: "#8098A4"
+    light_green: "#C9E2CA"
+    yellow: "#ECBC0A"
+    gray: "#CCCCCB"
+
+visual_system:
+  color_families:
+    - green
+    - blue
+  treatments:
+    title_and_section:
+      - light
+      - dark
+    working_slides:
+      - standard
+  meaning:
+    color_family: Visual choice made by the author or product brief.
+    treatment: Light or dark visual treatment; it does not encode meaning.
+  selection_rules:
+    - Select one color family as the deck default.
+    - Use layouts from that family throughout the deck unless the author deliberately chooses otherwise.
+    - Light and dark title or section layouts may be mixed within the selected family.
+    - Do not use color family or treatment to imply status or meaning unless a future convention explicitly defines it.
+
+layout_roles:
+  title:
+    purpose: Open the presentation.
+    placeholders:
+      - center_title
+      - subtitle
+    variants:
+      green_light: Rapid - Title - Green Light
+      green_dark: Rapid - Title - Green Dark
+      blue_light: Rapid - Title - Blue Light
+      blue_dark: Rapid - Title - Blue Dark
+
+  section:
+    purpose: Mark a major transition in a longer presentation.
+    placeholders:
+      - title
+      - subtitle
+    variants:
+      green_light: Rapid - Section - Green Light
+      green_dark: Rapid - Section - Green Dark
+      blue_light: Rapid - Section - Blue Light
+      blue_dark: Rapid - Section - Blue Dark
+
+  title_and_content:
+    purpose: Default working layout for one main point and supporting content.
+    placeholders:
+      - title
+      - content
+    variants:
+      green: Rapid - Title and Content - Green
+      blue: Rapid - Title and Content - Blue
+
+  title_and_two_content:
+    purpose: Present two regions, including concise text paired with an image.
+    placeholders:
+      - title
+      - left_content
+      - right_content
+    variants:
+      green: Rapid - Title and Two Content - Green
+      blue: Rapid - Title and Two Content - Blue
+
+  comparison:
+    purpose: Compare two explicitly labeled subjects or alternatives.
+    placeholders:
+      - title
+      - left_heading
+      - left_content
+      - right_heading
+      - right_content
+    variants:
+      green: Rapid - Comparison - Green
+      blue: Rapid - Comparison - Blue
+
+  title_only:
+    purpose: Provide a stable title above a custom diagram, image, quotation, or composition.
+    placeholders:
+      - title
+    variants:
+      green: Rapid - Title Only - Green
+      blue: Rapid - Title Only - Blue
+
+  blank:
+    purpose: Escape hatch for a custom diagram or unusual visual that does not need a title placeholder.
+    placeholders: []
+    variants:
+      green: Rapid - Blank - Green
+      blue: Rapid - Blank - Blue
+
+generation_rules:
+  default_color_family: null
+  default_title_and_section_treatment: light
+  default_layout_role: title_and_content
+  one_main_point_per_slide: true
+  prefer_assertion_titles: true
+  preserve_editability: true
+  use_speaker_notes_for_detail: true
+  allow_automatic_text_shrink: false
+  minimum_body_font_points: 18
+  prefer_body_font_points: 20
+  split_slide_when_content_overflows: true
+  use_title_only_before_blank_when_a_standard_title_is_appropriate: true
+  use_blank_only_when_standard_layouts_do_not_fit: true
+  dedicated_image_layout: false
+  image_guidance:
+    - Use either content placeholder in Title and Two Content for an image.
+    - Use Title Only for a large or custom-positioned image when a slide title is needed.
+    - Use Blank only when the composition should not use a standard title placeholder.
+
+specimen_slides:
+  required: true
+  one_per_supported_layout: true
+  expected_count: 18
+  content_is_disposable: true
+
+validation:
+  - File opens without a repair warning.
+  - All 18 supported layout names are unique.
+  - Nine supported layouts belong to the Green master family.
+  - Nine supported layouts belong to the Blue master family.
+  - Corresponding Green and Blue working layouts have matching placeholder structures.
+  - Each specimen slide uses its corresponding supported layout.
+  - Text and images remain editable.
+  - Branding, footers, and slide numbers render consistently.
+  - The file contains no substantive presentation content.
+
