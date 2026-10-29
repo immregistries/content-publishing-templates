@@ -1,0 +1,38 @@
+product_id: implementer-overview-10-slide
+status: draft
+core_release: null
+canonical_source_revision: null
+
+brief: brief.yml
+product_source: ./
+output: ../../output/implementer-overview-10-slide.pptx
+
+build:
+  date: null
+  method: null
+  template: null
+
+sources:
+  - path: ../../content/00-executive-summary.md
+    revision: null
+  - path: ../../content/relevant-section.md
+    revision: null
+
+new_or_changed_claims: []
+edge_innovations_awaiting_core_adjudication: []
+deliberate_departures: []
+unresolved_issues: []
+
+review:
+  subject_matter:
+    reviewer: null
+    date: null
+    status: pending
+  audience:
+    reviewer: null
+    date: null
+    status: pending
+  publication:
+    approver: null
+    date: null
+    status: pending

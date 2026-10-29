@@ -1,0 +1,8 @@
+---
+title: "Example Core Document"
+subtitle: "Test fixture for the shared tools"
+---
+
+{{< include content/00-summary.md >}}
+
+{{< include content/01-detail.md >}}

@@ -1,0 +1,37 @@
+name: Validate templates and tools
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile Python tools
+        run: |
+          python -m py_compile tools/build_core_markdown.py
+          python -m py_compile tools/check_content.py
+          python -m py_compile tools/apply_word_table_style.py
+
+      - name: Verify fixture reading copy
+        run: python tools/build_core_markdown.py --root tests/fixture-project --assembly Example.qmd --check
+
+      - name: Check fixture content
+        run: python tools/check_content.py --root tests/fixture-project
+
+      - name: Check this repository's Markdown links
+        run: python tools/check_content.py --include "guidance/*.md" --include "templates/**/*.md"

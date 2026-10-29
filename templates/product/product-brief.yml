@@ -1,0 +1,48 @@
+# Copy this file for each requested product and replace the examples.
+id: implementer-overview-10-slide
+status: draft
+core_release: null
+
+product:
+  type: presentation
+  format: pptx
+  length: 10 content slides
+  presentation_time: 15 minutes
+  template: null
+
+audience:
+  name: Implementers new to the topic
+  assumed_knowledge:
+    - Familiar with the general domain
+    - Not yet familiar with this project's core document
+
+purpose: >-
+  Introduce the central idea of the core document and where it stands.
+
+desired_outcome: >-
+  The audience can explain the central idea and knows how to give feedback.
+
+emphasize:
+  - The main proposition and why it matters
+  - What is decided and what is still open
+
+exclude_or_deemphasize:
+  - Detailed appendix material
+
+tone:
+  - Concise
+  - Plain language
+
+allowed_sources:
+  - ../../content/00-executive-summary.md
+  - ../../content/relevant-section.md
+
+required_elements:
+  - A clear statement of the document's status
+  - Source notes or traceability in the product manifest
+
+assumptions: []
+delivery_context: []
+requested_by: null
+requested_date: null
+needed_by: null
