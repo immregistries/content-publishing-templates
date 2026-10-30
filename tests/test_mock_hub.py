@@ -42,7 +42,10 @@ class MockHubTest(unittest.TestCase):
             response = urllib.request.urlopen(req)
             raw = response.read(); return response.status, dict(response.headers), json.loads(raw) if raw else None
         except urllib.error.HTTPError as error:
-            raw = error.read(); return error.code, dict(error.headers), json.loads(raw) if raw else None
+            try:
+                raw = error.read(); return error.code, dict(error.headers), json.loads(raw) if raw else None
+            finally:
+                error.close()
 
     def code(self, verifier=VERIFIER):
         digest = hashlib.sha256(verifier.encode()).digest()
@@ -50,7 +53,9 @@ class MockHubTest(unittest.TestCase):
         query = urllib.parse.urlencode({"app_code": "topic-reference", "return_to": ORIGIN + "/guide/", "state": "state", "code_challenge": value, "code_challenge_method": "S256", "response_mode": "fragment", "requested_url": ORIGIN + "/guide/"})
         opener = urllib.request.build_opener(NoRedirect)
         try: opener.open(self.base + "/home?" + query)
-        except urllib.error.HTTPError as error: location = error.headers["Location"]
+        except urllib.error.HTTPError as error:
+            try: location = error.headers["Location"]
+            finally: error.close()
         return urllib.parse.parse_qs(urllib.parse.urlparse(location).fragment)["code"][0]
 
     def exchange(self, code=None, verifier=VERIFIER, return_to=ORIGIN + "/guide/", origin=ORIGIN):
@@ -58,6 +63,23 @@ class MockHubTest(unittest.TestCase):
 
     def token(self):
         status, _, body = self.exchange(); self.assertEqual(200, status); return body["accessToken"]
+
+    def author_token(self):
+        code = self.code_for("Test Author")
+        status, _, body = self.exchange(code)
+        self.assertEqual(200, status)
+        return body["accessToken"]
+
+    def code_for(self, name):
+        digest = hashlib.sha256(VERIFIER.encode()).digest()
+        value = base64.urlsafe_b64encode(digest).decode().rstrip("=")
+        query = urllib.parse.urlencode({"app_code": "topic-reference", "return_to": ORIGIN + "/guide/", "state": "state", "code_challenge": value, "code_challenge_method": "S256", "response_mode": "fragment", "requested_url": ORIGIN + "/guide/", "user": name})
+        opener = urllib.request.build_opener(NoRedirect)
+        try: opener.open(self.base + "/home?" + query)
+        except urllib.error.HTTPError as error:
+            try: location = error.headers["Location"]
+            finally: error.close()
+        return urllib.parse.parse_qs(urllib.parse.urlparse(location).fragment)["code"][0]
 
     def test_pkce_success_and_failures(self):
         status, _, body = self.exchange(); self.assertEqual(200, status); self.assertTrue(body["accessToken"].startswith("ihg_"))
@@ -103,6 +125,58 @@ class MockHubTest(unittest.TestCase):
         self.request("/test/expire?id=%s" % top["id"], origin=None)
         status, _, body = self.request("/api/guide/comments/%s" % top["id"], "PATCH", {"text": "Too late"}, token)
         self.assertEqual((403, "edit_window_closed"), (status, body["error"]))
+
+    def test_author_state_disposition_conflict_and_state_all(self):
+        reader, author = self.token(), self.author_token()
+        item = self.add(reader)
+        status, _, body = self.request("/api/guide/comments/%s" % item["id"], "PATCH", {"dispositionCode": "PERSUASIVE"}, author)
+        self.assertEqual((400, "changeNote"), (status, body["field"]))
+        status, _, disposed = self.request("/api/guide/comments/%s" % item["id"], "PATCH", {"dispositionCode": "PERSUASIVE", "changeNote": "Updated wording.", "expectedUpdatedAt": item["updatedAt"]}, author)
+        self.assertEqual((200, "DISPOSED", "Persuasive"), (status, disposed["state"], disposed["disposition"]["label"]))
+        status, _, conflict = self.request("/api/guide/comments/%s" % item["id"], "PATCH", {"state": "CLOSED", "expectedUpdatedAt": item["updatedAt"]}, author)
+        self.assertEqual((409, "conflict", disposed["updatedAt"]), (status, conflict["error"], conflict["current"]["updatedAt"]))
+        status, _, closed = self.request("/api/guide/comments/%s" % item["id"], "PATCH", {"state": "CLOSED", "expectedUpdatedAt": disposed["updatedAt"]}, author)
+        self.assertEqual((200, "CLOSED"), (status, closed["state"]))
+        default_ids = [value["id"] for value in self.request("/api/guide/document/comments", token=reader)[2]["comments"]]
+        self.assertNotIn(item["id"], default_ids)
+        listed = self.request("/api/guide/document/comments?state=all", token=reader)[2]["comments"]
+        self.assertEqual("CLOSED", listed[-1]["state"])
+        status, _, reopened = self.request("/api/guide/comments/%s" % item["id"], "PATCH", {"state": "OPEN", "expectedUpdatedAt": closed["updatedAt"]}, author)
+        self.assertEqual("DISPOSED", reopened["state"])
+        status, _, cleared = self.request("/api/guide/comments/%s" % item["id"], "PATCH", {"dispositionCode": None, "expectedUpdatedAt": reopened["updatedAt"]}, author)
+        self.assertEqual((200, "OPEN", None), (status, cleared["state"], cleared["changeNote"]))
+
+    def test_author_delete_reply_and_tombstone(self):
+        reader, author = self.token(), self.author_token()
+        top = self.add(reader)
+        top = self.request("/api/guide/document/comments", "POST", {"parentCommentId": top["id"], "text": "Reply"}, reader)[2]
+        reply = top["replies"][0]
+        self.assertEqual(204, self.request("/api/guide/comments/%s" % reply["id"], "DELETE", token=author)[0])
+        changes = self.request("/api/guide/document/comments?since=2000-01-01T00:00:00.000Z", token=reader)[2]["comments"]
+        changed = next(value for value in changes if value["id"] == top["id"])
+        self.assertTrue(changed["replies"][0]["deleted"])
+
+    def test_author_permissions_and_reattach(self):
+        reader, author = self.token(), self.author_token()
+        item = self.add(reader)
+        status, _, body = self.request("/api/guide/comments/%s" % item["id"], "PATCH", {"anchor": "moved", "blockIndex": 2, "snippet": "Moved text", "expectedUpdatedAt": item["updatedAt"]}, reader)
+        self.assertEqual((403, "forbidden"), (status, body["error"]))
+        status, _, moved = self.request("/api/guide/comments/%s" % item["id"], "PATCH", {"anchor": "moved", "blockIndex": 2, "snippet": "Moved text", "expectedUpdatedAt": item["updatedAt"]}, author)
+        self.assertEqual((200, "moved", 2, "Moved text"), (status, moved["anchor"], moved["blockIndex"], moved["snippet"]))
+        status, _, body = self.request("/api/guide/comments/%s" % item["id"], "PATCH", {"state": "OPEN", "expectedUpdatedAt": moved["updatedAt"]}, author)
+        self.assertEqual((409, "invalid_state"), (status, body["error"]))
+
+    def test_review_flags_replace_and_clear_idempotently(self):
+        reader, author = self.token(), self.author_token()
+        status, _, flag = self.request("/api/guide/document/review-flags", "POST", {"anchor": "document-start", "note": "Review this."}, author)
+        self.assertEqual(201, status)
+        status, _, replacement = self.request("/api/guide/document/review-flags", "POST", {"anchor": "document-start", "note": "Review again."}, author)
+        self.assertEqual((200, flag["id"], "Review again."), (status, replacement["id"], replacement["note"]))
+        self.assertEqual("Review again.", self.request("/api/guide/document/comments", token=reader)[2]["reviewFlags"][-1]["note"])
+        path = "/api/guide/document/review-flags/%s" % flag["id"]
+        self.assertEqual(204, self.request(path, "DELETE", token=author)[0])
+        self.assertEqual(204, self.request(path, "DELETE", token=author)[0])
+        self.assertFalse(self.request("/api/guide/document/review-flags", token=reader)[2]["reviewFlags"])
 
 
 if __name__ == "__main__":

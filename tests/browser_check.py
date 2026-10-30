@@ -13,12 +13,19 @@ import tempfile
 import threading
 import time
 import urllib.parse
+import urllib.request
 
 import mock_hub
 
 
 class Quiet(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *args):
+        pass
+
+
+class QuietServer(http.server.ThreadingHTTPServer):
+    def handle_error(self, request, client_address):
+        # Headless Chromium routinely cancels speculative asset requests.
         pass
 
 
@@ -77,25 +84,60 @@ def wait_for(ws, expression, timeout=12):
 def main():
     parser = argparse.ArgumentParser(); parser.add_argument("--browser", required=True); parser.add_argument("--root", required=True)
     args = parser.parse_args()
-    static = http.server.ThreadingHTTPServer(("127.0.0.1", 8765), lambda *values, **kw: Quiet(*values, directory=args.root, **kw))
+    static = QuietServer(("127.0.0.1", 8765), lambda *values, **kw: Quiet(*values, directory=args.root, **kw))
     hub = mock_hub.serve(8766, ["http://127.0.0.1:8765"])
     for server in (static, hub): threading.Thread(target=server.serve_forever, daemon=True).start()
-    profile = tempfile.TemporaryDirectory()
-    command = [args.browser, "--headless", "--disable-gpu", "--disable-gpu-sandbox", "--disable-software-rasterizer", "--no-sandbox", "--no-first-run", "--dump-dom", "--virtual-time-budget=5000", "--user-data-dir=" + profile.name, "http://127.0.0.1:8765/output/guide/index.html?interophub=signin"]
+    profiles = []
+    processes = []
     try:
-        result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=45)
-        if result.returncode or "Signed in as Test Reader" not in result.stdout:
-            raise RuntimeError("The headless browser did not complete the guide sign-in round trip. " + result.stderr[-1000:] + result.stdout[-1000:])
-        # Exercise one write against the same service after the browser round trip.
-        user = {"userId": 99, "displayName": "Browser Check", "organization": "Example Organization"}
-        hub.state.tokens["ihg_browser_check"] = {"user": user}
-        import urllib.request
-        request = urllib.request.Request("http://127.0.0.1:8766/api/guide/example-core-document/comments", data=json.dumps({"anchor": "document-start", "blockIndex": 0, "snippet": "Fixture", "text": "Browser smoke comment"}).encode(), headers={"Origin": "http://127.0.0.1:8765", "Authorization": "Bearer ihg_browser_check", "Content-Type": "application/json"}, method="POST")
-        with urllib.request.urlopen(request) as response:
-            if response.status != 201: raise RuntimeError("The browser smoke comment was not accepted.")
-        print("Headless browser sign-in and comment post passed.")
+        def open_profile(port, token, user, author):
+            profile = tempfile.TemporaryDirectory(); profiles.append(profile)
+            hub.state.tokens[token] = {"user": user, "isAuthor": author}
+            command = [args.browser, "--headless", "--disable-gpu", "--no-sandbox", "--no-first-run", "--remote-allow-origins=*", "--remote-debugging-port=" + str(port), "--user-data-dir=" + profile.name, "about:blank"]
+            process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); processes.append(process)
+            endpoint = "http://127.0.0.1:%d/json/new?http://127.0.0.1:8765/output/guide/index.html" % port
+            end = time.time() + 15
+            while True:
+                try:
+                    request = urllib.request.Request(endpoint, method="PUT")
+                    with urllib.request.urlopen(request) as response: target = json.load(response)
+                    break
+                except OSError:
+                    if time.time() > end: raise
+                    time.sleep(.2)
+            ws = WebSocket(target["webSocketDebuggerUrl"])
+            wait_for(ws, "location.hostname === '127.0.0.1' && location.port === '8765'")
+            key = "content-guide-token:http://127.0.0.1:8766:example-core-document"
+            value = json.dumps({"accessToken": token, "expiresAt": "2099-01-01T00:00:00.000Z", "user": user})
+            evaluate(ws, "localStorage.setItem(%s, %s); location.reload()" % (json.dumps(key), json.dumps(value)))
+            wait_for(ws, "document.body && document.body.innerText.includes('Signed in as %s')" % user["displayName"])
+            return ws
+
+        author = open_profile(9223, "ihg_browser_author", {"userId": 9, "displayName": "Test Author", "organization": "Example Organization"}, True)
+        wait_for(author, "Array.from(document.querySelectorAll('.guide-comment-button')).some(b => !b.hidden)")
+        result = author.send("Runtime.evaluate", {"expression": "Array.from(document.querySelectorAll('.guide-comment-button')).find(b => !b.hidden).click()", "returnByValue": True})
+        if result.get("result", {}).get("exceptionDetails"):
+            raise RuntimeError("Comment button failed: " + json.dumps(result["result"]["exceptionDetails"]))
+        wait_for(author, "document.querySelector('.guide-comment-form textarea') !== null")
+        evaluate(author, "document.querySelector('.guide-comment-form textarea').value='Browser smoke comment'; document.querySelector('.guide-comment-form input[type=checkbox]').click(); document.querySelector('.guide-comment-form').requestSubmit()")
+        wait_for(author, "document.querySelector('.guide-comment__text') && document.querySelector('.guide-comment__text').textContent.includes('Browser smoke comment')")
+        evaluate(author, "Array.from(document.querySelectorAll('.guide-comment__tools button')).find(b => b.textContent==='Dispose').click()")
+        wait_for(author, "document.querySelector('.guide-author-form') !== null")
+        evaluate(author, "document.querySelector('.guide-author-form textarea').value='Browser disposition note'; document.querySelector('.guide-author-form').requestSubmit()")
+        wait_for(author, "document.body.innerText.includes('Browser disposition note')")
+
+        reader = open_profile(9224, "ihg_browser_reader", {"userId": 10, "displayName": "Test Reader", "organization": "Example Organization"}, False)
+        wait_for(reader, "document.body.innerText.includes('Browser disposition note')")
+        if evaluate(reader, "Array.from(document.querySelectorAll('.guide-comment__tools button')).some(b => ['Dispose','Close','Delete','Re-attach'].includes(b.textContent))"):
+            raise RuntimeError("Reader profile was shown author controls.")
+        print("Two-profile browser comment post, author disposition, and reader visibility check passed.")
     finally:
-        static.shutdown(); hub.shutdown(); static.server_close(); hub.server_close(); profile.cleanup()
+        for process in processes: process.terminate()
+        for process in processes:
+            try: process.wait(timeout=5)
+            except subprocess.TimeoutExpired: process.kill()
+        for profile in profiles: profile.cleanup()
+        static.shutdown(); hub.shutdown(); static.server_close(); hub.server_close()
 
 
 if __name__ == "__main__": main()

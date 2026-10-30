@@ -319,6 +319,64 @@ html {
   cursor: pointer;
 }
 
+.guide-comment__state {
+  margin: var(--aira-space-1) 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.guide-comment__disposition {
+  margin: var(--aira-space-1) 0;
+  padding: var(--aira-space-2);
+  border-left: 3px solid var(--aira-green);
+  background: var(--aira-surface-selected);
+}
+
+.guide-comment--closed {
+  border-color: var(--aira-border-strong);
+  border-left-color: var(--aira-text-secondary);
+  background: var(--aira-surface-muted);
+}
+
+.guide-confirmation,
+.guide-author-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--aira-space-2);
+  align-items: center;
+  margin-top: var(--aira-space-2);
+  padding: var(--aira-space-2);
+  border: 1px solid var(--aira-border);
+  border-radius: var(--aira-radius-control);
+  background: var(--aira-surface);
+}
+
+.guide-confirmation p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.guide-author-form textarea {
+  flex-basis: 100%;
+}
+
+.guide-review-flagged {
+  outline: 3px solid var(--aira-yellow);
+  outline-offset: 3px;
+  background: var(--aira-warning-surface);
+}
+
+.guide-flag-control {
+  margin: 0 0 var(--aira-space-2) var(--aira-space-2);
+  font-size: 0.8rem;
+}
+
+.guide-review-flag-entry {
+  padding-left: var(--aira-space-2);
+  border-left: 3px solid var(--aira-yellow);
+}
+
 .guide-comment-form textarea {
   width: 100%;
   min-height: 5rem;

@@ -30,6 +30,23 @@ same process and tools can be used for other kinds of documents.
   link always points to the latest release, `https://<owner>.github.io/<id>/latest/`.
 - The published page links back to the topic ("Return to InteropHub").
 
+## Reviewing comments in the guide
+
+When connected comments are enabled, signed-in readers see each thread's review
+state. A disposed comment also shows the server-provided disposition label, the
+author's change note, and who disposed it. Closed threads are hidden initially;
+readers can select **Show closed** to load them with their replies. Areas marked
+for another look are highlighted and listed as **Flagged for review** in the
+rail, with links back to the text.
+
+Authors get controls permitted by the comment service. From the guide they can
+set, change, or clear a disposition and its required change note; close or
+reopen a thread; delete inappropriate comments or replies after an in-page
+confirmation; and re-attach an orphaned thread by choosing one of the page's
+anchor areas. They can also add, edit, and clear review flags. The service
+checks every action again and reports when another person changed the thread
+first.
+
 ## In terms of the process
 
 A Topic Reference is a content project, as described in [the process](Process.md),

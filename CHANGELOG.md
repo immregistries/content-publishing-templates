@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.7.0
+
+- Show comment review states, dispositions, change notes, closed threads, and
+  flagged review areas in connected guides.
+- Add permission-based author controls for disposition, closing, deletion,
+  orphan re-attachment, and review flags, with conflict handling.
+- Replace blocking comment confirmations with in-page prompts and expand the
+  mock comments service and browser checks for author review.
+
 ## v0.6.0
 
 - Guides can use a validated `comments` setting to select browser-local or
