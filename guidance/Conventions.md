@@ -156,6 +156,9 @@ then added to maintained source if accepted.
   `<!-- anchor: stable-name -->`.
 - Use lowercase letters and digits separated by single hyphens. Names must be
   unique across the complete document and must not duplicate a heading ID.
+- If two headings produce the same ID, give one a unique explicit ID, such as
+  `## Representations {#related-representations}`. A heading ID is also an
+  anchor name, so choose a stable ID and keep it stable as content changes.
 - Do not use `document-start` or a name beginning with `comment-` or `guide-`.
   Those names are reserved for the initial document area, comment deep links,
   and elements supplied by the web guide.

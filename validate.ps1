@@ -41,6 +41,9 @@ $readingCopyText = Get-Content -LiteralPath (Join-Path $fixture 'CoreDocument.md
 if ($readingCopyText -notmatch '<!-- anchor: fixture-introduction -->') {
     throw "Fixture reading copy did not preserve the fenced anchor example."
 }
+if ($readingCopyText -match "(?m)\r?\n(?:\r?\n){2,}") {
+    throw "Fixture reading copy gained consecutive blank lines when anchors were removed."
+}
 if (($guideText | Select-String -Pattern '<div id="fixture-introduction" class="guide-anchor"' -AllMatches).Matches.Count -ne 1) {
     throw "Fixture guide converted or lost the fenced anchor example."
 }
@@ -70,7 +73,10 @@ $savedErrorActionPreference = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'
 $idBuild = & $python.Source (Join-Path $tools 'build_guide.py') --root $idFixture --assembly Example.qmd --output $idGuide --version test 2>&1
 $ErrorActionPreference = $savedErrorActionPreference
-if ($LASTEXITCODE -eq 0 -or ($idBuild -join "`n") -notmatch "duplicate id value.*dogs") {
+if ($LASTEXITCODE -eq 0 -or
+    ($idBuild -join "`n") -notmatch "duplicate id value.*dogs" -or
+    ($idBuild -join "`n") -notmatch "Give one heading a unique explicit ID" -or
+    ($idBuild -join "`n") -notmatch "heading ID is also an anchor name") {
     throw "Guide build did not reject an anchor colliding with pandoc's heading ID."
 }
 

@@ -440,7 +440,9 @@ def main() -> int:
         names = ", ".join(repr(name) for name in duplicates)
         raise RuntimeError(
             f"Guide HTML contains duplicate id value(s): {names}. "
-            "Rename any explicit anchor that collides with a heading or guide element."
+            "Give one heading a unique explicit ID, for example "
+            "'## Representations {#related-representations}'. A heading ID is also "
+            "an anchor name, so choose a stable ID."
         )
     output.write_text(document, encoding="utf-8", newline="\n")
     print(f"Built guide {output}")

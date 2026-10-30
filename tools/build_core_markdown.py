@@ -128,7 +128,13 @@ def strip_anchors(text: str) -> str:
     """Remove anchor directives outside fenced code blocks."""
     output = []
     fence: tuple[str, int] | None = None
-    for line in text.splitlines(keepends=True):
+    lines = text.splitlines(keepends=True)
+    skip_blank_after_anchor = False
+    for line in lines:
+        if skip_blank_after_anchor:
+            skip_blank_after_anchor = False
+            if not line.strip():
+                continue
         fence_match = FENCE_PATTERN.match(line)
         if fence_match:
             marker = fence_match.group(1)
@@ -138,6 +144,7 @@ def strip_anchors(text: str) -> str:
                 fence = None
             output.append(line)
         elif fence is None and ANCHOR_PATTERN.fullmatch(line.rstrip("\r\n")):
+            skip_blank_after_anchor = bool(output and not output[-1].strip())
             continue
         else:
             output.append(line)

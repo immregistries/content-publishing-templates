@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.5.1
+
+- Reading copies remove review anchors without leaving an extra blank line
+  between the surrounding Markdown blocks.
+- Upgrading to v0.5.x may expose a duplicate HTML ID that an earlier guide
+  build silently allowed. Give one of the colliding headings a unique explicit
+  ID, such as `## Representations {#related-representations}`; because a heading
+  ID is also an anchor name, keep it stable as content changes.
+
 ## v0.5.0
 
 - Web guides support stable review anchors in canonical Markdown. Built guides
