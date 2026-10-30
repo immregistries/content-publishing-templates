@@ -15,6 +15,11 @@ if ($LASTEXITCODE -ne 0) {
     throw "Python validation failed."
 }
 
+& $python.Source -m unittest discover -s (Join-Path $PSScriptRoot 'tests') -p 'test_*.py'
+if ($LASTEXITCODE -ne 0) {
+    throw "Mock comments API contract tests failed."
+}
+
 & $python.Source (Join-Path $tools 'build_core_markdown.py') --root $fixture --assembly Example.qmd --check
 if ($LASTEXITCODE -ne 0) {
     throw "Fixture reading copy is out of date."
@@ -46,6 +51,38 @@ if ($readingCopyText -match "(?m)\r?\n(?:\r?\n){2,}") {
 }
 if (($guideText | Select-String -Pattern '<div id="fixture-introduction" class="guide-anchor"' -AllMatches).Matches.Count -ne 1) {
     throw "Fixture guide converted or lost the fenced anchor example."
+}
+
+$remoteFixture = Join-Path $PSScriptRoot 'output/fixture-remote'
+if (Test-Path -LiteralPath $remoteFixture) { Remove-Item -LiteralPath $remoteFixture -Recurse -Force }
+Copy-Item -LiteralPath $fixture -Destination $remoteFixture -Recurse
+$remoteConfig = Get-Content -LiteralPath (Join-Path $remoteFixture 'guide.json') -Raw | ConvertFrom-Json
+$remoteConfig | Add-Member -NotePropertyName comments -NotePropertyValue ([pscustomobject]@{
+    mode = 'interophub'; hub = 'http://127.0.0.1:8766/'; document = 'example-core-document'
+})
+$remoteConfig | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $remoteFixture 'guide.json') -Encoding utf8
+$remoteGuide = Join-Path $remoteFixture 'output/guide/index.html'
+& $python.Source (Join-Path $tools 'build_guide.py') --root $remoteFixture --assembly Example.qmd --output $remoteGuide --version test
+if ($LASTEXITCODE -ne 0) { throw "Fixture guide build in remote comment mode failed." }
+$remoteGuideText = Get-Content -LiteralPath $remoteGuide -Raw
+if ($remoteGuideText -notmatch '"mode": "interophub"' -or $remoteGuideText -notmatch '"hub": "http://127.0.0.1:8766"') {
+    throw "Remote comments settings were not normalized into guide-data."
+}
+
+$browser = Get-Command chrome, msedge, chrome.exe, msedge.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $browser) {
+    $knownBrowsers = @(
+        "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+        "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
+        "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe"
+    )
+    $browserPath = $knownBrowsers | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+} else { $browserPath = $browser.Source }
+if ($browserPath) {
+    & $python.Source (Join-Path $PSScriptRoot 'tests/browser_check.py') --browser $browserPath --root $remoteFixture
+    if ($LASTEXITCODE -ne 0) { throw "Headless browser comments check failed." }
+} else {
+    Write-Host "Chrome or Edge not installed; skipping the headless comments check."
 }
 
 $badFixture = Join-Path $PSScriptRoot 'output/fixture-anchor-checks'

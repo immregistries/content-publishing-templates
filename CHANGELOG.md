@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.6.0
+
+- Guides can use a validated `comments` setting to select browser-local or
+  signed-in hub comments. The hub mode supports PKCE sign-in, threads, replies,
+  editing, withdrawal, attribution, deep links, and background refreshes.
+- A standard-library mock comments service and contract checks cover sign-in,
+  CORS, incremental refresh tombstones, edit windows, and reply depth.
+- Topic Reference guidance explains where comments are stored in each mode.
+
 ## v0.5.1
 
 - Reading copies remove review anchors without leaving an extra blank line

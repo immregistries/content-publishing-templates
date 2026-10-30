@@ -75,12 +75,13 @@ whose bounded purpose is one InteropHub topic:
 
 ## Feedback
 
-Comments made on the published page stay in the reader's browser until they are
-downloaded. Downloaded files are turned into a dated review record with
-`tools/import_guide_comments.py`. Issues, meeting notes, and other feedback are
-recorded the same way, and each outcome is noted: accepted into `content/`,
-recorded as a working decision, kept as an open question, or declined with a
-reason.
+The guide has two comment modes. With no `comments` setting, or with
+`"comments": {"mode": "local"}`, comments stay in the reader's browser until
+they are downloaded; `tools/import_guide_comments.py` turns those files into a
+dated review record. In `interophub` mode, the setting also supplies the hub URL
+and document key. Readers sign in and comments live in the hub, not in the
+repository. Issues, meeting notes, and other feedback still need an outcome in
+the project's review record.
 
 Named anchors in the Markdown divide the document into stable review areas.
 They let a comment remain near its text as wording shifts and provide direct

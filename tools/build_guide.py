@@ -28,6 +28,7 @@ import subprocess
 import sys
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build_core_markdown import (  # noqa: E402
@@ -56,6 +57,43 @@ STATUS_TAGS = {
     "published": "aira-tag--success",
 }
 DOCUMENT_START_ANCHOR = "document-start"
+DOCUMENT_KEY_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+RESERVED_DOCUMENT_KEYS = {"comments", "review-flags", "token"}
+
+
+def comments_config(config: dict) -> dict | None:
+    """Validate and normalize the optional comment backend settings."""
+    comments = config.get("comments")
+    if comments is None:
+        return None
+    if not isinstance(comments, dict):
+        raise RuntimeError("guide.json comments must be an object.")
+    mode = comments.get("mode")
+    if mode not in {"local", "interophub"}:
+        raise RuntimeError("guide.json comments.mode must be 'local' or 'interophub'.")
+    result = {"mode": mode}
+    if mode == "local":
+        return result
+    hub = comments.get("hub")
+    document = comments.get("document")
+    if not isinstance(hub, str):
+        raise RuntimeError("guide.json comments.hub is required in interophub mode.")
+    parsed = urlsplit(hub)
+    local_http = parsed.scheme == "http" and parsed.hostname in {
+        "localhost", "127.0.0.1"
+    }
+    if not (parsed.scheme == "https" or local_http) or not parsed.netloc:
+        raise RuntimeError(
+            "guide.json comments.hub must be an absolute https URL, or http on localhost."
+        )
+    if parsed.query or parsed.fragment or parsed.username or parsed.password:
+        raise RuntimeError("guide.json comments.hub must not contain credentials, a query, or a fragment.")
+    if not isinstance(document, str) or len(document) > 100 or not DOCUMENT_KEY_PATTERN.fullmatch(document):
+        raise RuntimeError("guide.json comments.document is not a valid document key.")
+    if document in RESERVED_DOCUMENT_KEYS:
+        raise RuntimeError("guide.json comments.document uses a reserved document key.")
+    result.update({"hub": hub.rstrip("/"), "document": document})
+    return result
 
 
 def arguments() -> argparse.Namespace:
@@ -281,6 +319,9 @@ def page(
         "version": version,
         "built": date.today().isoformat(),
     }
+    normalized_comments = comments_config(config)
+    if normalized_comments is not None:
+        guide_data["comments"] = normalized_comments
 
     return_link = (
         f'<a class="aira-button aira-button--tertiary aira-button--small" '
@@ -369,14 +410,14 @@ def page(
           </section>
           <section class="aira-sidebar-section guide-comments-panel" id="guide-comments-panel" hidden>
             <h2 class="aira-sidebar-title">Comments <span class="aira-badge" id="guide-comment-count">0</span></h2>
-            <p class="aira-meta">Comments are saved only in this browser. Download them to share.</p>
-            <label class="aira-label" for="guide-commenter">Your name</label>
-            <input class="aira-input" id="guide-commenter" type="text" autocomplete="name">
+            <div id="guide-comments-status"><p class="aira-meta">Comments are saved only in this browser. Download them to share.</p></div>
+            <div id="guide-local-identity"><label class="aira-label" for="guide-commenter">Your name</label>
+            <input class="aira-input" id="guide-commenter" type="text" autocomplete="name"></div>
             <div class="guide-comment-actions">
               <button type="button" class="aira-button aira-button--secondary aira-button--small" id="guide-comments-toggle" aria-pressed="true">Hide comments</button>
-              <button type="button" class="aira-button aira-button--secondary aira-button--small" id="guide-comments-download">Download</button>
-              <label class="aira-button aira-button--secondary aira-button--small guide-file-button">Load<input type="file" id="guide-comments-load" accept="application/json,.json" multiple hidden></label>
-              <button type="button" class="aira-button aira-button--ghost aira-button--small" id="guide-comments-clear">Clear all</button>
+              <button type="button" class="aira-button aira-button--secondary aira-button--small guide-local-control" id="guide-comments-download">Download</button>
+              <label class="aira-button aira-button--secondary aira-button--small guide-file-button guide-local-control">Load<input type="file" id="guide-comments-load" accept="application/json,.json" multiple hidden></label>
+              <button type="button" class="aira-button aira-button--ghost aira-button--small guide-local-control" id="guide-comments-clear">Clear all</button>
             </div>
             <ol class="guide-comment-index" id="guide-comment-index"></ol>
           </section>
@@ -415,7 +456,7 @@ def main() -> int:
     args = arguments()
     root = Path(args.root).resolve()
     assembly = root / args.assembly
-    config = json.loads((root / args.config).read_text(encoding="utf-8"))
+    config = json.loads((root / args.config).read_text(encoding="utf-8-sig"))
 
     text = assembly.read_text(encoding="utf-8")
     match = FRONT_MATTER_PATTERN.match(text)

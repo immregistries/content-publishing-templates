@@ -4,6 +4,11 @@ html {
   scroll-padding-top: 4.5rem;
 }
 
+/* AIRA Web buttons set display, which would override the hidden attribute. */
+.guide-layout [hidden] {
+  display: none !important;
+}
+
 .guide-page,
 .guide-context .aira-context-inner {
   width: min(100% - 2rem, 72rem);
@@ -322,6 +327,16 @@ html {
 
 .guide-comment-form .guide-comment-actions {
   margin: 0;
+}
+
+.guide-reply {
+  margin: var(--aira-space-2) 0 0 var(--aira-space-4);
+  background: var(--aira-surface);
+}
+
+.guide-form-error {
+  color: var(--aira-danger, #a11);
+  font-weight: 600;
 }
 
 .guide-flash {
