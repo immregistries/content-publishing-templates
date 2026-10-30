@@ -173,3 +173,15 @@ then added to maintained source if accepted.
 - Keep project-specific content in the project, not in this reusable
   repository.
 
+
+## 13. Terms
+
+- **Topic Reference:** a content project whose bounded purpose is one
+  InteropHub topic, and the published document it produces. Use this name for
+  the document in links, on its page, and in project files. See
+  [Topic References](TopicReference.md).
+- **Web guide:** the single-page HTML format built by `tools/build_guide.py`.
+  A Topic Reference is published as a web guide; other core documents may be
+  too.
+- Do not call a Topic Reference a guide, an implementation guide, a working
+  guide, or a standard.

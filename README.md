@@ -15,10 +15,11 @@ independently of the internal version.
 ## What is here
 
 ```text
-guidance/          the process and the conventions content projects follow
+guidance/          the process, the conventions, and Topic References
 templates/word/    Word reference document for Quarto builds (AIRA styles)
 templates/product/ starting points for content modules, product briefs, and manifests
 templates/guide/   web guide template: AIRA Web styles, layout, and comments
+templates/topic-reference/ skeleton for a new Topic Reference project
 templates/powerpoint/ rapid presentation template (AIRA styles) and example slide source
 tools/             build and validation tools shared by content projects
 tests/             a minimal fixture project used to test the tools
@@ -26,6 +27,18 @@ tests/             a minimal fixture project used to test the tools
 
 Start with [the process](guidance/Process.md) and
 [the conventions](guidance/Conventions.md).
+
+## Start a Topic Reference
+
+Most projects are Topic References: the current, versioned statement of where
+an InteropHub topic stands. Create one with the skeleton rather than by hand:
+
+```powershell
+python tools/new_topic_reference.py ..\my-topic --title "My Topic" --topic 42 --topic-name "My Topic"
+```
+
+See [Topic References](guidance/TopicReference.md) for what one contains and
+the steps after the project is created.
 
 ## Use in a content project
 
@@ -64,6 +77,7 @@ python process/tools/check_content.py
 python process/tools/apply_word_table_style.py output/Project.docx
 
 # Build the web guide (needs guide.json; see templates/guide/README.md).
+# This is the published page; the Quarto HTML build is a review copy.
 python process/tools/build_guide.py --assembly Project.qmd --version v0.1.0
 
 # Turn comment files downloaded from the guide into a review record.

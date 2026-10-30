@@ -1,0 +1,91 @@
+name: Publish web guide
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Publish the current main branch under this version label, such as v0.1.0
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-guide
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository and shared templates
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pandoc
+        run: sudo apt-get update && sudo apt-get install -y pandoc
+
+      - name: Choose version and destination
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
+            echo "REF=main" >> "$GITHUB_ENV"
+            echo "TARGETS=${{ inputs.version }} latest" >> "$GITHUB_ENV"
+          elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            echo "VERSION=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+            echo "REF=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+            echo "TARGETS=$GITHUB_REF_NAME latest" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=main ($(git rev-parse --short HEAD))" >> "$GITHUB_ENV"
+            echo "REF=main" >> "$GITHUB_ENV"
+            echo "TARGETS=main" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build guide
+        run: >-
+          python process/tools/build_guide.py
+          --assembly {{ASSEMBLY}}.qmd
+          --version "$VERSION"
+          --ref "$REF"
+          --output "$RUNNER_TEMP/guide/index.html"
+
+      - name: Publish to the gh-pages branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code --heads "$remote" gh-pages > /dev/null; then
+            git clone --quiet --branch gh-pages --single-branch "$remote" site
+          else
+            git init --quiet -b gh-pages site
+            git -C site remote add origin "$remote"
+          fi
+          for target in $TARGETS; do
+            mkdir -p "site/$target"
+            cp "$RUNNER_TEMP/guide/index.html" "site/$target/index.html"
+          done
+          default=main
+          if [ -d site/latest ]; then default=latest; fi
+          printf '<!DOCTYPE html>\n<meta charset="utf-8">\n<meta http-equiv="refresh" content="0; url=%s/">\n<link rel="canonical" href="%s/">\n<a href="%s/">Open the guide</a>\n' "$default" "$default" "$default" > site/index.html
+          touch site/.nojekyll
+          cd site
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to publish."
+          else
+            git commit --quiet -m "Publish guide $VERSION"
+            git push --quiet origin gh-pages
+          fi

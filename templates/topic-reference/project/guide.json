@@ -1,0 +1,13 @@
+{
+  "id": "{{ID}}",
+  "documentType": "Topic Reference",
+  "status": "Draft",
+  "interophubTopic": {{TOPIC}},
+  "repository": "{{REPOSITORY}}",
+  "license": "Content licensed CC BY 4.0",
+  "navLabels": {
+    "status-and-scope": "Scope",
+    "related-work": "Related Work",
+    "working-decisions": "Decisions"
+  }
+}

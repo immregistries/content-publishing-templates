@@ -1,0 +1,25 @@
+name: Propose or challenge a working decision
+description: Suggest a new working decision, or question an existing one or an open question.
+labels: ["working-decision"]
+body:
+  - type: input
+    id: reference
+    attributes:
+      label: Working decision or open question
+      description: The ID it concerns, such as WD-1 or OQ-2, or "new".
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should the working decision be?
+    validations:
+      required: true
+  - type: textarea
+    id: reasoning
+    attributes:
+      label: Reasoning
+      description: Why? Include evidence, use cases, and consequences for implementers.
+    validations:
+      required: true

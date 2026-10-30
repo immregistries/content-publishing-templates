@@ -1,0 +1,30 @@
+name: Validate core document
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository and shared templates
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify generated core document
+        run: python process/tools/build_core_markdown.py --assembly {{ASSEMBLY}}.qmd --check
+
+      - name: Check links and placeholders
+        run: python process/tools/check_content.py --include "LICENSE-CONTENT.md" --include "CODE_OF_CONDUCT.md"

@@ -1,5 +1,8 @@
 # Web Guide Template
 
+The web guide is the format in which a Topic Reference is published, and it can
+be used for other core documents too.
+
 `tools/build_guide.py` builds a single, self-contained HTML page from a content
 project's core document, styled to match InteropHub:
 
@@ -39,6 +42,7 @@ The content project supplies `guide.json`:
 ```json
 {
   "id": "contextual-conditions",
+  "documentType": "Topic Reference",
   "status": "Draft",
   "interophubTopic": 7,
   "repository": "https://github.com/immregistries/contextual-conditions",
@@ -46,6 +50,10 @@ The content project supplies `guide.json`:
   "navLabels": { "the-concept": "Concept" }
 }
 ```
+
+`documentType`, when present, is shown above the title and in the browser tab.
+A Topic Reference uses `"Topic Reference"`; see
+[the Topic Reference guidance](../../guidance/TopicReference.md).
 
 Each included content file becomes a section whose ID is its file name without
 the number prefix, so `03-the-concept.md` becomes `#the-concept`. `navLabels`

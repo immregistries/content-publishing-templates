@@ -10,7 +10,8 @@ Run from the content project's root:
     python process/tools/build_guide.py --assembly Project.qmd --version v0.1.0
 
 The project's guide.json supplies the status, the InteropHub topic, the
-repository URL, and optional short labels for the section bar. Pandoc is
+repository URL, an optional document type such as "Topic Reference", and
+optional short labels for the section bar. Pandoc is
 required; Quarto's bundled copy is used when pandoc is not on the PATH.
 """
 
@@ -214,13 +215,19 @@ def page(
     subtitle_html = (
         f'<p class="aira-topic-summary">{html.escape(subtitle)}</p>' if subtitle else ""
     )
+    document_type = config.get("documentType")
+    document_type_html = (
+        f'<p class="aira-meta guide-document-type">{html.escape(document_type)}</p>'
+        if document_type
+        else ""
+    )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{html.escape(title)}</title>
+<title>{html.escape(title)}{" - " + html.escape(document_type) if document_type else ""}</title>
 <style>
 {(TEMPLATE_DIR / "aira.css").read_text(encoding="utf-8")}
 {(TEMPLATE_DIR / "guide.css").read_text(encoding="utf-8")}
@@ -251,6 +258,7 @@ def page(
       <header class="aira-topic-header guide-header">
         <div class="aira-topic-header__top">
           <div>
+            {document_type_html}
             <h1 class="aira-topic-title">{html.escape(title)}</h1>
             {subtitle_html}
           </div>

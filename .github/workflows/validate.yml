@@ -28,6 +28,7 @@ jobs:
           python -m py_compile tools/apply_word_table_style.py
           python -m py_compile tools/build_guide.py
           python -m py_compile tools/import_guide_comments.py
+          python -m py_compile tools/new_topic_reference.py
 
       - name: Install pandoc
         run: sudo apt-get update && sudo apt-get install -y pandoc
@@ -41,6 +42,14 @@ jobs:
       - name: Check fixture content
         run: python tools/check_content.py --root tests/fixture-project
 
+      - name: Create and check a Topic Reference from the skeleton
+        run: |
+          project="$RUNNER_TEMP/topic-reference-test"
+          python tools/new_topic_reference.py "$project" --no-git --title "Test Topic" --topic 7 --topic-name "Test Topic" --with presentation
+          python tools/build_core_markdown.py --root "$project" --assembly TopicReferenceTest.qmd --check
+          python tools/check_content.py --root "$project" --include "LICENSE-CONTENT.md" --include "CODE_OF_CONDUCT.md"
+          python tools/build_guide.py --root "$project" --assembly TopicReferenceTest.qmd --output "$project/output/guide/index.html" --version test
+
       - name: Build example PowerPoint deck
         run: |
           python -m pip install -r requirements-pptx.txt
@@ -48,4 +57,4 @@ jobs:
           python tools/build_rapid_presentation.py --template "templates/powerpoint/AIRA Rapid Presentation Template.pptx" --source templates/powerpoint/example-slides.json --output "$RUNNER_TEMP/example-deck.pptx"
 
       - name: Check this repository's Markdown links
-        run: python tools/check_content.py --include "guidance/*.md" --include "templates/**/*.md"
+        run: python tools/check_content.py --include "guidance/*.md" --include "templates/*/*.md"

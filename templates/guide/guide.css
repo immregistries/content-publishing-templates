@@ -339,3 +339,9 @@ html {
     display: none;
   }
 }
+
+.guide-document-type {
+  margin: 0 0 var(--aira-space-1);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}

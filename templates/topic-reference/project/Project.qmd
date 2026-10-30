@@ -1,0 +1,12 @@
+---
+title: "{{TITLE}}"
+subtitle: "{{SUBTITLE}}"
+date: last-modified
+date-format: "MMMM YYYY"
+---
+
+{{< include content/00-status-and-scope.md >}}
+
+{{< include content/01-related-work.md >}}
+
+{{< include content/90-working-decisions.md >}}

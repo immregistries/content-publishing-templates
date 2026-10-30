@@ -1,0 +1,51 @@
+# Generated output
+output/*
+
+# Python
+.venv/
+.venv-*/
+__pycache__/
+*.pyc
+
+# Quarto
+.quarto/
+*_files/
+**/*.quarto_ipynb
+
+# Office temporary files
+~$*
+*.tmp
+
+# Operating-system and editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+
+# Secrets and local environment
+.env
+*.env
+*.pem
+*.key
+/private/
+
+# Private source material stays outside this repository (see sources/README.md).
+# Ignored here as a safeguard in case it is ever copied in.
+sources/private/
+
+# Local databases, dumps, and messages
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+*.msg
+*.eml
+
+# Recordings are not committed.
+*.mp4
+*.mov
+*.m4a
+*.mp3
+*.wav
+
+/.quarto/

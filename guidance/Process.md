@@ -1,5 +1,8 @@
 # Process
 
+The most common project is a Topic Reference, which documents one InteropHub
+topic; see [Topic References](TopicReference.md) for how to start one.
+
 ## 1. Define the project goal and boundary
 
 Each project has one primary goal and one bounded body of knowledge. State what

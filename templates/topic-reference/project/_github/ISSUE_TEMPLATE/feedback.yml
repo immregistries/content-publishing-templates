@@ -1,0 +1,16 @@
+name: Feedback or question
+description: Ask a question or comment on {{TITLE}}.
+labels: ["feedback"]
+body:
+  - type: textarea
+    id: feedback
+    attributes:
+      label: Feedback or question
+      description: What would you like to raise? Link or quote the section it concerns, if any.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Optional. An implementation experience, use case, or example that illustrates the point. Do not include personal health information.

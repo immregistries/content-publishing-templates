@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.4.0
+
+- Topic References: `guidance/TopicReference.md` describes the most common kind
+  of project, a Topic Reference for one InteropHub topic, and the conventions
+  name the term.
+- `templates/topic-reference/` holds the skeleton for a new Topic Reference
+  project, and `tools/new_topic_reference.py` creates one from it, with an
+  optional presentation add-on. Confluence products are not part of the
+  skeleton.
+- Web guide: an optional `documentType` in `guide.json`, such as
+  `"Topic Reference"`, is shown above the title and in the browser tab.
+
 ## v0.3.0
 
 - PowerPoint support: the AIRA rapid presentation template (18 layouts, author

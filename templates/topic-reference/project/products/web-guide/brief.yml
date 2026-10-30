@@ -1,0 +1,52 @@
+id: web-guide
+status: draft
+core_release: null
+
+product:
+  type: web page
+  format: self-contained HTML, published with GitHub Pages
+  length: the complete core document
+  presentation_time: null
+  template: process/templates/guide (AIRA Web theme)
+
+audience:
+  name: Participants in InteropHub topic {{TOPIC}} and related topics
+  assumed_knowledge: []
+
+purpose: >-
+  Publish the Topic Reference: one readable, linkable copy of where the topic
+  currently stands, to refer to in discussions, with a way to comment on it
+  during and between meetings.
+
+desired_outcome: >-
+  Readers can find any section quickly, see the document's status and version,
+  and leave comments that are brought back to this repository as review inputs.
+
+emphasize:
+  - The status and version
+  - A route back to InteropHub topic {{TOPIC}}
+
+exclude_or_deemphasize:
+  - Repository build and maintenance detail
+
+tone:
+  - Plain language
+
+allowed_sources:
+  - ../../content/
+
+required_elements:
+  - Status tag and version on the page
+  - Return link to InteropHub topic {{TOPIC}}
+  - Comments that stay in the reader's browser until downloaded
+
+published_locations:
+  latest_release: {{PAGES_URL}}latest/
+  each_release: {{PAGES_URL}}<version>/
+  main_branch: {{PAGES_URL}}main/
+
+assumptions: []
+delivery_context: []
+requested_by: null
+requested_date: null
+needed_by: null
