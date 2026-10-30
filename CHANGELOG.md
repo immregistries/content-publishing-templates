@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.5.0
+
+- Web guides support stable review anchors in canonical Markdown. Built guides
+  mark commentable blocks with their anchor area and 0-based position, preserve
+  a 120-character text snippet with new local comments, and place comments by
+  anchor when text moves or changes.
+- Comment targets are paragraphs, whole lists, quotes, and tables. Individual
+  list items and code blocks are no longer separate targets; earlier local
+  comments on either may appear at the start of their area or as orphaned.
+- Anchor and comment deep links work on initial load and hash changes. Comments
+  whose anchors no longer exist appear in an Orphaned comments group.
+- Content checks reject malformed or duplicate anchors and names that collide
+  with heading IDs. Reading copies omit anchor directives.
+- Topic Reference and convention guidance describes stable anchor naming and
+  placement.
+
 ## v0.4.0
 
 - Topic References: `guidance/TopicReference.md` describes the most common kind

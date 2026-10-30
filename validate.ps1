@@ -30,6 +30,49 @@ $guide = Join-Path $PSScriptRoot 'output/fixture-guide.html'
 if ($LASTEXITCODE -ne 0) {
     throw "Fixture guide build failed."
 }
+$guideText = Get-Content -LiteralPath $guide -Raw
+if ($guideText -notmatch '<div id="document-start" class="guide-anchor"' -or
+    $guideText -notmatch '<div id="fixture-introduction" class="guide-anchor"' -or
+    $guideText -notmatch 'data-anchor="fixture-introduction" data-block-index="0"' -or
+    $guideText -notmatch 'data-anchor="fixture-introduction" data-block-index="2"') {
+    throw "Fixture guide is missing anchor elements or comment block metadata."
+}
+$readingCopyText = Get-Content -LiteralPath (Join-Path $fixture 'CoreDocument.md') -Raw
+if ($readingCopyText -notmatch '<!-- anchor: fixture-introduction -->') {
+    throw "Fixture reading copy did not preserve the fenced anchor example."
+}
+if (($guideText | Select-String -Pattern '<div id="fixture-introduction" class="guide-anchor"' -AllMatches).Matches.Count -ne 1) {
+    throw "Fixture guide converted or lost the fenced anchor example."
+}
+
+$badFixture = Join-Path $PSScriptRoot 'output/fixture-anchor-checks'
+if (Test-Path -LiteralPath $badFixture) {
+    Remove-Item -LiteralPath $badFixture -Recurse -Force
+}
+Copy-Item -LiteralPath $fixture -Destination $badFixture -Recurse
+Add-Content -LiteralPath (Join-Path $badFixture 'content/01-detail.md') -Value "`n<!-- anchor: fixture-introduction -->`n<!-- anchor: Bad Anchor -->`n<!-- anchor: document-start -->"
+$badCheck = & $python.Source (Join-Path $tools 'check_content.py') --root $badFixture 2>&1
+if ($LASTEXITCODE -eq 0 -or
+    ($badCheck -join "`n") -notmatch 'duplicate anchor' -or
+    ($badCheck -join "`n") -notmatch 'malformed anchor syntax' -or
+    ($badCheck -join "`n") -notmatch 'is reserved') {
+    throw "Content checks did not reject duplicate, malformed, and reserved anchors."
+}
+
+$idFixture = Join-Path $PSScriptRoot 'output/fixture-id-check'
+if (Test-Path -LiteralPath $idFixture) {
+    Remove-Item -LiteralPath $idFixture -Recurse -Force
+}
+Copy-Item -LiteralPath $fixture -Destination $idFixture -Recurse
+Add-Content -LiteralPath (Join-Path $idFixture 'content/01-detail.md') -Value "`n## 3. Dogs`n`n<!-- anchor: dogs -->`n`nCollision fixture."
+$idGuide = Join-Path $idFixture 'output/guide/index.html'
+$savedErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+$idBuild = & $python.Source (Join-Path $tools 'build_guide.py') --root $idFixture --assembly Example.qmd --output $idGuide --version test 2>&1
+$ErrorActionPreference = $savedErrorActionPreference
+if ($LASTEXITCODE -eq 0 -or ($idBuild -join "`n") -notmatch "duplicate id value.*dogs") {
+    throw "Guide build did not reject an anchor colliding with pandoc's heading ID."
+}
 
 $topicReference = Join-Path $PSScriptRoot 'output/topic-reference-test'
 if (Test-Path $topicReference) {

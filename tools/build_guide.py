@@ -40,6 +40,10 @@ from build_core_markdown import (  # noqa: E402
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates" / "guide"
 HEADING_PATTERN = re.compile(r"^#\s+(.+?)\s*$", re.MULTILINE)
+ANCHOR_PATTERN = re.compile(
+    r"^\s*<!-- anchor: ([a-z0-9]+(?:-[a-z0-9]+)*) -->\s*$"
+)
+FENCE_PATTERN = re.compile(r"^\s*(`{3,}|~{3,})")
 SECTION_PATTERN = re.compile(
     r'<section id="([^"]+)" class="level2[^"]*"[^>]*>\s*<h2[^>]*>(.*?)</h2>', re.DOTALL
 )
@@ -51,6 +55,7 @@ STATUS_TAGS = {
     "final": "aira-tag--success",
     "published": "aira-tag--success",
 }
+DOCUMENT_START_ANCHOR = "document-start"
 
 
 def arguments() -> argparse.Namespace:
@@ -100,6 +105,33 @@ def section_id(path: Path) -> str:
     return re.sub(r"^\d+-", "", path.stem)
 
 
+def replace_anchors(text: str) -> str:
+    """Replace anchor directives outside fenced code blocks."""
+    output = []
+    fence: tuple[str, int] | None = None
+    for line in text.splitlines(keepends=True):
+        fence_match = FENCE_PATTERN.match(line)
+        if fence_match:
+            marker = fence_match.group(1)
+            if fence is None:
+                fence = (marker[0], len(marker))
+            elif marker[0] == fence[0] and len(marker) >= fence[1]:
+                fence = None
+            output.append(line)
+            continue
+        match = ANCHOR_PATTERN.fullmatch(line.rstrip("\r\n")) if fence is None else None
+        if match:
+            ending = "\r\n" if line.endswith("\r\n") else "\n" if line.endswith("\n") else ""
+            name = match.group(1)
+            output.append(
+                f'<div id="{name}" class="guide-anchor" '
+                f'data-guide-anchor="{name}"></div>{ending}'
+            )
+        else:
+            output.append(line)
+    return "".join(output)
+
+
 def prepared_markdown(
     root: Path, paths: list[Path], repository: str | None, ref: str
 ) -> str:
@@ -108,6 +140,7 @@ def prepared_markdown(
     parts = []
     for path in paths:
         text = path.read_text(encoding="utf-8").strip()
+        text = replace_anchors(text)
         text = HEADING_PATTERN.sub(
             lambda match: f"# {match.group(1)} {{#{anchors[path.resolve()]}}}",
             text,
@@ -151,10 +184,66 @@ def body_html(markdown: str) -> str:
         encoding="utf-8",
         check=True,
     )
-    body = result.stdout
-    return body.replace(
+    body = result.stdout.replace(
         "<table>", '<div class="aira-table-wrap"><table class="aira-table">'
     ).replace("</table>", "</table></div>")
+    return annotate_commentable_blocks(body)
+
+
+TOKEN_PATTERN = re.compile(r"<[^>]+>|[^<]+")
+TAG_NAME_PATTERN = re.compile(r"</?\s*([a-zA-Z0-9]+)")
+ID_PATTERN = re.compile(r'\bid="([^"]+)"')
+CLASS_PATTERN = re.compile(r'\bclass="([^"]*)"')
+COMMENTABLE_TAGS = {"p", "ul", "ol", "blockquote"}
+
+
+def annotate_commentable_blocks(body: str) -> str:
+    """Mark outermost commentable blocks with their anchor area and position."""
+    area = DOCUMENT_START_ANCHOR
+    positions: dict[str, int] = {}
+    open_commentable: list[str] = []
+    output: list[str] = []
+
+    for token in TOKEN_PATTERN.findall(body):
+        tag_match = TAG_NAME_PATTERN.match(token)
+        if not tag_match or token.startswith(("<!--", "<!DOCTYPE")):
+            output.append(token)
+            continue
+
+        tag = tag_match.group(1).lower()
+        closing = token.startswith("</")
+        self_closing = token.rstrip().endswith("/>")
+        classes_match = CLASS_PATTERN.search(token)
+        classes = set(classes_match.group(1).split()) if classes_match else set()
+
+        if closing:
+            output.append(token)
+            if open_commentable and open_commentable[-1] == tag:
+                open_commentable.pop()
+            continue
+
+        identifier = ID_PATTERN.search(token)
+        if tag == "section" and identifier:
+            area = html.unescape(identifier.group(1))
+        elif "guide-anchor" in classes and identifier:
+            area = html.unescape(identifier.group(1))
+
+        commentable = tag in COMMENTABLE_TAGS or "aira-table-wrap" in classes
+        if commentable:
+            if not open_commentable:
+                position = positions.get(area, 0)
+                positions[area] = position + 1
+                insertion = (
+                    f' data-anchor="{html.escape(area, quote=True)}"'
+                    f' data-block-index="{position}"'
+                )
+                token = token[:-1] + insertion + ">"
+            if not self_closing:
+                open_commentable.append(tag)
+
+        output.append(token)
+
+    return "".join(output)
 
 
 def section_nav(body: str, labels: dict[str, str]) -> str:
@@ -270,6 +359,7 @@ def page(
       </header>
       <div class="aira-right-rail-layout guide-layout">
         <article class="aira-prose guide-content" id="guide-content">
+<div id="{DOCUMENT_START_ANCHOR}" class="guide-anchor" data-guide-anchor="{DOCUMENT_START_ANCHOR}"></div>
 {body}
         </article>
         <aside class="aira-right-rail guide-rail" aria-label="Page tools">
@@ -313,6 +403,14 @@ def page(
 """
 
 
+def duplicate_ids(document: str) -> list[str]:
+    counts: dict[str, int] = {}
+    for identifier in re.findall(r'\bid="([^"]+)"', document):
+        identifier = html.unescape(identifier)
+        counts[identifier] = counts.get(identifier, 0) + 1
+    return sorted(identifier for identifier, count in counts.items() if count > 1)
+
+
 def main() -> int:
     args = arguments()
     root = Path(args.root).resolve()
@@ -336,9 +434,15 @@ def main() -> int:
 
     output = root / args.output
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(
-        page(title, subtitle, config, version, nav, body), encoding="utf-8", newline="\n"
-    )
+    document = page(title, subtitle, config, version, nav, body)
+    duplicates = duplicate_ids(document)
+    if duplicates:
+        names = ", ".join(repr(name) for name in duplicates)
+        raise RuntimeError(
+            f"Guide HTML contains duplicate id value(s): {names}. "
+            "Rename any explicit anchor that collides with a heading or guide element."
+        )
+    output.write_text(document, encoding="utf-8", newline="\n")
     print(f"Built guide {output}")
     return 0
 

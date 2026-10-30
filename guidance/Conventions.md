@@ -150,6 +150,21 @@ then added to maintained source if accepted.
 - Review inputs received in generated artifacts have no authoritative effect
   until adjudicated in canonical source or recorded as delivery context.
 
+### Review anchors
+
+- Write an anchor on a line by itself between Markdown blocks, in the form
+  `<!-- anchor: stable-name -->`.
+- Use lowercase letters and digits separated by single hyphens. Names must be
+  unique across the complete document and must not duplicate a heading ID.
+- Do not use `document-start` or a name beginning with `comment-` or `guide-`.
+  Those names are reserved for the initial document area, comment deep links,
+  and elements supplied by the web guide.
+- Place anchors sparingly at natural review points; do not add one before every
+  paragraph.
+- Keep names stable when nearby wording changes or content moves.
+- Agents that edit or reorganize canonical content maintain the anchors as part
+  of the edit.
+
 ## 11. Edge-to-core feedback
 
 - Derived products may expose missing ideas, better formulations, or new

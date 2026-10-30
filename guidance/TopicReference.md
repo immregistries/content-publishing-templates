@@ -82,6 +82,12 @@ recorded the same way, and each outcome is noted: accepted into `content/`,
 recorded as a working decision, kept as an open question, or declined with a
 reason.
 
+Named anchors in the Markdown divide the document into stable review areas.
+They let a comment remain near its text as wording shifts and provide direct
+links such as `#stable-name`; headings serve as anchors automatically. Content
+before the first heading or named anchor belongs to the `document-start` area.
+See [Review anchors](Conventions.md#review-anchors) for naming and placement.
+
 ## Starting a new Topic Reference
 
 1. Create the project with the skeleton. Do not assemble one by hand:

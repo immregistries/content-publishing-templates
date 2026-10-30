@@ -21,6 +21,10 @@ from pathlib import Path
 INCLUDE_PATTERN = re.compile(r"\{\{<\s*include\s+([^\s>]+)\s*>\}\}")
 FRONT_MATTER_PATTERN = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 LINK_TARGET_PATTERN = re.compile(r"(\]\()([^)\s]+)(\))")
+ANCHOR_PATTERN = re.compile(
+    r"^\s*<!-- anchor: [a-z0-9]+(?:-[a-z0-9]+)* -->\s*$"
+)
+FENCE_PATTERN = re.compile(r"^\s*(`{3,}|~{3,})")
 
 
 def arguments() -> argparse.Namespace:
@@ -120,10 +124,31 @@ def relocated_links(text: str, source: Path, output: Path) -> str:
     return LINK_TARGET_PATTERN.sub(relocate, text)
 
 
+def strip_anchors(text: str) -> str:
+    """Remove anchor directives outside fenced code blocks."""
+    output = []
+    fence: tuple[str, int] | None = None
+    for line in text.splitlines(keepends=True):
+        fence_match = FENCE_PATTERN.match(line)
+        if fence_match:
+            marker = fence_match.group(1)
+            if fence is None:
+                fence = (marker[0], len(marker))
+            elif marker[0] == fence[0] and len(marker) >= fence[1]:
+                fence = None
+            output.append(line)
+        elif fence is None and ANCHOR_PATTERN.fullmatch(line.rstrip("\r\n")):
+            continue
+        else:
+            output.append(line)
+    return "".join(output)
+
+
 def generated_text(root: Path, assembly: Path, output: Path) -> str:
     sections = []
     for path in include_paths(root, assembly):
         section = path.read_text(encoding="utf-8").strip()
+        section = strip_anchors(section)
         sections.append(relocated_links(section, path, output))
     return header(assembly) + "\n\n---\n\n".join(sections) + "\n"
 

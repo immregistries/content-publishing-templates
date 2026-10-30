@@ -164,6 +164,14 @@
     return (text || "").replace(/\s+/g, " ").trim();
   }
 
+  function blockSnippet(block) {
+    var copy = block.cloneNode(true);
+    Array.prototype.forEach.call(copy.querySelectorAll(".guide-comment-button"), function (button) {
+      button.remove();
+    });
+    return normalize(copy.textContent).slice(0, 120);
+  }
+
   function newId() {
     if (window.crypto && window.crypto.randomUUID) {
       return window.crypto.randomUUID();
@@ -171,8 +179,8 @@
     return "c-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
   }
 
-  // Commentable blocks: outermost paragraphs, list items, quotes, tables, code.
-  var BLOCK_SELECTOR = "p, li, blockquote, .aira-table-wrap, pre";
+  // Commentable blocks are annotated by the build with their anchor area.
+  var BLOCK_SELECTOR = "[data-anchor][data-block-index]";
   var blocks = Array.prototype.filter.call(
     content.querySelectorAll(BLOCK_SELECTOR),
     function (element) {
@@ -187,14 +195,10 @@
     }
   );
 
-  var counters = {};
   blocks.forEach(function (block) {
     var section = block.closest("section");
-    var sectionId = section ? section.id : "top";
-    counters[sectionId] = (counters[sectionId] || 0) + 1;
-    block.dataset.guideSection = sectionId;
-    block.dataset.guideIndex = String(counters[sectionId]);
-    block.dataset.guideText = normalize(block.textContent).slice(0, 160);
+    block.dataset.guideSection = section ? section.id : "top";
+    block.dataset.guideText = blockSnippet(block);
     block.classList.add("guide-block");
 
     var button = document.createElement("button");
@@ -224,10 +228,10 @@
     return normalize(selection.toString()).slice(0, 500);
   }
 
-  function findBlock(comment) {
+  function legacyBlock(comment) {
     var exact = blocks.filter(function (block) {
       return block.dataset.guideSection === comment.sectionId &&
-        block.dataset.guideIndex === String(comment.blockIndex);
+        Number(block.dataset.blockIndex) + 1 === Number(comment.blockIndex);
     })[0];
     var snippet = normalize(comment.blockText).slice(0, 60);
     if (exact && exact.dataset.guideText.slice(0, 60) === snippet) {
@@ -248,6 +252,64 @@
       }
     }
     return null;
+  }
+
+  function snippetSimilarity(left, right) {
+    left = normalize(left).toLowerCase();
+    right = normalize(right).toLowerCase();
+    if (left === right) {
+      return 1;
+    }
+    if (!left || !right) {
+      return 0;
+    }
+    var leftWords = left.split(/\s+/);
+    var rightWords = right.split(/\s+/);
+    var seen = {};
+    var shared = 0;
+    leftWords.forEach(function (word) {
+      seen[word] = true;
+    });
+    rightWords.forEach(function (word) {
+      if (seen[word]) {
+        shared += 1;
+        delete seen[word];
+      }
+    });
+    return shared / Math.max(leftWords.length, rightWords.length);
+  }
+
+  function anchorElement(name) {
+    return document.getElementById(name);
+  }
+
+  function areaStart(anchor) {
+    if (anchor.matches("section")) {
+      return anchor.querySelector(":scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > h5, :scope > h6") || anchor;
+    }
+    return anchor;
+  }
+
+  function placement(comment) {
+    if (!comment.anchor) {
+      var legacy = legacyBlock(comment);
+      return legacy ? { block: legacy, target: legacy, orphaned: false } : null;
+    }
+    var anchor = anchorElement(comment.anchor);
+    if (!anchor) {
+      return null;
+    }
+    var areaBlocks = blocks.filter(function (block) {
+      return block.dataset.anchor === comment.anchor;
+    });
+    var matches = areaBlocks.filter(function (block) {
+      return snippetSimilarity(blockSnippet(block), comment.snippet) >= 0.75;
+    });
+    var preferred = matches.filter(function (block) {
+      return block.dataset.blockIndex === String(comment.blockIndex);
+    })[0];
+    var block = preferred || matches[0] || null;
+    return { block: block, target: block || areaStart(anchor), orphaned: false };
   }
 
   function threadFor(block) {
@@ -293,7 +355,8 @@
     edit.type = "button";
     edit.textContent = "Edit";
     edit.addEventListener("click", function () {
-      var block = findBlock(comment);
+      var placed = placement(comment);
+      var block = placed && placed.block;
       if (block) {
         openForm(block, comment.quote, comment);
       }
@@ -336,41 +399,53 @@
       }
     );
     index.textContent = "";
+    var oldOrphans = content.querySelector(".guide-orphans");
+    if (oldOrphans) {
+      oldOrphans.remove();
+    }
     comments.sort(function (a, b) {
       return (a.created || "").localeCompare(b.created || "");
     });
     var unplaced = [];
     comments.forEach(function (comment) {
-      var block = findBlock(comment);
-      if (block) {
-        threadFor(block).appendChild(commentElement(comment));
+      var placed = placement(comment);
+      var block = placed && placed.block;
+      if (placed) {
+        threadFor(placed.target).appendChild(commentElement(comment));
       } else {
         unplaced.push(comment);
       }
       var entry = document.createElement("li");
       var link = document.createElement("a");
-      link.href = block ? "#comment-" + comment.id : "#guide-comments-panel";
+      link.href = "#comment-" + comment.id;
       link.textContent = (comment.author || "Anonymous") + ": " +
         normalize(comment.text).slice(0, 60) +
         (normalize(comment.text).length > 60 ? "…" : "");
       entry.appendChild(link);
       var where = document.createElement("span");
       where.className = "aira-meta";
-      where.textContent = block
-        ? comment.sectionTitle || comment.sectionId
-        : "Not placed: the text it refers to has changed";
+      where.textContent = placed
+        ? comment.anchor || comment.sectionTitle || comment.sectionId
+        : "Orphaned comment";
       entry.appendChild(where);
       index.appendChild(entry);
     });
     countBadge.textContent = String(comments.length);
     if (unplaced.length) {
+      var orphanGroup = document.createElement("section");
+      orphanGroup.className = "guide-orphans";
+      var orphanHeading = document.createElement("h2");
+      orphanHeading.textContent = "Orphaned comments";
+      orphanGroup.appendChild(orphanHeading);
       unplaced.forEach(function (comment) {
         var holder = document.createElement("div");
         holder.className = "guide-thread";
         holder.appendChild(commentElement(comment));
-        index.appendChild(holder);
+        orphanGroup.appendChild(holder);
       });
+      content.appendChild(orphanGroup);
     }
+    followHash();
   }
 
   function closeForms() {
@@ -439,7 +514,9 @@
           documentVersion: data.version,
           sectionId: block.dataset.guideSection,
           sectionTitle: sectionTitle(block),
-          blockIndex: Number(block.dataset.guideIndex),
+          anchor: block.dataset.anchor,
+          blockIndex: Number(block.dataset.blockIndex),
+          snippet: blockSnippet(block),
           blockText: block.dataset.guideText,
           quote: quote || "",
           author: author,
@@ -544,6 +621,27 @@
       render();
     }
   });
+
+  function followHash() {
+    Array.prototype.forEach.call(content.querySelectorAll(".guide-comment--target"), function (item) {
+      item.classList.remove("guide-comment--target");
+    });
+    var match = window.location.hash.match(/^#comment-(.+)$/);
+    if (!match) {
+      return;
+    }
+    var comment = document.getElementById("comment-" + match[1]);
+    if (!comment) {
+      return;
+    }
+    document.body.classList.remove("guide-comments-hidden");
+    toggle.setAttribute("aria-pressed", "true");
+    toggle.textContent = "Hide comments";
+    comment.classList.add("guide-comment--target");
+    comment.scrollIntoView({ block: "center" });
+  }
+
+  window.addEventListener("hashchange", followHash);
 
   render();
 })();

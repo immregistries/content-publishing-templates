@@ -29,6 +29,13 @@ PLACEHOLDER_PATTERNS = [
     re.compile(r"\bXXX\b"),
     re.compile(r"\[placeholder\]", re.IGNORECASE),
 ]
+ANCHOR_PATTERN = re.compile(
+    r"^\s*<!-- anchor: ([a-z0-9]+(?:-[a-z0-9]+)*) -->\s*$"
+)
+ANCHOR_LIKE_PATTERN = re.compile(r"^\s*<!--\s*anchor\s*:", re.IGNORECASE)
+FENCE_PATTERN = re.compile(r"^\s*(`{3,}|~{3,})")
+HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
+EXPLICIT_ID_PATTERN = re.compile(r"\s+\{#([A-Za-z0-9_-]+)(?:\s+[^}]*)?\}\s*$")
 
 # Maintained Markdown in a standard content project. Projects add others with
 # --include. Historical material in sources/ is preserved as received and is
@@ -89,6 +96,15 @@ def broken_links(root: Path, path: Path, text: str) -> list[str]:
     return problems
 
 
+def heading_id(heading: str) -> str:
+    explicit = EXPLICIT_ID_PATTERN.search(heading)
+    if explicit:
+        return explicit.group(1)
+    heading = re.sub(r"[`*_~]", "", heading)
+    heading = re.sub(r"[^\w\s-]", "", heading, flags=re.UNICODE).strip().lower()
+    return re.sub(r"[\s-]+", "-", heading)
+
+
 def main() -> int:
     args = arguments()
     root = Path(args.root).resolve()
@@ -96,11 +112,54 @@ def main() -> int:
     failures: list[str] = []
     confirms: list[str] = []
     term_uses: dict[str, dict[str, int]] = {term: {} for term in terms}
+    anchors: dict[str, tuple[str, int]] = {}
+    headings: dict[str, tuple[str, int]] = {}
 
     for path in maintained_files(root, args.include):
         relative = path.relative_to(root).as_posix()
         text = path.read_text(encoding="utf-8")
         failures.extend(broken_links(root, path, text))
+
+        if relative.startswith("content/") and path.name != "README.md":
+            first_heading = True
+            fence: tuple[str, int] | None = None
+            for line_number, line in enumerate(text.splitlines(), 1):
+                fence_match = FENCE_PATTERN.match(line)
+                if fence_match:
+                    marker = fence_match.group(1)
+                    if fence is None:
+                        fence = (marker[0], len(marker))
+                    elif marker[0] == fence[0] and len(marker) >= fence[1]:
+                        fence = None
+                    continue
+                if fence is not None:
+                    continue
+                anchor_match = ANCHOR_PATTERN.fullmatch(line)
+                if anchor_match:
+                    name = anchor_match.group(1)
+                    if name in anchors:
+                        first_file, first_line = anchors[name]
+                        failures.append(
+                            f"{relative}:{line_number}: duplicate anchor {name!r} "
+                            f"(first used at {first_file}:{first_line})"
+                        )
+                    else:
+                        anchors[name] = (relative, line_number)
+                    if name == "document-start" or name.startswith(("comment-", "guide-")):
+                        failures.append(
+                            f"{relative}:{line_number}: anchor name {name!r} is reserved"
+                        )
+                    continue
+                if ANCHOR_LIKE_PATTERN.search(line):
+                    failures.append(f"{relative}:{line_number}: malformed anchor syntax")
+                heading_match = HEADING_PATTERN.match(line)
+                if heading_match:
+                    identifier = heading_id(heading_match.group(2))
+                    if first_heading and heading_match.group(1) == "#":
+                        identifier = re.sub(r"^\d+-", "", path.stem)
+                        first_heading = False
+                    if identifier:
+                        headings.setdefault(identifier, (relative, line_number))
 
         if relative.startswith("content/") and path.name != "README.md":
             for pattern in PLACEHOLDER_PATTERNS:
@@ -117,6 +176,14 @@ def main() -> int:
                 count = len(pattern.findall(text))
                 if count:
                     term_uses[term][relative] = count
+
+    for name, (relative, line_number) in anchors.items():
+        if name in headings:
+            heading_file, heading_line = headings[name]
+            failures.append(
+                f"{relative}:{line_number}: anchor {name!r} collides with heading ID "
+                f"at {heading_file}:{heading_line}"
+            )
 
     if confirms:
         print(f"{len(confirms)} CONFIRM item(s) awaiting human resolution:")

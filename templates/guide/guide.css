@@ -202,6 +202,12 @@ html {
   position: relative;
 }
 
+.guide-anchor {
+  display: block;
+  position: relative;
+  scroll-margin-top: 4.5rem;
+}
+
 .guide-comment-button {
   position: absolute;
   top: 0;
@@ -250,6 +256,17 @@ html {
   background: var(--aira-warning-surface);
   font-size: 0.9rem;
   line-height: 1.45;
+}
+
+.guide-comment--target {
+  outline: 3px solid var(--aira-blue);
+  outline-offset: 2px;
+}
+
+.guide-orphans {
+  margin-top: var(--aira-space-8);
+  padding-top: var(--aira-space-4);
+  border-top: 1px solid var(--aira-border-subtle);
 }
 
 .guide-comment__meta {
