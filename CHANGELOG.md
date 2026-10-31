@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.8.0
+
+- Rapid presentations can use 15 expressive slide patterns in addition to the
+  template layouts: statement, big numbers, quote, split panel, cards, 2x2 grid,
+  numbered agenda, process, timeline, image with caption, key takeaway, table,
+  chart, before and after, and closing. A slide selects one with `"pattern"`;
+  the deck or slide sets the `"family"` (Blue or Green). Patterns draw native,
+  editable shapes, tables, and charts on the Title Only, Blank, and Title Dark
+  layouts, so the template file is unchanged.
+- Pattern slides choose text colors for contrast, so text on the green family's
+  panels is dark blue rather than white.
+- The generator rejects counts a pattern cannot lay out, warns when text is
+  likely to overflow its space, crops a supplied image to fill the image panel,
+  and accepts JSON sources saved with a UTF-8 byte order mark.
+- `templates/powerpoint/example-patterns.json` shows every pattern and is built
+  by validation, which fails on any fit warning.
+
 ## v0.7.0
 
 - Show comment review states, dispositions, change notes, closed threads, and

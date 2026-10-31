@@ -40,7 +40,41 @@ Notes on the source format:
   content, right heading, right content. A block has `text`, and optionally
   `level` for indentation and `bold`.
 - Images and diagrams are added by hand after generation, using Title and Two
-  Content, Title Only, or Blank layouts.
+  Content, Title Only, or Blank layouts, or placed by the `image` pattern.
+
+## Slide patterns
+
+Bullet layouts alone make for flat decks. A slide can instead name a
+`pattern`, which draws a more expressive slide from structured fields: native,
+editable shapes, tables, and charts on the template's Title Only, Blank, or
+Title Dark layout, so the AIRA band, logo, fonts, and colors stay. Set
+`"family": "Blue"` or `"Green"` at the top of the source; a slide may override
+it. Pattern slides take `speaker_notes` and `sources` like any other slide.
+[example-patterns.json](example-patterns.json) uses every pattern.
+
+| Pattern | Use it to | Fields |
+|---|---|---|
+| `statement` | State one big idea | `text`, optional `eyebrow` |
+| `big_numbers` | Make 1–4 figures land | `title`, `stats`: `value`, `label`, optional `detail` |
+| `quote` | Let a voice carry the point | `text`, `attribution`, optional `role` |
+| `split` | Pair a key message with 1–4 supporting points | `message`, `items`: optional `lead`, `text`; optional `eyebrow` |
+| `cards` | Show 2–4 parallel ideas | `title`, `cards`: `heading`, `text`; `numbered` (default true) |
+| `grid` | Show four categories | `title`, `cells`: exactly 4 `heading`, `text` |
+| `agenda` | Number 2–6 topics | `title`, `items`: `heading`, optional `detail` |
+| `process` | Show 3–5 ordered steps | `title`, `steps`: `label`, optional `text` |
+| `timeline` | Show 3–6 milestones | `title`, `milestones`: `when`, `text` |
+| `image` | Lead with a picture | `title`, optional `eyebrow`, `caption`, `image` (path relative to the source file), `alt` (required with `image`) |
+| `takeaway` | Close a point with its conclusion | `title`, `takeaway`, optional `points` (up to 4), `label` |
+| `table` | Compare across 2–6 columns, up to 7 rows | `title`, `columns`, `rows`, optional `column_widths` (relative) |
+| `chart` | Show data as a native chart | `title`, `chart`: `type` (`bar`, `column`, `line`), `categories`, `series` (1–4 of `name`, `values`), optional `number_format`, `data_labels`; optional `callout`: `value`, `text` |
+| `before_after` | Contrast two states | `title`, `before` and `after`: `label`, `heading`, `points` (up to 4) |
+| `closing` | End on the title art | `title`, optional `subtitle` |
+
+The generator stops with an error when a pattern is given more items than it
+can lay out, and prints a warning when text is likely to overflow its space;
+shorten the text or split the slide. Text on filled panels is white or dark
+blue, whichever contrasts better, so the Green family puts dark blue text on
+green.
 
 Generated slides stay editable. Follow the brief, outline, and manifest steps in
 [the process](../../guidance/Process.md) before generating a deck.

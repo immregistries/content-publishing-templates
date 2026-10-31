@@ -53,8 +53,10 @@ jobs:
       - name: Build example PowerPoint deck
         run: |
           python -m pip install -r requirements-pptx.txt
-          python -m py_compile tools/build_rapid_presentation.py
+          python -m py_compile tools/build_rapid_presentation.py tools/rapid_patterns.py
           python tools/build_rapid_presentation.py --template "templates/powerpoint/AIRA Rapid Presentation Template.pptx" --source templates/powerpoint/example-slides.json --output "$RUNNER_TEMP/example-deck.pptx"
+          python tools/build_rapid_presentation.py --template "templates/powerpoint/AIRA Rapid Presentation Template.pptx" --source templates/powerpoint/example-patterns.json --output "$RUNNER_TEMP/example-patterns.pptx" 2> "$RUNNER_TEMP/patterns.log"
+          if [ -s "$RUNNER_TEMP/patterns.log" ]; then cat "$RUNNER_TEMP/patterns.log"; exit 1; fi
 
       - name: Check this repository's Markdown links
         run: python tools/check_content.py --include "guidance/*.md" --include "templates/*/*.md"

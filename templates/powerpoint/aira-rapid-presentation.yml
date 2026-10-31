@@ -105,6 +105,31 @@ layout_roles:
       green: Rapid - Blank - Green
       blue: Rapid - Blank - Blue
 
+slide_patterns:
+  purpose: Expressive slides drawn by tools/rapid_patterns.py on supported layouts, selected with "pattern" in the slide source.
+  family: Set by "family" on the deck or slide; Blue or Green.
+  drawing_colors:
+    green_as_rendered: "#72A850"
+    dark_green_for_small_text: "#4E8A35"
+  text_on_fills: White or dark blue, whichever has the higher contrast.
+  patterns:
+    statement: {layout: blank}
+    big_numbers: {layout: title_only, items: "1-4"}
+    quote: {layout: blank}
+    split: {layout: blank, items: "1-4"}
+    cards: {layout: title_only, items: "2-4"}
+    grid: {layout: title_only, items: "4"}
+    agenda: {layout: title_only, items: "2-6"}
+    process: {layout: title_only, items: "3-5"}
+    timeline: {layout: title_only, items: "3-6"}
+    image: {layout: blank}
+    takeaway: {layout: title_only, items: "0-4"}
+    table: {layout: title_only, columns: "2-6", rows: "1-7"}
+    chart: {layout: title_only, types: [bar, column, line], series: "1-4"}
+    before_after: {layout: title_only, items_per_panel: "0-4"}
+    closing: {layout: title_dark}
+  overflow: Counts outside a pattern's range are errors; text estimated to overflow its space is a warning.
+
 generation_rules:
   default_color_family: null
   default_title_and_section_treatment: light
@@ -119,7 +144,8 @@ generation_rules:
   split_slide_when_content_overflows: true
   use_title_only_before_blank_when_a_standard_title_is_appropriate: true
   use_blank_only_when_standard_layouts_do_not_fit: true
-  dedicated_image_layout: false
+  dedicated_image_layout: false  # the image pattern places and crops images
+  prefer_patterns_over_bullets: Use a slide pattern when the content has a shape (steps, figures, comparison, categories, timeline).
   image_guidance:
     - Use either content placeholder in Title and Two Content for an image.
     - Use Title Only for a large or custom-positioned image when a slide title is needed.

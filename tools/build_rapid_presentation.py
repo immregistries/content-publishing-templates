@@ -4,6 +4,10 @@ The template retains one specimen slide for every supported layout. This script
 opens the template, removes those specimen slides, adds product slides using
 named layouts across all slide masters, populates placeholders, adds speaker
 notes and source traceability, and saves a new PPTX.
+
+A slide names either a template "layout", whose placeholders it fills, or a
+"pattern" from rapid_patterns.py, which draws an expressive slide in the deck's
+color "family" (Blue or Green).
 """
 
 from __future__ import annotations
@@ -15,6 +19,8 @@ from typing import Any
 
 from pptx import Presentation
 from pptx.enum.shapes import PP_PLACEHOLDER
+
+from rapid_patterns import PatternError, add_pattern_slide
 
 
 TITLE_TYPES = {PP_PLACEHOLDER.TITLE, PP_PLACEHOLDER.CENTER_TITLE}
@@ -105,7 +111,23 @@ def set_notes(slide, speaker_notes: str, sources: list[str], core_release: str) 
     slide.notes_slide.notes_text_frame.text = notes + traceability + release
 
 
-def add_slide(presentation: Presentation, slide_spec: dict[str, Any], core_release: str):
+def add_slide(
+    presentation: Presentation,
+    slide_spec: dict[str, Any],
+    core_release: str,
+    family: str | None = None,
+    base: Path = Path("."),
+):
+    if "pattern" in slide_spec:
+        chosen = slide_spec.get("family", family)
+        if not chosen:
+            raise ValueError(
+                f"Pattern slide {slide_spec['pattern']!r} needs a 'family', on the slide or the deck"
+            )
+        slide = add_pattern_slide(presentation, slide_spec, chosen, base, layout_by_name)
+        set_notes(slide, slide_spec["speaker_notes"], slide_spec["sources"], core_release)
+        return slide
+
     layout = layout_by_name(presentation, slide_spec["layout"])
     slide = presentation.slides.add_slide(layout)
     if slide_spec.get("title"):
@@ -142,12 +164,17 @@ def add_slide(presentation: Presentation, slide_spec: dict[str, Any], core_relea
 
 def main() -> None:
     args = parse_args()
-    source = json.loads(args.source.read_text(encoding="utf-8"))
+    source = json.loads(args.source.read_text(encoding="utf-8-sig"))
     presentation = Presentation(str(args.template))
     remove_all_slides(presentation)
 
-    for slide_spec in source["slides"]:
-        add_slide(presentation, slide_spec, source["core_release"])
+    family = source.get("family")
+    base = args.source.resolve().parent
+    for number, slide_spec in enumerate(source["slides"], start=1):
+        try:
+            add_slide(presentation, slide_spec, source["core_release"], family, base)
+        except PatternError as error:
+            raise SystemExit(f"Slide {number}: {error}") from None
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     presentation.save(str(args.output))

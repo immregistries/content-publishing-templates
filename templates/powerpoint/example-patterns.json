@@ -1,0 +1,184 @@
+{
+  "core_release": "v0.0.0",
+  "family": "Blue",
+  "slides": [
+    {
+      "layout": "Rapid - Title - Blue Light",
+      "title": "One Source, Every Product",
+      "subtitle": "Presenter name · Date",
+      "content": [],
+      "speaker_notes": "Opening remarks.",
+      "sources": ["content/00-summary.md"]
+    },
+    {
+      "pattern": "agenda",
+      "title": "Today",
+      "items": [
+        {"heading": "Where today's process breaks down", "detail": "Copies, drift, and late formatting"},
+        {"heading": "One source, many outputs", "detail": "How the pipeline is put together"},
+        {"heading": "A deck built in minutes", "detail": "Generation from a tagged release"},
+        {"heading": "What a pilot would look like", "detail": "Scope, steps, and timing"}
+      ],
+      "speaker_notes": "Walk through the agenda.",
+      "sources": ["content/00-summary.md"]
+    },
+    {
+      "pattern": "statement",
+      "eyebrow": "The point",
+      "text": "Write it once, check it once, and publish it everywhere it needs to go.",
+      "speaker_notes": "State the whole argument in one sentence before explaining it.",
+      "sources": ["content/00-summary.md"]
+    },
+    {
+      "pattern": "takeaway",
+      "title": "Most effort today goes into re-formatting",
+      "points": [
+        "Content is copied into a new file for every audience",
+        "Each copy is formatted by hand, then corrected separately",
+        "Late edits must be repeated in every copy"
+      ],
+      "takeaway": "The time goes into copies, not content. Remove the copies and the time comes back.",
+      "speaker_notes": "Describe the current process.",
+      "sources": ["content/01-detail.md"]
+    },
+    {
+      "pattern": "before_after",
+      "title": "From many copies to one source",
+      "before": {
+        "label": "Today",
+        "heading": "Copies drift apart",
+        "points": ["A separate file per product", "Edits repeated by hand", "No record of which is current"]
+      },
+      "after": {
+        "label": "With the pipeline",
+        "heading": "One source, built outward",
+        "points": ["One reviewed source", "Products rebuilt on release", "Every output traceable"]
+      },
+      "speaker_notes": "Contrast the two approaches.",
+      "sources": ["content/01-detail.md"]
+    },
+    {
+      "pattern": "process",
+      "title": "From source to slides in four steps",
+      "steps": [
+        {"label": "Write", "text": "Authors edit Markdown in the content project."},
+        {"label": "Review", "text": "Comments and approvals happen on the source."},
+        {"label": "Release", "text": "A tagged core release freezes the content."},
+        {"label": "Generate", "text": "Tools build each product from the release."}
+      ],
+      "speaker_notes": "Explain each step.",
+      "sources": ["content/01-detail.md"]
+    },
+    {
+      "pattern": "big_numbers",
+      "title": "One release feeds every product",
+      "stats": [
+        {"value": "1", "label": "source of truth,", "detail": "reviewed and versioned"},
+        {"value": "4", "label": "outputs per release:", "detail": "web guide, Word, reading copy, slides"},
+        {"value": "0", "label": "slides retyped", "detail": "from an approved document"}
+      ],
+      "speaker_notes": "Let the numbers land before moving on.",
+      "sources": ["content/01-detail.md"]
+    },
+    {
+      "pattern": "grid",
+      "title": "Each output serves a different reader",
+      "cells": [
+        {"heading": "Web guide", "text": "Implementers who search, link, and comment."},
+        {"heading": "Word document", "text": "Committees that review and approve."},
+        {"heading": "Reading copy", "text": "Anyone who wants the whole text in one file."},
+        {"heading": "Slides", "text": "Audiences who need the story in twenty minutes."}
+      ],
+      "speaker_notes": "Match each product to its reader.",
+      "sources": ["content/01-detail.md"]
+    },
+    {
+      "pattern": "cards",
+      "title": "Three things change for authors",
+      "cards": [
+        {"heading": "Write in Markdown", "text": "Plain text that reviews cleanly and diffs line by line."},
+        {"heading": "Review in one place", "text": "Comments land on the source, not on several copies."},
+        {"heading": "Generate the rest", "text": "Guide, Word, and slides are built, not assembled."}
+      ],
+      "speaker_notes": "Focus on what authors experience.",
+      "sources": ["content/01-detail.md"]
+    },
+    {
+      "pattern": "split",
+      "eyebrow": "Why it matters",
+      "message": "Presentations stop drifting from the guidance they describe.",
+      "items": [
+        {"lead": "Accurate.", "text": "Every slide traces to a reviewed source file."},
+        {"lead": "Fast.", "text": "A first draft deck exists minutes after a release."},
+        {"lead": "Consistent.", "text": "Styling is applied by the template, not by hand."}
+      ],
+      "speaker_notes": "Summarize the benefits.",
+      "sources": ["content/00-summary.md"]
+    },
+    {
+      "pattern": "table",
+      "title": "What changes, step by step",
+      "columns": ["Step", "Today", "With the pipeline"],
+      "column_widths": [2, 3, 3],
+      "rows": [
+        ["Drafting", "A file per product", "One Markdown source"],
+        ["Review", "Comments spread across copies", "Comments on the source"],
+        ["Formatting", "By hand, every time", "Applied by templates"],
+        ["Updates", "Repeated in each copy", "Rebuild from the release"]
+      ],
+      "speaker_notes": "Use the table for reference; do not read every cell.",
+      "sources": ["content/01-detail.md"]
+    },
+    {
+      "pattern": "chart",
+      "title": "Generation removes the slowest steps",
+      "chart": {
+        "type": "bar",
+        "categories": ["Draft content", "Review", "Format slides", "Apply late edits"],
+        "series": [
+          {"name": "Hand-built", "values": [6, 4, 8, 4]},
+          {"name": "Generated", "values": [6, 4, 1, 1]}
+        ]
+      },
+      "callout": {"value": "−10 hrs", "text": "Illustrative hours per deck. Replace with measured figures."},
+      "speaker_notes": "The figures are illustrative; replace them with measurements.",
+      "sources": ["content/01-detail.md"]
+    },
+    {
+      "pattern": "image",
+      "eyebrow": "In practice",
+      "title": "The guide and the deck come from the same release",
+      "caption": "Add \"image\" (relative to this file) and \"alt\" to place a picture; it is cropped to fill the panel.",
+      "speaker_notes": "Show what the source looks like next to its outputs.",
+      "sources": ["content/01-detail.md"]
+    },
+    {
+      "pattern": "quote",
+      "text": "We stopped arguing about which copy was current. There is only one, and everything else is built from it.",
+      "attribution": "Attribution Name",
+      "role": "Role, Organization",
+      "speaker_notes": "Use a real, approved quotation.",
+      "sources": ["content/00-summary.md"]
+    },
+    {
+      "pattern": "timeline",
+      "title": "A pilot can prove it in two quarters",
+      "milestones": [
+        {"when": "Month 1", "text": "Pick one guide to convert"},
+        {"when": "Month 2", "text": "Source and review in Markdown"},
+        {"when": "Month 3", "text": "First tagged release"},
+        {"when": "Month 4", "text": "Generate deck and Word copy"},
+        {"when": "Month 6", "text": "Decide on wider adoption"}
+      ],
+      "speaker_notes": "Propose a concrete, bounded pilot.",
+      "sources": ["content/00-summary.md"]
+    },
+    {
+      "pattern": "closing",
+      "title": "Questions and discussion",
+      "subtitle": "Presenter name · name@example.org",
+      "speaker_notes": "Invite questions.",
+      "sources": ["content/00-summary.md"]
+    }
+  ]
+}

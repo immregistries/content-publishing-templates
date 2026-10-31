@@ -149,6 +149,16 @@ if ($LASTEXITCODE -eq 0) {
     if ($LASTEXITCODE -ne 0) {
         throw "Example PowerPoint build failed."
     }
+    $savedErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $patternBuild = & $python.Source (Join-Path $tools 'build_rapid_presentation.py') `
+        --template (Join-Path $PSScriptRoot 'templates/powerpoint/AIRA Rapid Presentation Template.pptx') `
+        --source (Join-Path $PSScriptRoot 'templates/powerpoint/example-patterns.json') `
+        --output (Join-Path $PSScriptRoot 'output/example-patterns.pptx') 2>&1
+    $ErrorActionPreference = $savedErrorActionPreference
+    if ($LASTEXITCODE -ne 0 -or ($patternBuild -join "`n") -match 'warning:') {
+        throw "Example pattern deck build failed or warned:`n$($patternBuild -join "`n")"
+    }
 } else {
     Write-Host "python-pptx not installed; skipping the PowerPoint check."
 }
