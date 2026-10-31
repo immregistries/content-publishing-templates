@@ -1,6 +1,6 @@
 product_id: implementer-overview-10-slide
 status: draft
-core_release: null
+core_release: null  # the Git tag of the core release, such as v0.2.0
 canonical_source_revision: null
 
 brief: brief.yml

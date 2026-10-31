@@ -70,6 +70,12 @@ it. Pattern slides take `speaker_notes` and `sources` like any other slide.
 | `before_after` | Contrast two states | `title`, `before` and `after`: `label`, `heading`, `points` (up to 4) |
 | `closing` | End on the title art | `title`, optional `subtitle` |
 
+Every slide must list its `sources`, and each must be a file in the content
+project. The generator stops with an error naming any source that does not
+exist, so a renamed or removed section cannot go unnoticed. Paths are relative
+to the project root, which is the current directory unless `--root` names
+another.
+
 The generator stops with an error when a pattern is given more items than it
 can lay out, and prints a warning when text is likely to overflow its space;
 shorten the text or split the slide. Text on filled panels is white or dark

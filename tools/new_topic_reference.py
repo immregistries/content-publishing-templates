@@ -94,7 +94,6 @@ def add_presentation(target: Path, values: dict[str, str]) -> None:
     product = target / "products" / "presentation"
     product.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(REPO_ROOT / "templates" / "product" / "product-brief.yml", product / "brief.yml")
-    shutil.copyfile(REPO_ROOT / "templates" / "powerpoint" / "example-slides.json", product / "slides.json")
     readme = target / "products" / "README.md"
     readme.write_text(
         readme.read_text(encoding="utf-8")

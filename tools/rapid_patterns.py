@@ -511,13 +511,17 @@ def before_after(slide, spec, c):
     def panel(x, w, side, fill, heading_color, body_color, label_color):
         box(slide, x, top, w, height, fill)
         label(slide, x + 26, top + 24, w - 50, side.get("label", ""), label_color, field="panel label")
-        write(slide, x + 26, top + 52, w - 50, 64, side["heading"], size=26, font=HEADING_FONT,
-              color=heading_color, field="panel heading")
+        heading_lines = min(2, _estimate_lines(side["heading"], w - 50, 26, HEADING_FONT))
+        heading_height = heading_lines * 26 * 1.22
+        write(slide, x + 26, top + 52, w - 50, heading_height + 4, side["heading"], size=26,
+              font=HEADING_FONT, color=heading_color, field="panel heading")
         points = side.get("points") or []
         if len(points) > 4:
             raise PatternError("each before/after panel allows at most 4 points")
-        write(slide, x + 26, top + 124, w - 50, height - 140, points or [""], size=18,
-              color=body_color, space_after=10, field="panel points")
+        # Points start below the heading, however many lines it takes.
+        points_top = top + 52 + heading_height + 18
+        write(slide, x + 26, points_top, w - 50, top + height - points_top - 14, points or [""],
+              size=18, color=body_color, space_after=10, field="panel points")
 
     panel(LEFT, 360, before, NEUTRAL_PANEL, DARK_BLUE, MUTED, MUTED)
     box(slide, 446, top + height / 2 - 28, 48, 56, c["accent"], MSO_SHAPE.RIGHT_ARROW)

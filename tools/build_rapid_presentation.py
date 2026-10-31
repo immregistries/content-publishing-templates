@@ -31,7 +31,27 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--template", required=True, type=Path)
     parser.add_argument("--source", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument(
+        "--root",
+        default=Path("."),
+        type=Path,
+        help="Content project root that slide sources are relative to. Defaults to the current directory.",
+    )
     return parser.parse_args()
+
+
+def missing_sources(slides: list[dict[str, Any]], root: Path) -> list[str]:
+    """List every slide source that does not exist under the project root."""
+    problems = []
+    for number, slide_spec in enumerate(slides, start=1):
+        sources = slide_spec.get("sources")
+        if not sources:
+            problems.append(f"Slide {number}: no 'sources' listed")
+            continue
+        for source in sources:
+            if not (root / source).is_file():
+                problems.append(f"Slide {number}: source {source!r} not found under {root}")
+    return problems
 
 
 def layout_by_name(presentation: Presentation, name: str):
@@ -165,6 +185,12 @@ def add_slide(
 def main() -> None:
     args = parse_args()
     source = json.loads(args.source.read_text(encoding="utf-8-sig"))
+    problems = missing_sources(source["slides"], args.root)
+    if problems:
+        raise SystemExit(
+            "Slide sources must be files in the content project; update renamed or removed paths:\n  "
+            + "\n  ".join(problems)
+        )
     presentation = Presentation(str(args.template))
     remove_all_slides(presentation)
 

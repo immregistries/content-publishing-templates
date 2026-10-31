@@ -91,7 +91,7 @@ def main():
     processes = []
     try:
         def open_profile(port, token, user, author):
-            profile = tempfile.TemporaryDirectory(); profiles.append(profile)
+            profile = tempfile.TemporaryDirectory(ignore_cleanup_errors=True); profiles.append(profile)
             hub.state.tokens[token] = {"user": user, "isAuthor": author}
             command = [args.browser, "--headless", "--disable-gpu", "--no-sandbox", "--no-first-run", "--remote-allow-origins=*", "--remote-debugging-port=" + str(port), "--user-data-dir=" + profile.name, "about:blank"]
             process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); processes.append(process)

@@ -60,6 +60,12 @@ A core release is a named or numbered version of the canonical source that
 successfully builds the complete core document. Early examples may be `v0.3`,
 `v0.9-rc1`, and `v1.0`.
 
+Tag each core release in Git, such as `v0.2.0`, and record that tag as the
+`core_release` in product manifests. A tag fixes exactly which source a product
+was built from, so tools can tell which products the source has changed under.
+A working draft can be tagged too; the tag identifies the version, not its
+status.
+
 The release record should identify:
 
 - the canonical-source revision;
@@ -161,7 +167,8 @@ They include:
 - placeholders and unresolved questions are visible;
 - required organizational language and accessibility practices are followed;
 - generated files open and render correctly;
-- the product manifest is current;
+- the product manifest is current, and every source it and the product cite
+  still exists;
 - any substantive innovation discovered at the edge has either flowed back to
   canonical source or is visibly awaiting adjudication.
 
@@ -201,6 +208,13 @@ After review or use:
   content;
 - create a new core release when the accepted change warrants it;
 - rebuild or review affected derived products against the new release.
+
+`tools/check_products.py` lists each product whose core files have changed
+since the release in its manifest, with the files added, changed, renamed, or
+removed, and fails when a product cites a source that no longer exists. Review
+each listed product's outline against the changes, revise it, regenerate the
+product, and record the new release and what changed in its manifest and
+outline.
 
 Derived products are useful testing surfaces for the core idea. This feedback
 step lets innovations at the edges improve the core while preventing several

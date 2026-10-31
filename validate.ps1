@@ -10,7 +10,10 @@ $tools = Join-Path $PSScriptRoot 'tools'
     (Join-Path $tools 'apply_word_table_style.py') `
     (Join-Path $tools 'build_guide.py') `
     (Join-Path $tools 'import_guide_comments.py') `
-    (Join-Path $tools 'new_topic_reference.py')
+    (Join-Path $tools 'new_topic_reference.py') `
+    (Join-Path $tools 'check_products.py') `
+    (Join-Path $tools 'build_rapid_presentation.py') `
+    (Join-Path $tools 'rapid_patterns.py')
 if ($LASTEXITCODE -ne 0) {
     throw "Python validation failed."
 }
@@ -145,6 +148,7 @@ if ($LASTEXITCODE -eq 0) {
     & $python.Source (Join-Path $tools 'build_rapid_presentation.py') `
         --template (Join-Path $PSScriptRoot 'templates/powerpoint/AIRA Rapid Presentation Template.pptx') `
         --source (Join-Path $PSScriptRoot 'templates/powerpoint/example-slides.json') `
+        --root $fixture `
         --output (Join-Path $PSScriptRoot 'output/example-deck.pptx')
     if ($LASTEXITCODE -ne 0) {
         throw "Example PowerPoint build failed."
@@ -154,10 +158,32 @@ if ($LASTEXITCODE -eq 0) {
     $patternBuild = & $python.Source (Join-Path $tools 'build_rapid_presentation.py') `
         --template (Join-Path $PSScriptRoot 'templates/powerpoint/AIRA Rapid Presentation Template.pptx') `
         --source (Join-Path $PSScriptRoot 'templates/powerpoint/example-patterns.json') `
+        --root $fixture `
         --output (Join-Path $PSScriptRoot 'output/example-patterns.pptx') 2>&1
     $ErrorActionPreference = $savedErrorActionPreference
     if ($LASTEXITCODE -ne 0 -or ($patternBuild -join "`n") -match 'warning:') {
         throw "Example pattern deck build failed or warned:`n$($patternBuild -join "`n")"
+    }
+    & $python.Source (Join-Path $tools 'build_rapid_presentation.py') `
+        --template (Join-Path $PSScriptRoot 'templates/powerpoint/AIRA Rapid Presentation Template.pptx') `
+        --source (Join-Path $topicReference 'products/presentation/slides.json') `
+        --root $topicReference `
+        --output (Join-Path $topicReference 'output/starter-deck.pptx')
+    if ($LASTEXITCODE -ne 0) {
+        throw "The new Topic Reference's starter deck failed to build."
+    }
+    $missingFixture = Join-Path $PSScriptRoot 'output/missing-source.json'
+    '{"core_release": "v0", "slides": [{"layout": "Rapid - Blank - Green", "content": [], "speaker_notes": "", "sources": ["content/missing.md"]}]}' |
+        Set-Content -LiteralPath $missingFixture -Encoding ascii
+    $savedErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $missingBuild = & $python.Source (Join-Path $tools 'build_rapid_presentation.py') `
+        --template (Join-Path $PSScriptRoot 'templates/powerpoint/AIRA Rapid Presentation Template.pptx') `
+        --source $missingFixture --root $fixture `
+        --output (Join-Path $PSScriptRoot 'output/missing-source.pptx') 2>&1
+    $ErrorActionPreference = $savedErrorActionPreference
+    if ($LASTEXITCODE -eq 0 -or ($missingBuild -join "`n") -notmatch 'content/missing.md') {
+        throw "The PowerPoint generator did not reject a missing slide source."
     }
 } else {
     Write-Host "python-pptx not installed; skipping the PowerPoint check."

@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.9.0
+
+- `tools/check_products.py` lists each derived product whose core has changed
+  since the release recorded in its manifest, showing the files added,
+  changed, renamed, or removed, and fails when a product's manifest, brief, or
+  slides cite a source that no longer exists. `--fail-on-stale` also fails on
+  products that need review.
+- The PowerPoint generator stops with an error when a slide lists no sources or
+  cites a file that does not exist. Sources are relative to `--root`, which
+  defaults to the current directory.
+- The before-and-after slide pattern places its points below the panel heading
+  however many lines the heading takes.
+- Fix: Topic Reference Word builds lost every top-level section heading,
+  because the skeleton shifted headings up a level while its sections use
+  level-1 headings. The skeleton no longer shifts headings. Existing Topic
+  References should remove `shift-heading-level-by: -1` from `_quarto.yml`.
+- The Topic Reference presentation add-on starts from its own four-slide deck
+  that cites the skeleton's files, instead of the PowerPoint example.
+- The process guidance asks for core releases to be tagged in Git and recorded
+  as the `core_release` in manifests, and describes checking products after a
+  new release. CI now runs the unit tests.
+
 ## v0.8.0
 
 - Rapid presentations can use 15 expressive slide patterns in addition to the

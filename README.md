@@ -83,6 +83,10 @@ python process/tools/build_guide.py --assembly Project.qmd --version v0.1.0
 # Turn comment files downloaded from the guide into a review record.
 python process/tools/import_guide_comments.py comments.json
 
+# List derived products whose core has changed since their release, and
+# fail on product sources that no longer exist.
+python process/tools/check_products.py
+
 # Build an editable PowerPoint deck from a JSON slide source, using template
 # layouts and expressive slide patterns
 # (needs python-pptx; see templates/powerpoint/README.md).

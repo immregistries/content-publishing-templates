@@ -1,0 +1,44 @@
+{
+  "core_release": "v0.1.0",
+  "family": "Green",
+  "slides": [
+    {
+      "layout": "Rapid - Title - Green Light",
+      "title": "{{TITLE}}",
+      "subtitle": "Topic Reference for community discussion",
+      "content": [],
+      "speaker_notes": "State the release and its status. Replace these starter slides with the review deck described in brief.yml.",
+      "sources": ["content/00-status-and-scope.md"]
+    },
+    {
+      "pattern": "agenda",
+      "title": "What this review covers",
+      "items": [
+        {"heading": "Status and scope", "detail": "What the Topic Reference covers and does not cover"},
+        {"heading": "Related work", "detail": "Related topics and efforts"},
+        {"heading": "Working decisions and open questions", "detail": "What is decided and what is still open"}
+      ],
+      "speaker_notes": "Add the topic sections between related work and the working decisions as they are written.",
+      "sources": ["content/00-status-and-scope.md", "content/01-related-work.md", "content/90-working-decisions.md"]
+    },
+    {
+      "pattern": "split",
+      "eyebrow": "Your review",
+      "message": "Comment on the ideas; the authors will write the language.",
+      "items": [
+        {"lead": "On the page.", "text": "Comment beside any passage of the published Topic Reference."},
+        {"lead": "In GitHub.", "text": "Open an issue for anything larger."},
+        {"lead": "In meetings.", "text": "Raise it on the topic's calls."}
+      ],
+      "speaker_notes": "Every comment is a review input until it is adjudicated into the source. See How this document is maintained.",
+      "sources": ["content/00-status-and-scope.md"]
+    },
+    {
+      "pattern": "closing",
+      "title": "Questions and discussion",
+      "subtitle": "{{TITLE}}",
+      "speaker_notes": "Point people to the published Topic Reference and the InteropHub topic.",
+      "sources": ["content/00-status-and-scope.md"]
+    }
+  ]
+}
