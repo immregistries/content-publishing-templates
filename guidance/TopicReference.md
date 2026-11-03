@@ -68,7 +68,8 @@ whose bounded purpose is one InteropHub topic:
   purpose, what the project covers and does not cover, and how it is
   maintained.
 - **Related work** (`content/01-related-work.md`): related InteropHub topics and
-  other efforts, linked rather than repeated.
+  other efforts, linked rather than repeated. When it is short, make it a
+  section of Status and Scope instead of its own chapter.
 - **Topic sections** in reading order: definitions, principles, diagrams,
   examples, and whatever else the topic needs.
 - **Working decisions and open questions** (`content/90-working-decisions.md`):
@@ -78,6 +79,12 @@ whose bounded purpose is one InteropHub topic:
 - **A way to comment**, on the page itself, through GitHub issues, and in
   meetings, with every comment treated as a review input until it is
   adjudicated into `content/`.
+
+The Topic Reference is source, so it is concise: each fact is stated once and
+linked from elsewhere, and the document has no more than about six top-level
+chapters, including the appendix. See
+[Conventions](Conventions.md#state-each-fact-once). Presentations and other
+derived products may repeat and expand.
 
 ## Releases and status
 

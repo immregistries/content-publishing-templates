@@ -10,4 +10,6 @@ assembled in the order listed in [{{ASSEMBLY}}.qmd](../{{ASSEMBLY}}.qmd).
 | [90-working-decisions.md](90-working-decisions.md) | Appendix: working decisions and open questions |
 
 Add topic sections between `01` and `90`, numbered in reading order, and list
-each one here and in the assembly file.
+each one here and in the assembly file. Keep the document to about six
+top-level chapters, including the appendix, and state each fact in only one
+section.

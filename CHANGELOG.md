@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.10.0
+
+- The conventions add two rules for canonical source: state each fact once and
+  link to it rather than repeating it, and keep the core document to about six
+  top-level chapters, including appendices. Both apply only to the source;
+  derived products may repeat, explain, and add sections. The process and Topic
+  Reference guidance, the skeleton's `AGENTS.md`, and its `content/README.md`
+  refer to them.
+- `tools/build_guide.py` prints a warning, without failing, when a guide has
+  more than six top-level chapters.
+- The Topic Reference guidance allows a short related-work section to live in
+  Status and Scope instead of its own chapter.
+
 ## v0.9.0
 
 - `tools/check_products.py` lists each derived product whose core has changed

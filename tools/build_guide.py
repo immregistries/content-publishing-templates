@@ -49,6 +49,7 @@ SECTION_PATTERN = re.compile(
     r'<section id="([^"]+)" class="level2[^"]*"[^>]*>\s*<h2[^>]*>(.*?)</h2>', re.DOTALL
 )
 TAG_PATTERN = re.compile(r"<[^>]+>")
+SUGGESTED_MAX_CHAPTERS = 6
 INTEROPHUB_TOPIC_URL = "https://informatics.immregistries.org/hub/es/topic/{topic}"
 STATUS_TAGS = {
     "draft": "aira-tag--warning",
@@ -472,6 +473,13 @@ def main() -> int:
     markdown = prepared_markdown(root, paths, config.get("repository"), ref)
     body = body_html(markdown)
     nav = section_nav(body, config.get("navLabels", {}))
+    chapters = len(SECTION_PATTERN.findall(body))
+    if chapters > SUGGESTED_MAX_CHAPTERS:
+        print(
+            f"Warning: the guide has {chapters} top-level chapters; the suggested "
+            f"maximum is {SUGGESTED_MAX_CHAPTERS}. Consider merging chapters. "
+            "See guidance/Conventions.md, 'Keep chapters few'."
+        )
 
     output = root / args.output
     output.parent.mkdir(parents=True, exist_ok=True)

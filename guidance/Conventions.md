@@ -77,6 +77,37 @@ Every content module must have an intended location in the complete core
 document. Modules organize the canonical source; they do not replace the core
 with a free-standing knowledge library.
 
+### State each fact once
+
+The canonical source records the key information concisely, and nothing more.
+Each fact, rule, definition, code, and decision is stated in one place; other
+places link to it.
+
+- Do not restate a table in prose, or prose in a table.
+- Do not add summaries or recaps of material stated elsewhere in the source,
+  such as an "open points" list that repeats the open-questions table.
+- Give a decision or open question one entry with an ID, and refer to that ID
+  from the text it affects.
+- When two passages say the same thing, choose the one home that fits best and
+  replace the other with a link.
+
+Repetition in the source means a correction has to be made in several places,
+and the copies drift apart. In most cases the source should not repeat at all.
+
+This rule applies to the canonical source only. Derived products, such as
+presentations, training, explanatory pages, and summaries, may repeat, explain,
+and reinforce as their audience needs, and may have as many sections as they
+need.
+
+### Keep chapters few
+
+A core document should normally have no more than six top-level chapters,
+including its appendices. The web guide lists each chapter in its top menu; a
+longer list is harder to navigate, and on narrow screens it scrolls. Merge
+short or closely related chapters, and use second-level headings for structure
+within a chapter. The guide build warns when the limit is exceeded. Exceed it
+only for a clear reason.
+
 ## 6. Product briefs
 
 - A brief is required before a product is assembled.

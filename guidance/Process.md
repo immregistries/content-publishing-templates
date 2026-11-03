@@ -37,6 +37,11 @@ Canonical source may include:
 - decisions, uncertainties, and open questions;
 - audience concerns and likely objections.
 
+Keep the canonical source concise: state each fact once and link to it, and
+keep the core document to about six top-level chapters. See
+[Conventions](Conventions.md#state-each-fact-once). Derived products may repeat
+and expand as their audience needs.
+
 Reusable content modules may be introduced when they improve maintenance, but
 they remain parts of the core document. They must not become a parallel bucket
 of substantive knowledge that the core document does not contain.
