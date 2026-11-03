@@ -5,7 +5,7 @@ assembled in the order listed in [{{ASSEMBLY}}.qmd](../{{ASSEMBLY}}.qmd).
 
 | File | Section |
 |---|---|
-| [00-status-and-scope.md](00-status-and-scope.md) | Status, purpose, scope, and how the document is maintained |
+| [00-status-and-scope.md](00-status-and-scope.md) | Status, purpose, and scope |
 | [01-related-work.md](01-related-work.md) | Related InteropHub topics and other efforts |
 | [90-working-decisions.md](90-working-decisions.md) | Appendix: working decisions and open questions |
 

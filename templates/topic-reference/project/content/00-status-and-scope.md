@@ -21,13 +21,3 @@ it. -->
 ## What this project does not cover
 
 <!-- CONFIRM: List what belongs to related topics or projects, and where. -->
-
-## How this document is maintained
-
-The Markdown source in this repository is the authoritative record of the
-topic. Community coordination, meetings, and discussion notes are tracked on
-InteropHub as [{{TOPIC_NAME}}, topic {{TOPIC}}]({{TOPIC_URL}}).
-
-Feedback is welcome as a GitHub issue, a comment on the published Topic
-Reference, or in community meetings. Accepted changes are made here first and
-then released as a new version.

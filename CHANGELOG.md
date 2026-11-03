@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.11.0
+
+- New Topic References no longer include a "How this document is maintained"
+  section or the process working decisions WD-1 and WD-2. How Topic References
+  are maintained is described once, in the shared guidance and each
+  repository's `README.md` and `CONTRIBUTING.md`. Existing Topic References may
+  remove that section and those decisions.
+
 ## v0.10.0
 
 - The conventions add two rules for canonical source: state each fact once and

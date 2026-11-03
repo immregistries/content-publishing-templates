@@ -65,8 +65,7 @@ whose bounded purpose is one InteropHub topic:
 ## What every Topic Reference contains
 
 - **Status and scope** (`content/00-status-and-scope.md`): a short summary,
-  purpose, what the project covers and does not cover, and how it is
-  maintained.
+  purpose, and what the project covers and does not cover.
 - **Related work** (`content/01-related-work.md`): related InteropHub topics and
   other efforts, linked rather than repeated. When it is short, make it a
   section of Status and Scope instead of its own chapter.
@@ -79,6 +78,11 @@ whose bounded purpose is one InteropHub topic:
 - **A way to comment**, on the page itself, through GitHub issues, and in
   meetings, with every comment treated as a review input until it is
   adjudicated into `content/`.
+
+A Topic Reference records the topic's knowledge, not how the project is run.
+How Topic References are maintained, reviewed, and released is described once,
+in this guidance and in each repository's `README.md` and `CONTRIBUTING.md`;
+do not restate it in `content/` or record it as working decisions.
 
 The Topic Reference is source, so it is concise: each fact is stated once and
 linked from elsewhere, and the document has no more than about six top-level

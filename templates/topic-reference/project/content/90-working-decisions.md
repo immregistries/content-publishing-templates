@@ -9,8 +9,6 @@ it can be revisited.
 
 | ID | Working decision | Basis |
 |---|---|---|
-| WD-1 | This repository is the authoritative source for the topic's Topic Reference. Other copies are made from it. | Project setup |
-| WD-2 | Community coordination, meetings, and discussion notes are tracked on InteropHub, [topic {{TOPIC}}]({{TOPIC_URL}}). | Project setup |
 
 ## Open questions
 
