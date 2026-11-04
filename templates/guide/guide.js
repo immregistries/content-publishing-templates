@@ -64,6 +64,21 @@
     });
   }
 
+  // Scroll only the section bar sideways. scrollIntoView would also scroll the
+  // window, and because the sticky bar sits inside html's scroll-padding-top,
+  // the browser pulls the page back up each time the current section changes.
+  function revealInNav(link) {
+    var nav = link.parentElement;
+    if (!nav || nav.scrollWidth <= nav.clientWidth) {
+      return;
+    }
+    var left = link.offsetLeft - nav.offsetLeft;
+    var right = left + link.offsetWidth;
+    if (left < nav.scrollLeft || right > nav.scrollLeft + nav.clientWidth) {
+      nav.scrollLeft = left - (nav.clientWidth - link.offsetWidth) / 2;
+    }
+  }
+
   function update() {
     var section = lastAbove(sections);
     if (section !== currentSection) {
@@ -72,7 +87,7 @@
       sectionLinks.forEach(function (link) {
         if (section && link.getAttribute("href") === "#" + section.id) {
           link.setAttribute("aria-current", "page");
-          link.scrollIntoView({ block: "nearest", inline: "nearest" });
+          revealInNav(link);
         } else {
           link.removeAttribute("aria-current");
         }

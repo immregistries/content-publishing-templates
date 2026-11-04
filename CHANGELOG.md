@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.12.1
+
+- The web guide no longer stalls wheel scrolling at section boundaries. When
+  the current section changed, the guide called `scrollIntoView` on its link in
+  the sticky section bar; because that bar sits inside the page's
+  `scroll-padding-top`, the browser scrolled the page back up, which could
+  return the reader to the previous section. The guide now scrolls only the
+  section bar, sideways, and only when the link is out of view. Rebuild guides
+  to pick up the fix.
+
 ## v0.12.0
 
 - Topic References can be public or private. "Topic Reference" names both; a
