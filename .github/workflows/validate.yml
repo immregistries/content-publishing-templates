@@ -48,10 +48,19 @@ jobs:
       - name: Create and check a Topic Reference from the skeleton
         run: |
           project="$RUNNER_TEMP/topic-reference-test"
-          python tools/new_topic_reference.py "$project" --no-git --title "Test Topic" --topic 7 --topic-name "Test Topic" --with presentation
+          python tools/new_topic_reference.py "$project" --no-git --visibility public --title "Test Topic" --topic 7 --topic-name "Test Topic" --with presentation
           python tools/build_core_markdown.py --root "$project" --assembly TopicReferenceTest.qmd --check
           python tools/check_content.py --root "$project" --include "LICENSE-CONTENT.md" --include "CODE_OF_CONDUCT.md"
           python tools/build_guide.py --root "$project" --assembly TopicReferenceTest.qmd --output "$project/output/guide/index.html" --version test
+
+      - name: Create and check a private Topic Reference from the skeleton
+        run: |
+          project="$RUNNER_TEMP/private-topic-reference-test"
+          python tools/new_topic_reference.py "$project" --no-git --visibility private --owner example-org --title "Private Test Topic" --topic 8 --topic-name "Private Test Topic" --with presentation
+          python tools/build_core_markdown.py --root "$project" --assembly PrivateTopicReferenceTest.qmd --check
+          python tools/check_content.py --root "$project" --include "INTERNAL-USE.md"
+          python tools/build_guide.py --root "$project" --assembly PrivateTopicReferenceTest.qmd --output "$project/output/guide/index.html" --version test
+          if [ -e "$project/.github/workflows/publish-guide.yml" ]; then echo "Private project has a publishing workflow."; exit 1; fi
 
       - name: Build example PowerPoint deck
         run: |
@@ -62,6 +71,8 @@ jobs:
           if [ -s "$RUNNER_TEMP/patterns.log" ]; then cat "$RUNNER_TEMP/patterns.log"; exit 1; fi
           project="$RUNNER_TEMP/topic-reference-test"
           python tools/build_rapid_presentation.py --template "templates/powerpoint/AIRA Rapid Presentation Template.pptx" --source "$project/products/presentation/slides.json" --root "$project" --output "$RUNNER_TEMP/starter-deck.pptx"
+          project="$RUNNER_TEMP/private-topic-reference-test"
+          python tools/build_rapid_presentation.py --template "templates/powerpoint/AIRA Rapid Presentation Template.pptx" --source "$project/products/presentation/slides.json" --root "$project" --output "$RUNNER_TEMP/private-starter-deck.pptx"
 
       - name: Check this repository's Markdown links
         run: python tools/check_content.py --include "guidance/*.md" --include "templates/*/*.md"
