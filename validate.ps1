@@ -20,7 +20,7 @@ if ($LASTEXITCODE -ne 0) {
 
 & $python.Source -m unittest discover -s (Join-Path $PSScriptRoot 'tests') -p 'test_*.py'
 if ($LASTEXITCODE -ne 0) {
-    throw "Mock comments API contract tests failed."
+    throw "Unit tests failed."
 }
 
 & $python.Source (Join-Path $tools 'build_core_markdown.py') --root $fixture --assembly Example.qmd --check
@@ -124,7 +124,7 @@ $topicReference = Join-Path $PSScriptRoot 'output/topic-reference-test'
 if (Test-Path $topicReference) {
     Remove-Item -Recurse -Force $topicReference
 }
-& $python.Source (Join-Path $tools 'new_topic_reference.py') $topicReference --no-git `
+& $python.Source (Join-Path $tools 'new_topic_reference.py') $topicReference --no-git --visibility public `
     --title 'Test Topic' --topic 7 --topic-name 'Test Topic' --with presentation
 if ($LASTEXITCODE -ne 0) {
     throw "Creating a Topic Reference from the skeleton failed."
@@ -141,6 +141,32 @@ if ($LASTEXITCODE -ne 0) {
     --output (Join-Path $topicReference 'output/guide/index.html') --version test
 if ($LASTEXITCODE -ne 0) {
     throw "The new Topic Reference's guide build failed."
+}
+
+$privateReference = Join-Path $PSScriptRoot 'output/private-topic-reference-test'
+if (Test-Path $privateReference) {
+    Remove-Item -Recurse -Force $privateReference
+}
+& $python.Source (Join-Path $tools 'new_topic_reference.py') $privateReference --no-git --visibility private `
+    --owner example-org --title 'Private Test Topic' --topic 8 --topic-name 'Private Test Topic'
+if ($LASTEXITCODE -ne 0) {
+    throw "Creating a private Topic Reference from the skeleton failed."
+}
+& $python.Source (Join-Path $tools 'build_core_markdown.py') --root $privateReference --assembly PrivateTopicReferenceTest.qmd --check
+if ($LASTEXITCODE -ne 0) {
+    throw "The private Topic Reference's reading copy is out of date."
+}
+& $python.Source (Join-Path $tools 'check_content.py') --root $privateReference --include 'INTERNAL-USE.md'
+if ($LASTEXITCODE -ne 0) {
+    throw "The private Topic Reference's content checks failed."
+}
+& $python.Source (Join-Path $tools 'build_guide.py') --root $privateReference --assembly PrivateTopicReferenceTest.qmd `
+    --output (Join-Path $privateReference 'output/guide/index.html') --version test
+if ($LASTEXITCODE -ne 0) {
+    throw "The private Topic Reference's guide build failed."
+}
+if (Test-Path (Join-Path $privateReference '.github/workflows/publish-guide.yml')) {
+    throw "The private Topic Reference has a publishing workflow."
 }
 
 & $python.Source -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('pptx') else 1)"

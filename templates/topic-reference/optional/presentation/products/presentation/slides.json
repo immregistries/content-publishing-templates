@@ -5,7 +5,7 @@
     {
       "layout": "Rapid - Title - Green Light",
       "title": "{{TITLE}}",
-      "subtitle": "Topic Reference for community discussion",
+      "subtitle": "{{DECK_SUBTITLE}}",
       "content": [],
       "speaker_notes": "State the release and its status. Replace these starter slides with the review deck described in brief.yml.",
       "sources": ["content/00-status-and-scope.md"]
@@ -26,7 +26,7 @@
       "eyebrow": "Your review",
       "message": "Comment on the ideas; the authors will write the language.",
       "items": [
-        {"lead": "On the page.", "text": "Comment beside any passage of the published Topic Reference."},
+        {"lead": "On the page.", "text": "Comment beside any passage of the {{DECK_REFERENCE}}."},
         {"lead": "In GitHub.", "text": "Open an issue for anything larger."},
         {"lead": "In meetings.", "text": "Raise it on the topic's calls."}
       ],
@@ -37,7 +37,7 @@
       "pattern": "closing",
       "title": "Questions and discussion",
       "subtitle": "{{TITLE}}",
-      "speaker_notes": "Point people to the published Topic Reference and the InteropHub topic.",
+      "speaker_notes": "Point people to the {{DECK_REFERENCE}} and the InteropHub topic.",
       "sources": ["content/00-status-and-scope.md"]
     }
   ]

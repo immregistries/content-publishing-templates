@@ -1,0 +1,2 @@
+> **Status:** Working draft for community discussion. This is not a published
+> standard, an HL7 ballot, or a final decision.

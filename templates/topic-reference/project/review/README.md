@@ -1,6 +1,6 @@
 # Review Inputs
 
-Feedback arrives as GitHub issues, comments on the published Topic Reference,
+Feedback arrives as GitHub issues, {{GUIDE_COMMENTS}},
 meeting discussion, and comments on generated Word or HTML documents. None of
 it changes the Topic Reference until it is adjudicated into `content/`.
 

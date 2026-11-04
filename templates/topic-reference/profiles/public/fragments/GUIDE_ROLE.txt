@@ -1,0 +1,5 @@
+- The published Topic Reference is the web guide, `output/guide/index.html`,
+  built by `process/tools/build_guide.py` with the shared AIRA Web template and
+  published to {{PAGES_URL}}latest/ by `.github/workflows/publish-guide.yml`.
+  Do not write a separate HTML page, stylesheet, or site generator.
+  `output/{{ASSEMBLY}}.html` is Quarto's review copy, not the published page.

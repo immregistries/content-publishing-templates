@@ -5,15 +5,11 @@ Where sources disagree, the disagreement is recorded as an open question in
 [the working decisions appendix](../content/90-working-decisions.md) rather than
 resolved silently.
 
-Source documents are not copied into this repository. Content drawn from them
-is rewritten, reviewed, and placed in `content/`. Nothing private is committed;
-`sources/private/` is ignored by Git as a safeguard.
-
-## Public sources
+{{SOURCES_RULE}}
 
 | Source | Date | Use |
 |---|---|---|
-| [InteropHub topic {{TOPIC}}: {{TOPIC_NAME}}]({{TOPIC_URL}}) | Current | Community coordination, meetings, and discussion notes |
+| [InteropHub topic {{TOPIC}}: {{TOPIC_NAME}}]({{TOPIC_URL}}) | Current | {{TOPIC_SOURCE_USE}} |
 
 ## Working documents
 

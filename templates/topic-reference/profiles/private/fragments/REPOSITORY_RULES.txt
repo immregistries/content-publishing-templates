@@ -1,0 +1,18 @@
+## Private repository
+
+- This repository is private and for AIRA internal use only; see
+  `INTERNAL-USE.md`. Its InteropHub topic is private, and the Topic Reference
+  is shared only with people who may see that topic.
+- Do not publish it. Do not enable GitHub Pages, add a publishing workflow,
+  register a published address in InteropHub, make the repository public, or
+  share built copies outside AIRA without explicit approval from the
+  maintainers. GitHub Pages sites built from private repositories can be
+  publicly readable.
+- Internal plans, funding strategy, partner information, private URLs, and
+  unpublished material may be recorded here, but never copy them to public
+  places: the shared templates under `process/`, public repositories, public
+  InteropHub topics, or issues and pull requests in public projects.
+- Do not commit credentials, personal health information, contact lists,
+  email, meeting recordings, or personal metadata in Office files.
+- Source material in private working folders is not copied here. List it in
+  `sources/README.md` and write reviewed prose in `content/`.

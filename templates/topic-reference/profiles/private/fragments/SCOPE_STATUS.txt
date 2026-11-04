@@ -1,0 +1,5 @@
+> **Status:** Internal working draft for discussion within AIRA. Nothing in
+> this document is a published standard, an HL7 ballot, or a final decision,
+> and it is not approved for use outside AIRA. Working decisions are recorded
+> so participants can see, question, and improve them, and any of them may
+> change.

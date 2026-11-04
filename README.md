@@ -5,7 +5,7 @@ whose authoritative source is Markdown, built into a complete core document and
 reused in derived products such as presentations and web pages.
 
 This repository is the public counterpart of AIRA's internal content publishing
-process. It holds only what public projects need to build, and it may evolve
+process. It holds only what content projects need to build, and it may evolve
 independently of the internal version.
 
 > **Status:** Early and evolving. The templates currently carry AIRA branding.
@@ -34,8 +34,12 @@ Most projects are Topic References: the current, versioned statement of where
 an InteropHub topic stands. Create one with the skeleton rather than by hand:
 
 ```powershell
-python tools/new_topic_reference.py ..\my-topic --title "My Topic" --topic 42 --topic-name "My Topic"
+python tools/new_topic_reference.py ..\my-topic --visibility public --title "My Topic" --topic 42 --topic-name "My Topic"
 ```
+
+`--visibility` must match the InteropHub topic. A private Topic Reference also
+needs `--owner`; it is built but not published, and carries an internal-use
+notice instead of open licenses.
 
 See [Topic References](guidance/TopicReference.md) for what one contains and
 the steps after the project is created.

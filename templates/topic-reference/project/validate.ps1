@@ -11,7 +11,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "Generated core Markdown is out of date."
 }
 
-& $python.Source .\process\tools\check_content.py --include "LICENSE-CONTENT.md" --include "CODE_OF_CONDUCT.md"
+& $python.Source .\process\tools\check_content.py {{CONTENT_INCLUDES}}
 if ($LASTEXITCODE -ne 0) {
     throw "Content checks failed."
 }

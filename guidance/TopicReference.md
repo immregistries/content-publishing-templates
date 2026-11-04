@@ -8,6 +8,12 @@ to in discussions and meetings, and that other tools can use.
 It is the most common kind of content project built with these templates. The
 same process and tools can be used for other kinds of documents.
 
+A Topic Reference's visibility follows its topic's. A public topic's Topic
+Reference is developed and published openly; a private topic's is kept in a
+private repository and shared only with people who may see the topic. Both use
+the same source, build, validation, release, review, and product model. See
+[Visibility](#visibility).
+
 ## What a Topic Reference is not
 
 - **Not a standard or a final decision by default.** Each release states its own
@@ -26,9 +32,10 @@ same process and tools can be used for other kinds of documents.
 
 - A topic has at most one Topic Reference, and a Topic Reference belongs to one
   topic. Related topics are linked, not merged.
-- The InteropHub topic links to the Topic Reference beside its other links. The
-  link always points to the latest release, `https://<owner>.github.io/<id>/latest/`.
-- The published page links back to the topic ("Return to InteropHub").
+- The InteropHub topic of a public Topic Reference links to it beside its other
+  links. The link always points to the latest release,
+  `https://<owner>.github.io/<id>/latest/`.
+- The web guide links back to the topic ("Return to InteropHub").
 
 ## Reviewing comments in the guide
 
@@ -54,9 +61,10 @@ whose bounded purpose is one InteropHub topic:
 
 - The Markdown in `content/` is the canonical source, and it builds the
   complete core document.
-- The published Topic Reference is that core document built as a
-  [web guide](../templates/guide/README.md) and published with GitHub Pages.
-  The web guide is the format; the Topic Reference is what it publishes.
+- The Topic Reference is that core document built as a
+  [web guide](../templates/guide/README.md). A public one is published with
+  GitHub Pages; a private one is built locally. The web guide is the format;
+  the Topic Reference is what it presents.
 - `CoreDocument.md` is the single-file reading copy on GitHub. Word and Quarto
   HTML builds are review copies.
 - Presentations, Confluence pages, and other copies are derived products, each
@@ -74,7 +82,7 @@ whose bounded purpose is one InteropHub topic:
 - **Working decisions and open questions** (`content/90-working-decisions.md`):
   each decision with an ID and its basis; each open question with the sources
   in tension and its status.
-- **Status and version on the published page**, and a return link to the topic.
+- **Status and version on the web guide**, and a return link to the topic.
 - **A way to comment**, on the page itself, through GitHub issues, and in
   meetings, with every comment treated as a review input until it is
   adjudicated into `content/`.
@@ -90,11 +98,36 @@ chapters, including the appendix. See
 [Conventions](Conventions.md#state-each-fact-once). Presentations and other
 derived products may repeat and expand.
 
+## Visibility
+
+A project's visibility is chosen when it is created and must match its
+InteropHub topic. Linking a private topic to a publicly readable page, or a
+public topic to a private one, is a setup mistake.
+
+| | Public | Private |
+|---|---|---|
+| Repository | Public | Private |
+| Web guide | Published with GitHub Pages at `/main/`, each release, and `/latest/` | Built locally from `build.ps1`; not published |
+| Comments | Local mode, or signed-in comments through InteropHub | Local mode |
+| Linked from the InteropHub topic | Yes, through the topic's Topic Reference registration | Not yet |
+| Licenses | CC BY 4.0 for content and Apache 2.0 for code | None; `INTERNAL-USE.md` restricts use to the organization |
+| Contribution files | `CONTRIBUTING.md` for an open community, and a code of conduct | `CONTRIBUTING.md` for internal participants |
+| `AGENTS.md` | Public-repository rules | Private-repository rules |
+
+Everything else, including the content structure, build, validation, release
+tags, review records, and products, is the same.
+
+A private Topic Reference is not published, because GitHub Pages sites built
+from private repositories can be publicly readable unless the hosting plan
+restricts access. Publishing one to an access-controlled location, and
+registering it with InteropHub, is not yet supported.
+
 ## Releases and status
 
-- A release is a Git tag such as `v0.1.0`. Pushing the tag publishes the page at
-  that version, `/v0.1.0/`, and at `/latest/`. Pushing to `main` publishes a
-  preview at `/main/`.
+- A release is a Git tag such as `v0.1.0`. In a public project, pushing the tag
+  publishes the page at that version, `/v0.1.0/`, and at `/latest/`, and
+  pushing to `main` publishes a preview at `/main/`. A private project's
+  releases are tags only.
 - The status shown on the page comes from `status` in `guide.json`, such as
   `Draft`. Change it only when the maintainers decide a release has a different
   status.
@@ -122,11 +155,13 @@ See [Review anchors](Conventions.md#review-anchors) for naming and placement.
 1. Create the project with the skeleton. Do not assemble one by hand:
 
    ```powershell
-   python tools/new_topic_reference.py ..\<id> --title "<Title>" `
+   python tools/new_topic_reference.py ..\<id> --visibility public --title "<Title>" `
        --topic <number> --topic-name "<InteropHub topic name>" --assembly <AssemblyName>
    ```
 
-   The directory name becomes the project ID and the repository name. Add
+   `--visibility` is `public` or `private` and must match the topic. A private
+   project also needs `--owner`, the owner of its private repository. The
+   directory name becomes the project ID and the repository name. Add
    `--with presentation` for a review deck. The script fills in the names,
    generates `CoreDocument.md`, and adds these templates as `process/` at the
    latest release tag. It does not commit or push.
@@ -136,14 +171,18 @@ See [Review anchors](Conventions.md#review-anchors) for naming and placement.
 3. Run `build.ps1` and open `output/guide/index.html`. That page, not
    `output/<AssemblyName>.html`, is the Topic Reference.
 4. Run `validate.ps1`.
-5. Create the public GitHub repository, push, and set GitHub Pages to publish
-   from the `gh-pages` branch.
-6. Tag the first release, then link the release's `/latest/` address from the
-   InteropHub topic.
+5. For a public project, create the public GitHub repository, push, and set
+   GitHub Pages to publish from the `gh-pages` branch. Tag the first release,
+   then link the release's `/latest/` address from the InteropHub topic.
+6. For a private project, create the private GitHub repository and push. Do
+   not enable GitHub Pages. Tag releases as usual.
 
 ## Keeping projects in line
 
-Every Topic Reference uses the same build, validation, and publishing files.
-When the skeleton changes, existing projects adopt the change deliberately:
-move the `process/` pointer, compare the project's shared files with
-`templates/topic-reference/project/`, rebuild, review, and commit.
+Every Topic Reference uses the same build and validation files, and every
+Topic Reference with the same visibility uses the same publishing and
+contribution files. When the skeleton changes, existing projects adopt the
+change deliberately: move the `process/` pointer, compare the project's shared
+files with `templates/topic-reference/project/` and
+`templates/topic-reference/profiles/<visibility>/`, rebuild, review, and
+commit.

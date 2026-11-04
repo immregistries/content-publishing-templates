@@ -1,0 +1,5 @@
+Source documents are not copied into this repository. Content drawn from them
+is rewritten, reviewed, and placed in `content/`. `sources/private/` is ignored
+by Git as a safeguard.
+
+## Referenced sources

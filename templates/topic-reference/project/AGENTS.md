@@ -6,21 +6,9 @@
   [{{TOPIC_NAME}}]({{TOPIC_URL}}): the current, versioned statement of the
   topic's definitions, principles, diagrams, working decisions, and open
   questions. See `process/guidance/TopicReference.md`.
-- The published Topic Reference is the web guide, `output/guide/index.html`,
-  built by `process/tools/build_guide.py` with the shared AIRA Web template and
-  published to {{PAGES_URL}}latest/ by `.github/workflows/publish-guide.yml`.
-  Do not write a separate HTML page, stylesheet, or site generator.
-  `output/{{ASSEMBLY}}.html` is Quarto's review copy, not the published page.
+{{GUIDE_ROLE}}
 
-## Public repository
-
-- This repository is public. Everything committed here may be read, copied,
-  and indexed by anyone.
-- Do not commit private material: internal plans, funding or partner
-  proposals, contact information, email, meeting recordings, unpublished
-  partner data, credentials, or personal metadata in Office files.
-- Source material in private working folders is not copied here. Draw on it by
-  writing reviewed, public-safe prose in `content/`.
+{{REPOSITORY_RULES}}
 
 ## Authority
 

@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.12.0
+
+- Topic References can be public or private. "Topic Reference" names both; a
+  project's visibility follows its InteropHub topic. See
+  [Visibility](guidance/TopicReference.md#visibility).
+- `tools/new_topic_reference.py` requires `--visibility public|private`. A
+  private project also requires `--owner`. Existing commands must add
+  `--visibility public`; the public output is unchanged.
+- A private project has no GitHub Pages workflow, no open licenses, and no code
+  of conduct. It carries `INTERNAL-USE.md`, an internal contribution guide,
+  private-repository rules in `AGENTS.md`, a web-guide brief for a guide that
+  is built but not published, and an internal-use notice in the guide footer.
+  Its comments use local mode.
+- The skeleton's public-only files moved from
+  `templates/topic-reference/project/` to `templates/topic-reference/profiles/public/`.
+  Text that differs inside shared files comes from each profile's `fragments/`.
+- `tests/test_new_topic_reference.py` and `validate.ps1` create, check, and
+  build both kinds of project, and check that a private project contains no
+  publishing workflow, open license, or public address.
+
 ## v0.11.0
 
 - New Topic References no longer include a "How this document is maintained"

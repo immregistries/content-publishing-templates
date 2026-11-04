@@ -28,3 +28,5 @@ desktop.ini
 *.pem
 *.key
 private/
+# The private Topic Reference profile is generic template text, not private material.
+!templates/topic-reference/profiles/private/

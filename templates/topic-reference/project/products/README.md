@@ -7,4 +7,4 @@ product go back into `content/` first.
 
 | Product | Purpose |
 |---|---|
-| [web-guide/](web-guide/brief.yml) | The published Topic Reference on GitHub Pages, with on-page comments |
+| [web-guide/](web-guide/brief.yml) | {{WEB_GUIDE_PURPOSE}} |

@@ -1,7 +1,6 @@
 # {{TITLE}}
 
-> **Status:** Working draft for community discussion. This is not a published
-> standard, an HL7 ballot, or a final decision.
+{{STATUS_NOTICE}}
 
 <!-- CONFIRM: In one or two paragraphs, say what this topic is and why it
 matters. -->
@@ -13,9 +12,7 @@ decisions, and open questions.
 
 ## Start here
 
-1. Read the [Topic Reference]({{PAGES_URL}}latest/), where you can also leave
-   comments, or the [GitHub reading copy](CoreDocument.md), or browse the
-   [canonical source sections](content/README.md).
+{{README_READ}}
 2. See the [working decisions and open questions](content/90-working-decisions.md).
 3. Read [how to contribute](CONTRIBUTING.md).
 
@@ -24,9 +21,7 @@ decisions, and open questions.
 <!-- CONFIRM: State what this project covers and what belongs to related
 topics or projects. -->
 
-## Community coordination
-
-The community works on this topic through InteropHub:
+{{README_COORDINATION}}
 [{{TOPIC_NAME}}, topic {{TOPIC}}]({{TOPIC_URL}}). Meetings, agendas, and
 discussion notes are tracked there.
 
@@ -51,9 +46,7 @@ Validate source and generated files:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\validate.ps1
 ```
 
-Pushing to `main` publishes the guide at {{PAGES_URL}}main/. Pushing a release
-tag such as `v0.1.0` publishes it at that version and at
-{{PAGES_URL}}latest/.
+{{README_PUBLISHING}}
 
 ## Repository structure
 

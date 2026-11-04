@@ -31,4 +31,4 @@ if ($LASTEXITCODE -ne 0) {
     throw "Building the web guide failed with exit code $LASTEXITCODE."
 }
 
-Write-Host "Built core document and web guide in output/. The published page is output/guide/index.html."
+Write-Host "Built core document and web guide in output/. {{BUILD_MESSAGE}}"

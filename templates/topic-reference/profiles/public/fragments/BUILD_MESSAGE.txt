@@ -1,0 +1,1 @@
+The published page is output/guide/index.html.

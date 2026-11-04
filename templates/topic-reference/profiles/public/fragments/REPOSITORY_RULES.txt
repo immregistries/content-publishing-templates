@@ -1,0 +1,9 @@
+## Public repository
+
+- This repository is public. Everything committed here may be read, copied,
+  and indexed by anyone.
+- Do not commit private material: internal plans, funding or partner
+  proposals, contact information, email, meeting recordings, unpublished
+  partner data, credentials, or personal metadata in Office files.
+- Source material in private working folders is not copied here. Draw on it by
+  writing reviewed, public-safe prose in `content/`.

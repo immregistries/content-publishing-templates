@@ -27,4 +27,4 @@ jobs:
         run: python process/tools/build_core_markdown.py --assembly {{ASSEMBLY}}.qmd --check
 
       - name: Check links and placeholders
-        run: python process/tools/check_content.py --include "LICENSE-CONTENT.md" --include "CODE_OF_CONDUCT.md"
+        run: python process/tools/check_content.py {{CONTENT_INCLUDES}}
