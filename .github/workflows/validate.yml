@@ -32,11 +32,13 @@ jobs:
           python -m py_compile tools/infographic.py tools/headless_browser.py
           python -m py_compile tools/build_infographic.py tools/insert_word_infographic.py
 
+      # The unit tests build guides with pandoc and check the infographic's
+      # wrapping in Chrome, which needs a CJK font for its wide-text test.
+      - name: Install pandoc and a CJK font
+        run: sudo apt-get update && sudo apt-get install -y pandoc fonts-wqy-zenhei
+
       - name: Run unit tests
         run: python -m unittest discover -s tests -p "test_*.py"
-
-      - name: Install pandoc
-        run: sudo apt-get update && sudo apt-get install -y pandoc
 
       - name: Verify fixture reading copy
         run: python tools/build_core_markdown.py --root tests/fixture-project --assembly Example.qmd --check

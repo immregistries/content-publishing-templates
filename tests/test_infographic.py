@@ -15,6 +15,20 @@ sys.path.insert(0, str(ROOT / "tools"))
 import infographic  # noqa: E402
 from headless_browser import find_browser  # noqa: E402
 
+
+def has_cjk_font() -> bool:
+    """Whether the browser can draw Chinese text at its full width.
+
+    Windows and macOS include a CJK font. A Linux system may not, and without
+    one the browser draws the characters narrower than the estimate.
+    """
+    if not sys.platform.startswith("linux"):
+        return True
+    if not shutil.which("fc-list"):
+        return False
+    listing = subprocess.run(["fc-list", ":lang=zh"], capture_output=True, text=True)
+    return bool(listing.stdout.strip())
+
 CONTENT = """# Overview
 
 ## Purpose
@@ -370,6 +384,7 @@ topic_link: false
             self.assertEqual(png, archive.read("word/media/primary-infographic.png"))
 
     @unittest.skipUnless(find_browser(), "Chrome or Edge is not installed")
+    @unittest.skipUnless(has_cjk_font(), "No CJK font is installed")
     def test_browser_reports_overflow_the_estimate_misses(self):
         spec_path = self.root / "content" / "infographic.yml"
         # Characters outside the metrics table are estimated; wide CJK text renders wider.
