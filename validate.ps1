@@ -13,7 +13,11 @@ $tools = Join-Path $PSScriptRoot 'tools'
     (Join-Path $tools 'new_topic_reference.py') `
     (Join-Path $tools 'check_products.py') `
     (Join-Path $tools 'build_rapid_presentation.py') `
-    (Join-Path $tools 'rapid_patterns.py')
+    (Join-Path $tools 'rapid_patterns.py') `
+    (Join-Path $tools 'infographic.py') `
+    (Join-Path $tools 'headless_browser.py') `
+    (Join-Path $tools 'build_infographic.py') `
+    (Join-Path $tools 'insert_word_infographic.py')
 if ($LASTEXITCODE -ne 0) {
     throw "Python validation failed."
 }
@@ -142,6 +146,22 @@ if ($LASTEXITCODE -ne 0) {
 if ($LASTEXITCODE -ne 0) {
     throw "The new Topic Reference's guide build failed."
 }
+if ((Get-Content -LiteralPath (Join-Path $topicReference 'output/guide/index.html') -Raw) -notmatch '<figure class="guide-infographic"') {
+    throw "The new Topic Reference's guide is missing its primary infographic."
+}
+if ($browserPath) {
+    & $python.Source (Join-Path $tools 'build_infographic.py') --root $topicReference --version test --browser $browserPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "The new Topic Reference's primary infographic failed to build."
+    }
+    foreach ($suffix in 'svg', 'png', 'pdf') {
+        if (-not (Test-Path -LiteralPath (Join-Path $topicReference "output/infographic.$suffix"))) {
+            throw "The new Topic Reference's primary infographic has no $suffix output."
+        }
+    }
+} else {
+    Write-Host "Chrome or Edge not installed; skipping the primary infographic export."
+}
 
 $privateReference = Join-Path $PSScriptRoot 'output/private-topic-reference-test'
 if (Test-Path $privateReference) {
@@ -164,6 +184,10 @@ if ($LASTEXITCODE -ne 0) {
     --output (Join-Path $privateReference 'output/guide/index.html') --version test
 if ($LASTEXITCODE -ne 0) {
     throw "The private Topic Reference's guide build failed."
+}
+$privateGuide = Get-Content -LiteralPath (Join-Path $privateReference 'output/guide/index.html') -Raw
+if ($privateGuide -notmatch '<figure class="guide-infographic"' -or $privateGuide -notmatch 'AIRA internal use only') {
+    throw "The private Topic Reference's guide is missing its primary infographic or its internal-use notice."
 }
 if (Test-Path (Join-Path $privateReference '.github/workflows/publish-guide.yml')) {
     throw "The private Topic Reference has a publishing workflow."

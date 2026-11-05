@@ -1,5 +1,43 @@
 # Changelog
 
+## Unreleased
+
+- Every Topic Reference has a primary infographic, the topic at a glance. Its
+  specification is `content/infographic.yml`: the topic name, a one-sentence
+  purpose, three to six key ideas with their relationships, and short alt text,
+  each part naming the heading in `content/` it summarizes. The status, version,
+  build date, InteropHub topic, and the guide footer's notice are drawn on the
+  image. See [Primary infographic](guidance/TopicReference.md#primary-infographic).
+- New tools: `tools/infographic.py` (specification reader, checks, layout, and
+  SVG drawing, standard library only), `tools/build_infographic.py` (SVG, PNG,
+  and PDF, checked and exported with an installed Chrome or Edge run headless),
+  `tools/insert_word_infographic.py` (places the PNG in the built Word document),
+  and `tools/headless_browser.py`.
+- `build_guide.py` draws the infographic above the first section when
+  `content/infographic.yml` exists, each part linking to its section. It needs
+  no browser, so publishing workflows are unchanged.
+- `check_content.py` checks the specification: missing fields, unresolved
+  references, missing artwork, and text that does not fit fail; starter
+  `CONFIRM` text is reported. A Topic Reference (`"documentType": "Topic
+  Reference"` in `guide.json`) without `content/infographic.yml` now fails.
+- The skeleton creates a starter `content/infographic.yml` and
+  `products/infographic/brief.yml` for public and private projects; a private
+  project's draws the topic number without its address. The skeleton's
+  `build.ps1` builds the infographic before `quarto render` and places it in
+  the Word document after.
+- "Sanctioned summaries" in the conventions records the infographic as a
+  deliberate exception to stating each fact once.
+
+To adopt this in an existing Topic Reference: move `process/` to this version;
+copy `content/infographic.yml` and `products/infographic/brief.yml` from the
+skeleton (`templates/topic-reference/project/content/` and
+`templates/topic-reference/profiles/<visibility>/products/`), replacing the
+`{{...}}` values (`topic_link: false` for a private project); add the two steps
+from the skeleton's `build.ps1`; list the files in `content/README.md` and
+`products/README.md`; write the specification from the existing sections; and
+run `build.ps1` and `validate.ps1`. Chrome or Edge must be installed where
+`build.ps1` runs.
+
 ## v0.12.1
 
 - The web guide no longer stalls wheel scrolling at section boundaries. When

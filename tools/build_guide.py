@@ -13,6 +13,12 @@ The project's guide.json supplies the status, the InteropHub topic, the
 repository URL, an optional document type such as "Topic Reference", and
 optional short labels for the section bar. Pandoc is
 required; Quarto's bundled copy is used when pandoc is not on the PATH.
+
+When content/infographic.yml exists, the primary infographic is drawn from it
+with the guide's version and placed above the first section, each part linking
+to the section it summarizes. It is drawn here rather than copied from
+output/, so the guide builds without a browser; build_infographic.py draws the
+same figure for the PNG, PDF, and Word document.
 """
 
 from __future__ import annotations
@@ -37,6 +43,7 @@ from build_core_markdown import (  # noqa: E402
     front_matter_value,
     include_paths,
 )
+import infographic  # noqa: E402
 
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates" / "guide"
@@ -115,7 +122,32 @@ def arguments() -> argparse.Namespace:
         default=None,
         help="Git ref for links to repository files. Defaults to the version, or main.",
     )
+    parser.add_argument(
+        "--infographic",
+        default=infographic.SPEC_PATH,
+        help="Primary infographic specification, drawn above the first section when it exists.",
+    )
     return parser.parse_args()
+
+
+INFOGRAPHIC_ID = "guide-infographic"
+
+
+def infographic_figure(root: Path, spec: str, config: dict, version: str) -> str:
+    """The primary infographic as an inline figure, or "" when the project has none."""
+    if not (root / spec).is_file():
+        return ""
+    svg, report = infographic.build(root, config, version, date.today().isoformat(), spec,
+                                    links=True, id_prefix=INFOGRAPHIC_ID)
+    for warning in report.warnings:
+        print(f"Warning: {warning}")
+    if svg is None:
+        raise RuntimeError("The primary infographic cannot be drawn:\n  " + "\n  ".join(report.errors))
+    return (
+        f'<figure class="guide-infographic" id="{INFOGRAPHIC_ID}">\n{svg}'
+        '<figcaption class="aira-meta">At a glance. The sections below state in full everything '
+        "this figure summarizes; select a part of it to go to its section.</figcaption>\n</figure>\n"
+    )
 
 
 def pandoc_command() -> list[str]:
@@ -307,6 +339,7 @@ def page(
     version: str,
     nav: str,
     body: str,
+    figure: str = "",
 ) -> str:
     status = config.get("status", "Draft")
     status_class = STATUS_TAGS.get(status.lower(), "aira-tag--info")
@@ -402,7 +435,7 @@ def page(
       <div class="aira-right-rail-layout guide-layout">
         <article class="aira-prose guide-content" id="guide-content">
 <div id="{DOCUMENT_START_ANCHOR}" class="guide-anchor" data-guide-anchor="{DOCUMENT_START_ANCHOR}"></div>
-{body}
+{figure}{body}
         </article>
         <aside class="aira-right-rail guide-rail" aria-label="Page tools">
           <section class="aira-sidebar-section">
@@ -454,6 +487,8 @@ def duplicate_ids(document: str) -> list[str]:
 
 
 def main() -> int:
+    # Labels may hold characters the console encoding lacks; never fail on printing them.
+    sys.stdout.reconfigure(errors="backslashreplace")
     args = arguments()
     root = Path(args.root).resolve()
     assembly = root / args.assembly
@@ -483,7 +518,8 @@ def main() -> int:
 
     output = root / args.output
     output.parent.mkdir(parents=True, exist_ok=True)
-    document = page(title, subtitle, config, version, nav, body)
+    figure = infographic_figure(root, args.infographic, config, version)
+    document = page(title, subtitle, config, version, nav, body, figure)
     duplicates = duplicate_ids(document)
     if duplicates:
         names = ", ".join(repr(name) for name in duplicates)

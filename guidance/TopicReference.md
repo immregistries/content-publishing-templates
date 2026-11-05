@@ -67,6 +67,9 @@ whose bounded purpose is one InteropHub topic:
   the Topic Reference is what it presents.
 - `CoreDocument.md` is the single-file reading copy on GitHub. Word and Quarto
   HTML builds are review copies.
+- The [primary infographic](#primary-infographic), the topic at a glance, is
+  built with the core document from `content/infographic.yml` and appears in
+  the web guide and the Word document.
 - Presentations, Confluence pages, and other copies are derived products, each
   with a brief and a manifest.
 
@@ -82,6 +85,9 @@ whose bounded purpose is one InteropHub topic:
 - **Working decisions and open questions** (`content/90-working-decisions.md`):
   each decision with an ID and its basis; each open question with the sources
   in tension and its status.
+- **A primary infographic** (`content/infographic.yml`): the topic at a glance,
+  each part referring to the section it summarizes. See
+  [Primary infographic](#primary-infographic).
 - **Status and version on the web guide**, and a return link to the topic.
 - **A way to comment**, on the page itself, through GitHub issues, and in
   meetings, with every comment treated as a review input until it is
@@ -97,6 +103,70 @@ linked from elsewhere, and the document has no more than about six top-level
 chapters, including the appendix. See
 [Conventions](Conventions.md#state-each-fact-once). Presentations and other
 derived products may repeat and expand.
+
+## Primary infographic
+
+Every Topic Reference has one infographic that lays out the topic at a glance.
+It is a primary output, like the web guide and the Word document: `build.ps1`
+draws it on every build, the guide shows it above the first section, and the
+Word document shows it before the first chapter. A copy of the image shared on
+its own still says what it is.
+
+### Anatomy
+
+Every primary infographic has the same parts, so readers know where to look:
+
+- the topic name, and its purpose in one sentence;
+- three to six key ideas, with the relationships between them;
+- the status (from `guide.json`), the version, and the build date;
+- the InteropHub topic number, with its address for a public topic; and
+- the notice from the guide footer, which for a private project is the
+  internal-use notice.
+
+`arrangement` places the key ideas as a `sequence`, a `cycle`, or a `set`
+without changing the anatomy. Other layouts are for additional infographics,
+which are derived products.
+
+### The specification
+
+`content/infographic.yml` is canonical source. It is reviewed and adjudicated
+like the Markdown in `content/`, and the rendered files in `output/` are
+generated. Its fields are listed in
+[`tools/infographic.py`](../tools/infographic.py). The skeleton creates a
+starter specification and a brief in `products/infographic/brief.yml`.
+
+The infographic is a [sanctioned summary](Conventions.md#sanctioned-summaries):
+its labels condense the core and add nothing to it.
+
+- The purpose, each key idea, and each relationship has a `ref`: the heading ID
+  or anchor in `content/` that it summarizes. In the guide, each part links to
+  that section.
+- It adds no claim, number, commitment, or change in certainty that the
+  referenced sections do not state.
+- When a referenced section changes, check the labels that refer to it.
+
+The guide and the Word document state everything the image summarizes, so they
+are its long text alternative; the specification's `alt` is the short one.
+
+Generated artwork is not used by default, so every Topic Reference builds
+without credentials and sends nothing to an image service. A project may add a
+selected image as `artwork`, drawn behind the content. Artwork never carries
+essential text.
+
+### Building and checking
+
+`build.ps1` runs `build_infographic.py` before `quarto render`, then
+`insert_word_infographic.py` after it. The outputs are `output/infographic.svg`,
+`.png`, and `.pdf`. Drawing them needs an installed Chrome or Edge, which runs
+headless to measure the rendered text and export the PNG and PDF; set
+`CHROME_PATH` to choose one. The guide draws the same figure without a browser,
+so the publishing workflow needs none.
+
+The content check fails when the specification is missing, a field is missing
+or unknown, a `ref` does not resolve, named artwork is missing, or text does not
+fit its box; the build also fails when the browser finds text that overflows.
+`CONFIRM` text left from the starter specification is reported, not failed, so
+a new Topic Reference builds while it is being written.
 
 ## Visibility
 
@@ -167,8 +237,10 @@ See [Review anchors](Conventions.md#review-anchors) for naming and placement.
    latest release tag. It does not commit or push.
 2. Resolve the `CONFIRM` notes, add the topic sections to `content/`, the
    assembly file, `content/README.md`, and `navLabels` in `guide.json`, and
-   list the sources in `sources/README.md`.
-3. Run `build.ps1` and open `output/guide/index.html`. That page, not
+   list the sources in `sources/README.md`. Replace the starter text in
+   `content/infographic.yml` once the sections it refers to are written.
+3. Run `build.ps1` (it needs Chrome or Edge for the infographic) and open
+   `output/guide/index.html`. That page, not
    `output/<AssemblyName>.html`, is the Topic Reference.
 4. Run `validate.ps1`.
 5. For a public project, create the public GitHub repository, push, and set

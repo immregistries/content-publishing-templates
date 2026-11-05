@@ -9,6 +9,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 TOOL = ROOT / "tools" / "new_topic_reference.py"
+sys.path.insert(0, str(ROOT / "tools"))
+from headless_browser import find_browser  # noqa: E402
 PROFILES = ROOT / "templates" / "topic-reference" / "profiles"
 
 PUBLIC_ONLY = [
@@ -111,6 +113,85 @@ class GenerateTopicReference(unittest.TestCase):
         self.assertEqual(7, guide["interophubTopic"])
         self.assertNotIn("comments", guide)
         self.assertIn("internal use only", guide["license"])
+
+
+
+class PrimaryInfographic(unittest.TestCase):
+    """Both profiles create, check, and build a starter primary infographic."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.base = Path(self.temp.name)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def check(self, visibility: str, *extra: str) -> Path:
+        target = self.base / f"sample-{visibility}"
+        result = create(target, "--visibility", visibility, *extra)
+        self.assertEqual(0, result.returncode, result.stderr)
+        for name in ("content/infographic.yml", "products/infographic/brief.yml"):
+            self.assertTrue((target / name).is_file(), name)
+        self.assertIn("build_infographic.py", (target / "build.ps1").read_text(encoding="utf-8"))
+        self.assertIn("insert_word_infographic.py", (target / "build.ps1").read_text(encoding="utf-8"))
+
+        check = subprocess.run([sys.executable, str(ROOT / "tools" / "check_content.py"), "--root", str(target)],
+                               capture_output=True, text=True)
+        self.assertEqual(0, check.returncode, check.stdout)
+        self.assertIn("content/infographic.yml:", check.stdout)
+        self.assertIn("CONFIRM starter text", check.stdout)
+
+        guide = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "build_guide.py"), "--root", str(target),
+             "--assembly", "SamplePublic.qmd" if visibility == "public" else "SamplePrivate.qmd",
+             "--version", "v0.1.0"], capture_output=True, text=True)
+        self.assertEqual(0, guide.returncode, guide.stdout + guide.stderr)
+        html = (target / "output" / "guide" / "index.html").read_text(encoding="utf-8")
+        self.assertIn('<figure class="guide-infographic" id="guide-infographic">', html)
+        self.assertIn('href="#what-this-project-covers"', html)
+
+        if find_browser():
+            build = subprocess.run(
+                [sys.executable, str(ROOT / "tools" / "build_infographic.py"), "--root", str(target),
+                 "--version", "v0.1.0"], capture_output=True, text=True)
+            self.assertEqual(0, build.returncode, build.stdout + build.stderr)
+            for suffix in ("svg", "png", "pdf"):
+                self.assertTrue((target / "output" / f"infographic.{suffix}").is_file(), suffix)
+        return target
+
+    def test_public_infographic(self):
+        target = self.check("public")
+        svg = (target / "output" / "guide" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("https://informatics.immregistries.org/hub/es/topic/7", svg)
+        self.assertIn("Content licensed CC BY 4.0", svg)
+
+    def test_private_infographic(self):
+        target = self.check("private", "--owner", "example-org")
+        self.assertIn("topic_link: false", (target / "content" / "infographic.yml").read_text(encoding="utf-8"))
+        html = (target / "output" / "guide" / "index.html").read_text(encoding="utf-8")
+        figure = html[html.index('<figure class="guide-infographic"'):html.index("</figure>")]
+        self.assertIn("AIRA internal use only", figure)
+        self.assertNotIn("informatics.immregistries.org/hub/es/topic/7", figure)
+
+    def test_unresolved_reference_fails_the_check(self):
+        target = self.base / "sample-topic"
+        self.assertEqual(0, create(target, "--visibility", "public").returncode)
+        spec = target / "content" / "infographic.yml"
+        spec.write_text(spec.read_text(encoding="utf-8").replace("ref: related-work", "ref: no-such-heading"),
+                        encoding="utf-8")
+        check = subprocess.run([sys.executable, str(ROOT / "tools" / "check_content.py"), "--root", str(target)],
+                               capture_output=True, text=True)
+        self.assertNotEqual(0, check.returncode)
+        self.assertIn("'no-such-heading' does not match", check.stdout)
+
+    def test_missing_specification_fails_the_check(self):
+        target = self.base / "sample-topic"
+        self.assertEqual(0, create(target, "--visibility", "public").returncode)
+        (target / "content" / "infographic.yml").unlink()
+        check = subprocess.run([sys.executable, str(ROOT / "tools" / "check_content.py"), "--root", str(target)],
+                               capture_output=True, text=True)
+        self.assertNotEqual(0, check.returncode)
+        self.assertIn("content/infographic.yml is missing", check.stdout)
 
 
 if __name__ == "__main__":

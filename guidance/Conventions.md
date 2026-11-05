@@ -99,6 +99,20 @@ presentations, training, explanatory pages, and summaries, may repeat, explain,
 and reinforce as their audience needs, and may have as many sections as they
 need.
 
+### Sanctioned summaries
+
+A few summaries are kept in the canonical source on purpose, as recorded
+exceptions to stating each fact once. Each condenses the core without adding to
+it: every part names the section it summarizes, introduces no claim, number,
+commitment, or change in certainty that the section does not state, and is
+checked again when that section changes.
+
+| Summary | Where | How each part names its section |
+|---|---|---|
+| Topic at a glance, the [primary infographic](TopicReference.md#primary-infographic) | `content/infographic.yml` | A `ref` to a heading ID or anchor, checked by `check_content.py` |
+
+Add a summary here before adding it to the source.
+
 ### Keep chapters few
 
 A core document should normally have no more than six top-level chapters,

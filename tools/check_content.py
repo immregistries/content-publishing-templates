@@ -8,15 +8,23 @@ Run from the content project's root:
 Broken internal links, and unresolved template placeholders in content/, fail
 the check. CONFIRM notes and any --report-term uses in content/ are reported for
 human review but do not fail it.
+
+A Topic Reference (guide.json "documentType": "Topic Reference") must have a
+primary infographic specification, content/infographic.yml. When one exists,
+its fields, heading references, artwork, and layout fit are checked; starter
+text left in it is reported but does not fail.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
 from urllib.parse import unquote
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 
 LINK_PATTERN = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+|<[^>]+>)\)|!\[[^\]]*\]\(([^)\s]+|<[^>]+>)\)")
@@ -105,7 +113,65 @@ def heading_id(heading: str) -> str:
     return re.sub(r"[\s-]+", "-", heading)
 
 
+def content_targets(root: Path) -> dict[str, tuple[str, int]]:
+    """Heading IDs and anchors in content/, mapped to their file and line."""
+    targets: dict[str, tuple[str, int]] = {}
+    for path in sorted((root / "content").glob("**/*.md")):
+        if path.name == "README.md":
+            continue
+        relative = path.relative_to(root).as_posix()
+        first_heading = True
+        fence: tuple[str, int] | None = None
+        for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            fence_match = FENCE_PATTERN.match(line)
+            if fence_match:
+                marker = fence_match.group(1)
+                if fence is None:
+                    fence = (marker[0], len(marker))
+                elif marker[0] == fence[0] and len(marker) >= fence[1]:
+                    fence = None
+                continue
+            if fence is not None:
+                continue
+            anchor_match = ANCHOR_PATTERN.fullmatch(line)
+            if anchor_match:
+                targets.setdefault(anchor_match.group(1), (relative, line_number))
+                continue
+            heading_match = HEADING_PATTERN.match(line)
+            if heading_match:
+                identifier = heading_id(heading_match.group(2))
+                if first_heading and heading_match.group(1) == "#":
+                    identifier = re.sub(r"^\d+-", "", path.stem)
+                    first_heading = False
+                if identifier:
+                    targets.setdefault(identifier, (relative, line_number))
+    return targets
+
+
+def infographic_problems(root: Path) -> tuple[list[str], list[str]]:
+    """Check the primary infographic specification. Returns (failures, warnings)."""
+    import infographic  # noqa: PLC0415 - infographic imports this module
+
+    config_path = root / "guide.json"
+    config = {}
+    if config_path.is_file():
+        try:
+            config = json.loads(config_path.read_text(encoding="utf-8-sig"))
+        except json.JSONDecodeError as error:
+            return [f"guide.json: {error}"], []
+    spec = root / infographic.SPEC_PATH
+    if not spec.is_file():
+        if config.get("documentType") == "Topic Reference":
+            return [f"{infographic.SPEC_PATH} is missing; every Topic Reference has a primary "
+                    "infographic. See process/guidance/TopicReference.md."], []
+        return [], []
+    _, report = infographic.build(root, config, "v0.0.0-00-g0000000-dirty", "2000-01-01")
+    return report.errors, report.warnings
+
+
 def main() -> int:
+    # Labels may hold characters the console encoding lacks; never fail on printing them.
+    sys.stdout.reconfigure(errors="backslashreplace")
     args = arguments()
     root = Path(args.root).resolve()
     terms = {term: re.compile(rf"\b{re.escape(term)}\b") for term in args.report_term}
@@ -184,6 +250,11 @@ def main() -> int:
                 f"{relative}:{line_number}: anchor {name!r} collides with heading ID "
                 f"at {heading_file}:{heading_line}"
             )
+
+    infographic_failures, infographic_warnings = infographic_problems(root)
+    failures.extend(infographic_failures)
+    for warning in infographic_warnings:
+        confirms.append(warning)
 
     if confirms:
         print(f"{len(confirms)} CONFIRM item(s) awaiting human resolution:")

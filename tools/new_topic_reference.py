@@ -156,7 +156,7 @@ def main() -> int:
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9]*", assembly):
         raise SystemExit("--assembly must be letters and digits, starting with a letter.")
     subtitle = args.subtitle or DEFAULT_SUBTITLES[args.visibility]
-    for name, value in [("title", args.title), ("subtitle", subtitle)]:
+    for name, value in [("title", args.title), ("subtitle", subtitle), ("topic name", args.topic_name)]:
         if '"' in value:
             raise SystemExit(f"The {name} cannot contain double quotes.")
     owner = args.owner

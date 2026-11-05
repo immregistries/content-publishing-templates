@@ -15,6 +15,13 @@ if ($LASTEXITCODE -ne 0) {
     throw "Core Markdown generation failed with exit code $LASTEXITCODE."
 }
 
+# The primary infographic is drawn first so the Word document and the guide can
+# both include it. Drawing it needs an installed Chrome or Edge.
+& $python.Source .\process\tools\build_infographic.py
+if ($LASTEXITCODE -ne 0) {
+    throw "Building the primary infographic failed with exit code $LASTEXITCODE."
+}
+
 $quarto = Get-Command quarto -ErrorAction Stop
 & $quarto.Source render
 if ($LASTEXITCODE -ne 0) {
@@ -26,9 +33,14 @@ if ($LASTEXITCODE -ne 0) {
     throw "Applying the Word table style failed with exit code $LASTEXITCODE."
 }
 
+& $python.Source .\process\tools\insert_word_infographic.py .\output\{{ASSEMBLY}}.docx
+if ($LASTEXITCODE -ne 0) {
+    throw "Placing the infographic in the Word document failed with exit code $LASTEXITCODE."
+}
+
 & $python.Source .\process\tools\build_guide.py --assembly {{ASSEMBLY}}.qmd
 if ($LASTEXITCODE -ne 0) {
     throw "Building the web guide failed with exit code $LASTEXITCODE."
 }
 
-Write-Host "Built core document and web guide in output/. {{BUILD_MESSAGE}}"
+Write-Host "Built the core document, primary infographic, and web guide in output/. {{BUILD_MESSAGE}}"

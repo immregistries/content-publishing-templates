@@ -14,6 +14,9 @@
 
 - Markdown in `content/`, with `{{ASSEMBLY}}.qmd`, `_quarto.yml`, and cited
   assets, is the canonical source for the core document.
+- `content/infographic.yml` is the canonical source of the primary
+  infographic. Each label condenses the section its `ref` names and adds
+  nothing to it; when a section changes, check the labels that refer to it.
 - `{{ASSEMBLY}}.qmd` defines section order. `CoreDocument.md` is generated;
   never edit it directly.
 - Files in `output/` are generated artifacts, not source.

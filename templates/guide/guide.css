@@ -435,3 +435,25 @@ html {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+
+/* Primary infographic ("topic at a glance"), drawn from content/infographic.yml. */
+.guide-infographic {
+  margin: 0 0 2rem;
+}
+
+.guide-infographic svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--aira-light-gray);
+  border-radius: 6px;
+}
+
+.guide-infographic a:focus-visible rect {
+  stroke: var(--aira-focus);
+  stroke-width: 4;
+}
+
+.guide-infographic figcaption {
+  margin-top: 0.5rem;
+}

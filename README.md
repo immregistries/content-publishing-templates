@@ -77,8 +77,14 @@ python process/tools/build_core_markdown.py --assembly Project.qmd --check
 # Check maintained Markdown for broken links, placeholders, and CONFIRM notes.
 python process/tools/check_content.py
 
-# After quarto render, give every Word table the template's table style.
+# Before quarto render, draw the primary infographic from content/infographic.yml
+# into output/infographic.svg, .png, and .pdf. Needs an installed Chrome or Edge.
+python process/tools/build_infographic.py
+
+# After quarto render, give every Word table the template's table style, and
+# place the primary infographic before the first chapter.
 python process/tools/apply_word_table_style.py output/Project.docx
+python process/tools/insert_word_infographic.py output/Project.docx
 
 # Build the web guide (needs guide.json; see templates/guide/README.md).
 # This is the published page; the Quarto HTML build is a review copy.

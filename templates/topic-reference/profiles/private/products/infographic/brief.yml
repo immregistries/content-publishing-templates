@@ -1,0 +1,61 @@
+id: infographic
+status: draft
+core_release: null
+
+product:
+  type: infographic
+  format: SVG, PNG, and PDF built locally by build.ps1; placed in the web guide and the Word document; not published
+  length: one image, 1600 by 900
+  presentation_time: null
+  template: process/tools/infographic.py (topic-at-a-glance layout)
+
+audience:
+  name: People who may see InteropHub topic {{TOPIC}}
+  assumed_knowledge: []
+
+purpose: >-
+  Show the topic at a glance: its purpose, its three to six key ideas, and how
+  they relate, so a reader knows the shape of the Topic Reference before
+  reading it, and a copy of the image shared on its own still says what it is
+  and that it is for internal use.
+
+desired_outcome: >-
+  A reader can name what the topic is for and its key ideas, and finds the
+  section that states each one in full.
+
+emphasize:
+  - The topic's purpose and key ideas
+  - The relationships between the key ideas
+
+exclude_or_deemphasize:
+  - Detail that the sections state in full
+  - Anything the referenced sections do not state
+
+tone:
+  - Plain language
+  - Short labels
+
+allowed_sources:
+  - ../../content/
+
+required_elements:
+  - The topic name and its purpose in one sentence
+  - Three to six key ideas, each referring to the heading in content/ it summarizes
+  - Each relationship referring to the heading it summarizes
+  - Status, version, and build date drawn on the image
+  - The InteropHub topic number, without its address
+  - The internal-use notice, matching the guide footer
+  - Short alt text in content/infographic.yml
+
+published_locations: {}
+
+assumptions:
+  - Not published. The image travels without the guide, so the internal-use
+    notice is drawn on it.
+  - The specification, content/infographic.yml, is canonical source and is
+    reviewed like content/. Rendered files are generated.
+  - No generated artwork, and no material is sent to an image service.
+delivery_context: []
+requested_by: null
+requested_date: null
+needed_by: null
