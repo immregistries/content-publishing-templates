@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.13.0
 
 - Every Topic Reference has a primary infographic, the topic at a glance. Its
   specification is `content/infographic.yml`: the topic name, a one-sentence
