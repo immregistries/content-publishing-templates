@@ -449,6 +449,15 @@ html {
   border-radius: 6px;
 }
 
+.guide-infographic a,
+.guide-infographic a text {
+  text-decoration: none;
+}
+
+.guide-infographic a:hover text {
+  text-decoration: underline;
+}
+
 .guide-infographic a:focus-visible rect {
   stroke: var(--aira-focus);
   stroke-width: 4;
