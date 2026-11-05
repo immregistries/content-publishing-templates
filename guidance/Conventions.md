@@ -122,6 +122,32 @@ short or closely related chapters, and use second-level headings for structure
 within a chapter. The guide build warns when the limit is exceeded. Exceed it
 only for a clear reason.
 
+### Diagrams
+
+Draw diagrams in the source as [Mermaid](https://mermaid.js.org/), in the fenced
+block Quarto recognizes, with the caption in an italic paragraph directly after
+it:
+
+````markdown
+```{mermaid}
+flowchart LR
+  G["Guidance"] -->|"stated precisely as"| T["Tests"]
+```
+
+*Figure 1. Guidance is stated precisely enough to test.*
+````
+
+- A Mermaid diagram is text, so it is reviewed, compared, and corrected like
+  the prose around it. Use an image only for what Mermaid cannot draw, linked
+  relative to the Markdown file that uses it.
+- Write the caption as a paragraph, not as a Quarto cell option such as
+  `%%| fig-cap:`, which only Quarto reads.
+- Every output draws the diagram from the same text: Quarto in the Word and
+  HTML review copies, the web guide with the copy of Mermaid it embeds (the
+  same version Quarto uses), and GitHub in the reading copy, which the build
+  writes with a plain `mermaid` fence. A reader of the guide can comment on a
+  diagram as on a paragraph or table.
+
 ## 6. Product briefs
 
 - A brief is required before a product is assembled.

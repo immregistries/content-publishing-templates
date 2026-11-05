@@ -6,7 +6,8 @@ Run from the content project's root, naming its Quarto assembly file:
     python process/tools/build_core_markdown.py --assembly Project.qmd --check
 
 The title and subtitle come from the assembly file's YAML front matter, and the
-sections come from its include directives, in order.
+sections come from its include directives, in order. Mermaid diagram fences are
+written in the form GitHub draws.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ ANCHOR_PATTERN = re.compile(
     r"^\s*<!-- anchor: [a-z0-9]+(?:-[a-z0-9]+)* -->\s*$"
 )
 FENCE_PATTERN = re.compile(r"^\s*(`{3,}|~{3,})")
+MERMAID_FENCE_PATTERN = re.compile(r"^(\s*)(`{3,}|~{3,})\s*\{mermaid\}\s*$")
 
 
 def arguments() -> argparse.Namespace:
@@ -151,11 +153,40 @@ def strip_anchors(text: str) -> str:
     return "".join(output)
 
 
+def plain_mermaid_fences(text: str) -> str:
+    """Write Quarto's ```{mermaid} diagram fences as ```mermaid.
+
+    Quarto draws a diagram only from the braced form, so the canonical source
+    uses it. GitHub and pandoc recognize only the plain form, so the reading
+    copy and the web guide use that. The diagram text is unchanged.
+    """
+    output = []
+    fence: tuple[str, int] | None = None
+    for line in text.splitlines(keepends=True):
+        body = line.rstrip("\r\n")
+        ending = line[len(body):]
+        mermaid = MERMAID_FENCE_PATTERN.fullmatch(body) if fence is None else None
+        if mermaid:
+            marker = mermaid.group(2)
+            fence = (marker[0], len(marker))
+            output.append(f"{mermaid.group(1)}{marker}mermaid{ending}")
+            continue
+        fence_match = FENCE_PATTERN.match(line)
+        if fence_match:
+            marker = fence_match.group(1)
+            if fence is None:
+                fence = (marker[0], len(marker))
+            elif marker[0] == fence[0] and len(marker) >= fence[1]:
+                fence = None
+        output.append(line)
+    return "".join(output)
+
+
 def generated_text(root: Path, assembly: Path, output: Path) -> str:
     sections = []
     for path in include_paths(root, assembly):
         section = path.read_text(encoding="utf-8").strip()
-        section = strip_anchors(section)
+        section = plain_mermaid_fences(strip_anchors(section))
         sections.append(relocated_links(section, path, output))
     return header(assembly) + "\n\n---\n\n".join(sections) + "\n"
 

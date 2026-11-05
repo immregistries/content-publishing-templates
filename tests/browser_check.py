@@ -115,6 +115,9 @@ def main():
 
         author = open_profile(9223, "ihg_browser_author", {"userId": 9, "displayName": "Test Author", "organization": "Example Organization"}, True)
         wait_for(author, "Array.from(document.querySelectorAll('.guide-comment-button')).some(b => !b.hidden)")
+        # The fixture's Mermaid diagram is drawn before comments start, and can take a comment.
+        wait_for(author, "document.querySelector('.guide-diagram pre.mermaid[data-processed] svg') !== null")
+        wait_for(author, "document.querySelector('.guide-diagram.guide-block .guide-comment-button') !== null")
         result = author.send("Runtime.evaluate", {"expression": "Array.from(document.querySelectorAll('.guide-comment-button')).find(b => !b.hidden).click()", "returnByValue": True})
         if result.get("result", {}).get("exceptionDetails"):
             raise RuntimeError("Comment button failed: " + json.dumps(result["result"]["exceptionDetails"]))

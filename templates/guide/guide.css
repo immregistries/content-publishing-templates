@@ -135,6 +135,24 @@ html {
   border: 1px solid var(--aira-border-subtle);
 }
 
+/* A Mermaid diagram. Before it is drawn, its text shows as code. */
+.guide-content .guide-diagram {
+  margin: var(--aira-space-6) 0 var(--aira-space-2);
+}
+
+.guide-content .guide-diagram pre.mermaid[data-processed] {
+  overflow-x: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: center;
+}
+
+.guide-content .guide-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
 .guide-content .aira-table {
   font-size: 0.9rem;
   line-height: 1.45;

@@ -42,11 +42,16 @@ from build_core_markdown import (  # noqa: E402
     LINK_TARGET_PATTERN,
     front_matter_value,
     include_paths,
+    plain_mermaid_fences,
 )
 import infographic  # noqa: E402
 
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates" / "guide"
+MERMAID_SCRIPT = TEMPLATE_DIR / "mermaid" / "mermaid.min.js"
+MERMAID_BLOCK_PATTERN = re.compile(
+    r'<pre class="mermaid"><code>(.*?)</code></pre>', re.DOTALL
+)
 HEADING_PATTERN = re.compile(r"^#\s+(.+?)\s*$", re.MULTILINE)
 ANCHOR_PATTERN = re.compile(
     r"^\s*<!-- anchor: ([a-z0-9]+(?:-[a-z0-9]+)*) -->\s*$"
@@ -222,7 +227,7 @@ def prepared_markdown(
     parts = []
     for path in paths:
         text = path.read_text(encoding="utf-8").strip()
-        text = replace_anchors(text)
+        text = plain_mermaid_fences(replace_anchors(text))
         text = HEADING_PATTERN.sub(
             lambda match: f"# {match.group(1)} {{#{anchors[path.resolve()]}}}",
             text,
@@ -274,6 +279,11 @@ def body_html(markdown: str) -> str:
     body = result.stdout.replace(
         "<table>", '<div class="aira-table-wrap"><table class="aira-table">'
     ).replace("</table>", "</table></div>")
+    # Mermaid reads a diagram's text from its element, so drop pandoc's <code>.
+    # Until the diagram is drawn, or if scripts are off, the text is shown.
+    body = MERMAID_BLOCK_PATTERN.sub(
+        r'<div class="guide-diagram"><pre class="mermaid">\1</pre></div>', body
+    )
     return annotate_commentable_blocks(body)
 
 
@@ -315,7 +325,9 @@ def annotate_commentable_blocks(body: str) -> str:
         elif "guide-anchor" in classes and identifier:
             area = html.unescape(identifier.group(1))
 
-        commentable = tag in COMMENTABLE_TAGS or "aira-table-wrap" in classes
+        commentable = tag in COMMENTABLE_TAGS or bool(
+            {"aira-table-wrap", "guide-diagram"} & classes
+        )
         if commentable:
             if not open_commentable:
                 position = positions.get(area, 0)
@@ -346,6 +358,30 @@ def section_nav(body: str, labels: dict[str, str]) -> str:
 def logo_data_uri() -> str:
     data = (TEMPLATE_DIR / "AIRA_2018Logo_BlueGreen_Hor.png").read_bytes()
     return "data:image/png;base64," + base64.b64encode(data).decode("ascii")
+
+
+def diagram_scripts(body: str) -> str:
+    """Inline the vendored Mermaid library when the body has diagrams.
+
+    The guide stays one file that works offline and in a private project. The
+    comments script waits for the diagrams, because a comment records the text
+    of its block and a diagram's text changes when it is drawn.
+    """
+    if 'class="mermaid"' not in body:
+        return ""
+    library = MERMAID_SCRIPT.read_text(encoding="utf-8")
+    if "</script" in library.lower():
+        raise RuntimeError(f"{MERMAID_SCRIPT} cannot be inlined: it contains '</script'.")
+    return f"""<script>
+{library}
+</script>
+<script>
+mermaid.initialize({{ startOnLoad: false }});
+window.guideDiagramsReady = mermaid
+  .run({{ querySelector: ".guide-diagram pre.mermaid" }})
+  .catch(function (error) {{ console.error("Diagrams could not be drawn.", error); }});
+</script>
+"""
 
 
 def page(
@@ -486,7 +522,7 @@ def page(
   </footer>
 </div>
 <script type="application/json" id="guide-data">{json.dumps(guide_data)}</script>
-<script>
+{diagram_scripts(body)}<script>
 {(TEMPLATE_DIR / "guide.js").read_text(encoding="utf-8")}
 </script>
 </body>
@@ -495,8 +531,10 @@ def page(
 
 
 def duplicate_ids(document: str) -> list[str]:
+    # Text inside scripts, such as the inlined diagram library, is not markup.
+    markup = re.sub(r"(<script\b[^>]*>).*?(</script>)", r"\1\2", document, flags=re.DOTALL)
     counts: dict[str, int] = {}
-    for identifier in re.findall(r'\bid="([^"]+)"', document):
+    for identifier in re.findall(r'\bid="([^"]+)"', markup):
         identifier = html.unescape(identifier)
         counts[identifier] = counts.get(identifier, 0) + 1
     return sorted(identifier for identifier, count in counts.items() if count > 1)

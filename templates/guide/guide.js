@@ -1,5 +1,13 @@
 /* Content guide: section tracking and browser-only comments. */
-(function () {
+// When the page has diagrams, start after they are drawn: comments record the
+// text of their block, and a diagram's text changes when it is drawn.
+(function (start) {
+  if (window.guideDiagramsReady) {
+    window.guideDiagramsReady.then(start);
+  } else {
+    start();
+  }
+})(function () {
   "use strict";
 
   var data = JSON.parse(document.getElementById("guide-data").textContent);
@@ -1935,4 +1943,4 @@
       }
     });
   }
-})();
+});

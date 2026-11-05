@@ -11,7 +11,9 @@ project's core document, styled to match InteropHub:
 - a dark, sticky section bar with one entry per top-level section;
 - a right rail listing the current section's subsections, which follows the
   reader's scroll;
-- comments that readers add beside any paragraph, list item, quote, or table.
+- comments that readers add beside any paragraph, list item, quote, table, or
+  diagram;
+- [Mermaid diagrams](../../guidance/Conventions.md#diagrams), drawn in the page.
 
 ## Comments
 
@@ -34,6 +36,7 @@ Markdown review record in the project's `review/` folder.
 | `AIRA_2018Logo_BlueGreen_Hor.png` | AIRA logo, from the same aira-web release. |
 | `guide.css` | Reading layout and comment styles, composed on the AIRA Web classes. |
 | `guide.js` | Section tracking and comments. No external libraries. |
+| `mermaid/` | [Mermaid](https://github.com/mermaid-js/mermaid) 11.12.0 (`dist/mermaid.min.js` from the npm package) and its MIT license. The guide inlines it only when the document has diagrams, and `guide.js` starts once they are drawn. It is the version Quarto 1.10 bundles, so the guide and the Word document draw diagrams alike; update it deliberately with Quarto and note the version here and in the changelog. |
 
 ## Project settings
 

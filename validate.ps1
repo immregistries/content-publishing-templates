@@ -59,6 +59,13 @@ if ($readingCopyText -match "(?m)\r?\n(?:\r?\n){2,}") {
 if (($guideText | Select-String -Pattern '<div id="fixture-introduction" class="guide-anchor"' -AllMatches).Matches.Count -ne 1) {
     throw "Fixture guide converted or lost the fenced anchor example."
 }
+if ($readingCopyText -notmatch '(?m)^```mermaid\r?$' -or $readingCopyText -match '```\{mermaid\}') {
+    throw "Fixture reading copy did not write the Mermaid fence in the form GitHub draws."
+}
+if ($guideText -notmatch '<div class="guide-diagram" data-anchor="review-item"' -or
+    $guideText -notmatch 'window\.guideDiagramsReady') {
+    throw "Fixture guide is missing its Mermaid diagram or the diagram library."
+}
 
 $remoteFixture = Join-Path $PSScriptRoot 'output/fixture-remote'
 if (Test-Path -LiteralPath $remoteFixture) { Remove-Item -LiteralPath $remoteFixture -Recurse -Force }

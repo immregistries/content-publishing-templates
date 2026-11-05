@@ -45,6 +45,20 @@
   HTML builds find them too. Existing projects should add the same
   `resource-path` entry.
 
+- The web guide draws Mermaid diagrams. A ```` ```{mermaid} ```` block in
+  `content/`, which Quarto already drew in the Word and HTML review copies,
+  showed in the guide as a run of code text. The guide now embeds Mermaid
+  11.12.0, the version Quarto bundles, vendored with its MIT license in
+  `templates/guide/mermaid/`, but only when the document has diagrams.
+  Diagrams are drawn in the page, so the guide still builds without a browser,
+  and each diagram can take a comment. The comments script starts once the
+  diagrams are drawn, because a comment records its block's text.
+- `build_core_markdown.py` writes Mermaid fences as ```` ```mermaid ```` in
+  `CoreDocument.md`, so GitHub draws them in the reading copy.
+- The guide's duplicate-ID check ignores text inside scripts.
+- New convention: [Diagrams](guidance/Conventions.md#diagrams). Draw diagrams
+  as Mermaid, with the caption in an italic paragraph after the block.
+
 To adopt this in an existing Topic Reference: move `process/` to this version;
 copy `content/infographic.yml` and `products/infographic/brief.yml` from the
 skeleton (`templates/topic-reference/project/content/` and
