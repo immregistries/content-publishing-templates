@@ -118,14 +118,23 @@ Every primary infographic has the same parts, so readers know where to look:
 
 - the topic name, and its purpose in one sentence;
 - three to six key ideas, with the relationships between them;
-- the status (from `guide.json`), the version, and the build date;
+- the status (from `guide.json`) and the build date, and the release tag only
+  when the build is exactly on a clean tag;
 - the InteropHub topic number, with its address for a public topic; and
 - the notice from the guide footer, which for a private project is the
   internal-use notice.
 
 `arrangement` places the key ideas as a `sequence`, a `cycle`, or a `set`
-without changing the anatomy. Other layouts are for additional infographics,
-which are derived products.
+without changing the anatomy. A sequence of three or four ideas reads left to
+right in one row; longer sequences wrap into two rows. A cycle of four is a
+two-by-two loop. Ideas in a sequence or cycle are numbered; ideas in a set are
+not, because their order carries no meaning. Other layouts are for additional
+infographics, which are derived products.
+
+Each idea may name an `icon` from the openly licensed set in
+[`templates/infographic/icons/`](../templates/infographic/README.md). Text is set
+in Open Sans, AIRA's brand typeface, embedded in the image so it looks the same
+everywhere.
 
 ### The specification
 
@@ -154,6 +163,10 @@ selected image as `artwork`, drawn behind the content. Artwork never carries
 essential text.
 
 ### Building and checking
+
+A git describe string, a branch name, or a build from a changed working tree
+never appears on the image: the tag is drawn only when the build is exactly on
+it with no uncommitted changes.
 
 `build.ps1` runs `build_infographic.py` before `quarto render`, then
 `insert_word_infographic.py` after it. The outputs are `output/infographic.svg`,

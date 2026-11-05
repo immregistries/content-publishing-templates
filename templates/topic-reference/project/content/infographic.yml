@@ -5,7 +5,8 @@
 # in content/. Add no claim, number, commitment, or change in certainty that the
 # referenced section does not state. Replace each CONFIRM text as the sections
 # are written. build.ps1 draws the image and places it in the guide and the Word
-# document. See "Primary infographic" in process/guidance/TopicReference.md.
+# document. Each idea may name an icon from process/templates/infographic/icons/.
+# See "Primary infographic" in process/guidance/TopicReference.md.
 layout: topic-at-a-glance
 arrangement: set
 title: "{{TOPIC_NAME}}"

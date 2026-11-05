@@ -5,8 +5,8 @@ Run from the content project's root, before quarto render and build_guide.py:
     python process/tools/build_infographic.py
 
 The specification is content/infographic.yml (see tools/infographic.py for
-its fields). The status comes from guide.json, the version from --version or
-git describe, and the date is today's. The outputs are output/infographic.svg,
+its fields). The status comes from guide.json and the date is today's. The
+release tag is drawn only when HEAD is exactly on a clean tag. The outputs are output/infographic.svg,
 output/infographic.png, and output/infographic.pdf.
 
 An installed Chrome or Edge, run headless, measures the rendered text and
@@ -27,7 +27,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import infographic  # noqa: E402
-from build_guide import git_version  # noqa: E402
 from headless_browser import BrowserError, HeadlessBrowser, find_browser  # noqa: E402
 
 
@@ -66,6 +65,12 @@ MEASURE = r"""
 })()
 """
 
+FONTS_READY = (
+    "Promise.all([400, 700].map(w => document.fonts.load(`${w} 20px '%s'`)))"
+    ".then(() => [400, 700].every(w => document.fonts.check(`${w} 20px '%s'`)))"
+    % (infographic.FONT_NAME, infographic.FONT_NAME)
+)
+
 PAGE = """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>infographic</title>
 <style>@page {{ size: {width}px {height}px; margin: 0; }}
@@ -81,7 +86,8 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--spec", default=infographic.SPEC_PATH, help="Infographic specification.")
     parser.add_argument("--output-dir", default="output", help="Directory for the outputs.")
     parser.add_argument("--name", default="infographic", help="Base name of the output files.")
-    parser.add_argument("--version", default=None, help="Version drawn on the image. Defaults to git describe.")
+    parser.add_argument("--version", default=None,
+                        help="Release tag to draw. Drawn only if HEAD is exactly on this clean tag.")
     parser.add_argument("--browser", default=None, help="Chrome or Edge executable.")
     parser.add_argument("--scale", type=float, default=2, help="PNG pixels per SVG unit. Defaults to 2.")
     return parser.parse_args()
@@ -94,9 +100,9 @@ def main() -> int:
     root = Path(args.root).resolve()
     config_path = root / args.config
     config = json.loads(config_path.read_text(encoding="utf-8-sig")) if config_path.is_file() else {}
-    version = args.version or git_version(root)
+    release = infographic.release_label(root, args.version)
 
-    svg, report = infographic.build(root, config, version, date.today().isoformat(), args.spec)
+    svg, report = infographic.build(root, config, release, date.today().isoformat(), args.spec)
     for warning in report.warnings:
         print(f"Warning: {warning}")
     if report.errors:
@@ -122,6 +128,9 @@ def main() -> int:
             page.write_text(PAGE.format(width=width, height=height, svg=svg), encoding="utf-8")
             with HeadlessBrowser(browser) as session:
                 session.open(page, width, height, args.scale)
+                if not session.evaluate(FONTS_READY, wait=True):
+                    print("The embedded Open Sans font did not load in the browser.")
+                    return 1
                 problems = session.evaluate(MEASURE)
                 if problems:
                     print(f"The rendered infographic has {len(problems)} text problem(s):")
@@ -134,8 +143,13 @@ def main() -> int:
         print(f"Exporting the infographic failed: {error}")
         return 1
 
-    (output / f"{args.name}.png").write_bytes(png)
-    (output / f"{args.name}.pdf").write_bytes(pdf)
+    for suffix, data in (("png", png), ("pdf", pdf)):
+        try:
+            (output / f"{args.name}.{suffix}").write_bytes(data)
+        except PermissionError:
+            print(f"Cannot write {output / f'{args.name}.{suffix}'}; close any program that has it open "
+                  "and build again.")
+            return 1
     print(f"Built {svg_path} and its PNG and PDF.")
     return 0
 

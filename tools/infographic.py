@@ -2,10 +2,11 @@
 
 The primary infographic is a "topic at a glance": the topic's name, its
 purpose in one sentence, three to six key ideas with the relationships between
-them, the status, version, and build date, the InteropHub topic, and the
-project's notice. Its wording lives in content/infographic.yml; this module
-turns that specification into SVG. It uses only the standard library, so the
-web guide can draw the same figure without a browser.
+them, the status and build date (and the release tag when the build is exactly
+on a clean tag), the InteropHub topic, and the project's notice. Its wording
+lives in content/infographic.yml; this module turns that specification into
+SVG. It uses only the standard library, so the web guide can draw the same
+figure without a browser.
 
 build_infographic.py exports the SVG, PNG, and PDF and checks the rendered
 text in a headless browser. check_content.py and build_guide.py use the
@@ -23,6 +24,7 @@ Specification (content/infographic.yml):
       - id: first                  # lowercase words joined by hyphens
         label: Short name          # required
         text: One short sentence.  # optional
+        icon: file-text            # optional; a name from templates/infographic/icons/
         ref: first-section         # required
     relationships:                 # optional; each joins two ideas
       - from: first
@@ -37,21 +39,33 @@ Specification (content/infographic.yml):
       placement: background        # the only placement so far
       opacity: 0.15                # 0 to 1, default 0.15
 
-The status comes from guide.json, the version from the build, and the date is
-the build date, so they always match the guide.
+A sequence or cycle numbers its ideas; a set does not, because its order
+carries no meaning. A sequence of three or four ideas reads left to right in
+one row; a cycle of four is a two-by-two loop.
+
+The status comes from guide.json and the date is the build date. A release tag
+is drawn only when the build is exactly on a clean tag, never a git describe
+string.
+
+Text is set in Open Sans, embedded in the SVG from templates/infographic/fonts/,
+and wrapped with that font's own advance widths, so the browser check in
+build_infographic.py and the layout here agree.
 
 Text containing "CONFIRM" is starter text: it is reported, not failed. Missing
-fields, unresolved references, missing artwork, and text that does not fit
-its box fail.
+fields, unresolved references, unknown icons, missing artwork, and text that
+does not fit its box fail.
 """
 
 from __future__ import annotations
 
 import base64
+import functools
 import html
 import math
 import re
 import struct
+import subprocess
+import zlib
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -59,25 +73,37 @@ from pathlib import Path
 SPEC_PATH = "content/infographic.yml"
 LAYOUTS = {"topic-at-a-glance"}
 ARRANGEMENTS = {"sequence", "cycle", "set"}
+NUMBERED = {"sequence", "cycle"}
 PLACEMENTS = {"background"}
 MIN_IDEAS, MAX_IDEAS = 3, 6
 MAX_RELATIONSHIPS = 10
 ID_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 TARGET_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
+RELEASE_PATTERN = re.compile(r"^v\d+(?:\.\d+){0,3}$")
 PLACEHOLDER = "CONFIRM"
 INTEROPHUB_TOPIC_URL = "https://informatics.immregistries.org/hub/es/topic/{topic}"
-LOGO = Path(__file__).resolve().parent.parent / "templates" / "guide" / "AIRA_2018Logo_BlueGreen_Hor.png"
+TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
+LOGO = TEMPLATES / "guide" / "AIRA_2018Logo_BlueGreen_Hor.png"
+ICON_DIR = TEMPLATES / "infographic" / "icons"
+FONT_DIR = TEMPLATES / "infographic" / "fonts"
+FONT_FILES = {400: "open-sans-latin-400-normal.woff", 700: "open-sans-latin-700-normal.woff"}
+# A family name of its own, so a figure placed inline in the guide does not
+# change the fonts of the page around it.
+FONT_NAME = "Open Sans Infographic"
+FONT_FAMILY = f"'{FONT_NAME}', 'Open Sans', Arial, sans-serif"
 
 WIDTH, HEIGHT = 1600, 900
 MARGIN = 64
-FONT_FAMILY = "Arial, 'Liberation Sans', Arimo, Helvetica, sans-serif"
 COLORS = {
     "navy": "#1c3c50",
     "green": "#629f44",
+    "green-accessible": "#3f732b",
     "light-green": "#c9e1c9",
+    "pale-green": "#e3f0e3",
     "blue-gray": "#8098a4",
     "light-gray": "#cccccb",
     "muted": "#58646c",
+    "body-text": "#3b5262",
     "off-white": "#f2f2f2",
     "white": "#ffffff",
 }
@@ -87,34 +113,7 @@ STATUS_COLORS = {
     "final": ("#0b6b3a", "#ffffff"),
     "published": ("#0b6b3a", "#ffffff"),
 }
-
-# Advance widths in thousandths of an em for the Arial metrics, which
-# Liberation Sans, Arimo, and Helvetica share. Characters not listed are
-# estimated; the browser check in build_infographic.py measures real text.
-_CHARS = (
-    "".join(chr(code) for code in range(32, 127))
-    + "‘’“”–—…·•é →"
-)
-_REGULAR = [
-    278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278,
-    556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556,
-    1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778,
-    667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556,
-    333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556,
-    556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584,
-    222, 222, 333, 333, 556, 1000, 1000, 333, 350, 556, 278, 1000,
-]
-_BOLD = [
-    278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278,
-    556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 333, 333, 584, 584, 584, 611,
-    975, 722, 722, 722, 722, 667, 611, 778, 722, 278, 556, 722, 611, 833, 722, 778,
-    667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 333, 278, 333, 584, 556,
-    333, 556, 611, 556, 611, 556, 333, 611, 611, 278, 278, 556, 278, 889, 611, 611,
-    611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584,
-    278, 278, 500, 500, 556, 1000, 1000, 333, 350, 556, 278, 1000,
-]
-WIDTHS = {False: dict(zip(_CHARS, _REGULAR)), True: dict(zip(_CHARS, _BOLD))}
-FALLBACK_WIDTH = 600
+FALLBACK_WIDTH = 620
 
 
 class SpecError(ValueError):
@@ -337,20 +336,103 @@ def load_spec(path: Path) -> dict:
     return data
 
 
-# --- Text measurement ---------------------------------------------------------
+# --- Fonts and text measurement ----------------------------------------------
 
-def text_width(text: str, size: float, bold: bool = False) -> float:
-    table = WIDTHS[bold]
-    return sum(table.get(char, FALLBACK_WIDTH) for char in text) * size / 1000
+def _woff_tables(data: bytes) -> dict[str, bytes]:
+    if data[:4] != b"wOFF":
+        raise SpecError("the vendored font is not a WOFF file")
+    count = struct.unpack(">H", data[12:14])[0]
+    tables = {}
+    for index in range(count):
+        tag, offset, compressed, original, _ = struct.unpack(">4sIIII", data[44 + 20 * index:64 + 20 * index])
+        chunk = data[offset:offset + compressed]
+        tables[tag.decode("latin-1")] = zlib.decompress(chunk) if compressed < original else chunk
+    return tables
 
 
-def wrap(text: str, width: float, size: float, bold: bool = False) -> list[str]:
+def _cmap(table: bytes) -> dict[int, int]:
+    """Character to glyph from a format 4 or 12 Unicode subtable."""
+    count = struct.unpack(">H", table[2:4])[0]
+    subtables = {}
+    for index in range(count):
+        platform, encoding, offset = struct.unpack(">HHI", table[4 + 8 * index:12 + 8 * index])
+        subtables[(platform, encoding)] = offset
+    for key in ((3, 10), (0, 4), (3, 1), (0, 3)):
+        if key not in subtables:
+            continue
+        offset = subtables[key]
+        kind = struct.unpack(">H", table[offset:offset + 2])[0]
+        mapping: dict[int, int] = {}
+        if kind == 12:
+            groups = struct.unpack(">I", table[offset + 12:offset + 16])[0]
+            for group in range(groups):
+                at = offset + 16 + 12 * group
+                start, end, glyph = struct.unpack(">III", table[at:at + 12])
+                for code in range(start, end + 1):
+                    mapping[code] = glyph + code - start
+            return mapping
+        if kind == 4:
+            segments = struct.unpack(">H", table[offset + 6:offset + 8])[0] // 2
+            ends = struct.unpack(f">{segments}H", table[offset + 14:offset + 14 + 2 * segments])
+            base = offset + 16 + 2 * segments
+            starts = struct.unpack(f">{segments}H", table[base:base + 2 * segments])
+            deltas = struct.unpack(f">{segments}h", table[base + 2 * segments:base + 4 * segments])
+            range_base = base + 4 * segments
+            ranges = struct.unpack(f">{segments}H", table[range_base:range_base + 2 * segments])
+            for index in range(segments):
+                for code in range(starts[index], ends[index] + 1):
+                    if code == 0xFFFF:
+                        continue
+                    if ranges[index] == 0:
+                        glyph = (code + deltas[index]) & 0xFFFF
+                    else:
+                        at = range_base + 2 * index + ranges[index] + 2 * (code - starts[index])
+                        glyph = struct.unpack(">H", table[at:at + 2])[0]
+                        if glyph:
+                            glyph = (glyph + deltas[index]) & 0xFFFF
+                    if glyph:
+                        mapping[code] = glyph
+            return mapping
+    raise SpecError("the vendored font has no Unicode character map")
+
+
+@functools.lru_cache(maxsize=None)
+def advance_widths(weight: int) -> dict[str, int]:
+    """Advance widths, in thousandths of an em, of the vendored font's characters."""
+    tables = _woff_tables((FONT_DIR / FONT_FILES[weight]).read_bytes())
+    units = struct.unpack(">H", tables["head"][18:20])[0]
+    metrics = struct.unpack(">H", tables["hhea"][34:36])[0]
+    hmtx = tables["hmtx"]
+    advances = [struct.unpack(">H", hmtx[4 * index:4 * index + 2])[0] for index in range(metrics)]
+    return {
+        chr(code): round(advances[min(glyph, metrics - 1)] * 1000 / units)
+        for code, glyph in _cmap(tables["cmap"]).items()
+    }
+
+
+@functools.lru_cache(maxsize=None)
+def font_face_css() -> str:
+    faces = []
+    for weight, name in sorted(FONT_FILES.items()):
+        data = base64.b64encode((FONT_DIR / name).read_bytes()).decode("ascii")
+        faces.append(f"@font-face {{ font-family: '{FONT_NAME}'; font-style: normal; "
+                     f"font-weight: {weight}; src: url(data:font/woff;base64,{data}) format('woff'); }}")
+    return "\n".join(faces)
+
+
+def text_width(text: str, size: float, weight: int = 400, letter_spacing: float = 0) -> float:
+    table = advance_widths(weight)
+    return (sum(table.get(char, FALLBACK_WIDTH) for char in text) * size / 1000
+            + letter_spacing * len(text))
+
+
+def wrap(text: str, width: float, size: float, weight: int = 400) -> list[str]:
     lines: list[str] = []
     for paragraph in str(text).split("\n"):
         current = ""
         for word in paragraph.split():
             candidate = f"{current} {word}" if current else word
-            if current and text_width(candidate, size, bold) > width:
+            if current and text_width(candidate, size, weight) > width:
                 lines.append(current)
                 current = word
             else:
@@ -358,6 +440,47 @@ def wrap(text: str, width: float, size: float, bold: bool = False) -> list[str]:
         if current:
             lines.append(current)
     return lines
+
+
+# --- Icons ----------------------------------------------------------------------
+
+def icon_names() -> list[str]:
+    return sorted(path.stem for path in ICON_DIR.glob("*.svg"))
+
+
+@functools.lru_cache(maxsize=None)
+def icon_shapes(name: str) -> str:
+    """The shapes of a vendored 24-unit stroke icon, without its <svg> wrapper."""
+    text = (ICON_DIR / f"{name}.svg").read_text(encoding="utf-8")
+    match = re.search(r"<svg\b[^>]*>(.*)</svg>", text, re.DOTALL)
+    if not match:
+        raise SpecError(f"icon {name} is not an SVG file")
+    return "".join(line.strip() for line in match.group(1).splitlines())
+
+
+# --- Release label ----------------------------------------------------------------
+
+def release_label(root: Path, version: str | None = None) -> str | None:
+    """The tag to draw: only when HEAD is exactly on a clean release tag.
+
+    A version given by the caller is drawn only when it is that same tag, so a
+    git describe string, a branch name, or a dirty tree never reaches the image.
+    """
+    def git(*args: str) -> str | None:
+        try:
+            result = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True)
+        except OSError:
+            return None
+        return result.stdout.strip() if result.returncode == 0 else None
+
+    tag = git("describe", "--tags", "--exact-match", "HEAD")
+    if not tag or not RELEASE_PATTERN.fullmatch(tag):
+        return None
+    if git("status", "--porcelain", "--untracked-files=no") != "":
+        return None
+    if version is not None and version != tag:
+        return None
+    return tag
 
 
 # --- Checking the specification ----------------------------------------------
@@ -433,7 +556,7 @@ def check_spec(spec: dict, root: Path, targets: set[str], name: str = SPEC_PATH)
             err(f"{name}: {where} must be a mapping")
             continue
         for key in idea:
-            if key not in {"id", "label", "text", "ref"}:
+            if key not in {"id", "label", "text", "icon", "ref"}:
                 err(f"{name}: {where} has unknown field {key!r}")
         identifier = _text(idea.get("id"))
         if not identifier or not ID_PATTERN.fullmatch(identifier):
@@ -445,6 +568,9 @@ def check_spec(spec: dict, root: Path, targets: set[str], name: str = SPEC_PATH)
             where = f"idea {identifier!r}"
         if not _text(idea.get("label")):
             err(f"{name}: {where} needs a label")
+        icon = idea.get("icon")
+        if icon is not None and (not isinstance(icon, str) or icon not in icon_names()):
+            err(f"{name}: {where} icon {icon!r} is not in templates/infographic/icons/")
         placeholder(f"{where} label", idea.get("label"))
         placeholder(f"{where} text", idea.get("text"))
         reference(where, idea.get("ref"))
@@ -527,7 +653,7 @@ class TextBlock:
     lines: list[str]
     size: float
     line_height: float
-    bold: bool
+    weight: int
     color: str
     anchor: str = "start"
     first_baseline: float = 0
@@ -535,89 +661,140 @@ class TextBlock:
 
 
 @dataclass
+class Card:
+    idea: dict
+    box: Box
+    blocks: list[TextBlock]
+    number: int | None
+    badge: Box | None
+    icon: Box | None
+
+
+@dataclass
 class Layout:
     spec: dict
+    header_bottom: float
+    body: Box
     header: list[TextBlock]
+    purpose_bar: Box
     status: tuple[str, str, str]
     status_box: Box
     meta: list[TextBlock]
-    cards: list[tuple[dict, Box, list[TextBlock]]]
+    cards: list[Card]
     arrows: list[tuple[dict, tuple[float, float, float, float], TextBlock | None, Box | None]]
     footer: list[TextBlock]
     logo: Box
     errors: list[str]
 
 
-HEADER_BOTTOM = 220
-BODY = Box(MARGIN, 252, WIDTH - 2 * MARGIN, 528)
 FOOTER_TOP = 800
-STATUS_WIDTH = 340
-CARD_PAD = 24
+STATUS_WIDTH = 320
+MIN_HEADER, MAX_HEADER = 210, 300
+KICKER_SIZE = 15
+TITLE_SIZE, TITLE_LINE = 46, 54
+PURPOSE_SIZE, PURPOSE_LINE = 23, 32
+PURPOSE_INDENT = 20
+CARD_PAD = 26
 CARD_BAR = 8
-LABEL_SIZE, LABEL_LINE = 26, 32
-TEXT_SIZE, TEXT_LINE = 20, 27
-REL_SIZE, REL_LINE = 17, 21
-REL_WRAP = 164
-GAP_X, GAP_Y = 200, 112
-MAX_CARD_WIDTH = 480
+CARD_TOP = CARD_BAR + CARD_PAD - 6
+LABEL_SIZE, LABEL_LINE = 24, 30
+TEXT_SIZE, TEXT_LINE = 19, 27
+BADGE = 34
+ICON = 40
+MIN_INLINE_LABEL = 180
+REL_SIZE, REL_LINE = 16, 21
+REL_WRAP = 170
+GAPS = {2: 240, 3: 190, 4: 140}
+GAP_Y = 112
+MAX_CARD_WIDTH = 520
 MIN_CARD_HEIGHT = 150
-MAX_ONE_ROW_HEIGHT = 320
+MAX_ONE_ROW_HEIGHT = 340
 LABEL_OFFSET = 8
 ARROW_MARGIN = 12
 
 
-def _grid(n: int, arrangement: str) -> list[tuple[int, float]]:
-    """Row and column (fractional for centered rows) of each idea, in order."""
+def _grid(n: int, arrangement: str) -> tuple[list[tuple[int, float]], int]:
+    """Row and column (fractional for centred rows) of each idea in order, and the column count."""
     if n == 3:
         if arrangement == "cycle":
-            return [(0, 1), (1, 2), (1, 0)]
-        return [(0, 0), (0, 1), (0, 2)]
+            return [(0, 1), (1, 2), (1, 0)], 3
+        return [(0, 0), (0, 1), (0, 2)], 3
     if n == 4:
+        if arrangement == "sequence":
+            return [(0, 0), (0, 1), (0, 2), (0, 3)], 4
         if arrangement == "set":
-            return [(0, 0), (0, 1), (1, 0), (1, 1)]
-        return [(0, 0), (0, 1), (1, 1), (1, 0)]
+            return [(0, 0), (0, 1), (1, 0), (1, 1)], 2
+        return [(0, 0), (0, 1), (1, 1), (1, 0)], 2
     if n == 5:
         if arrangement == "sequence":
-            return [(0, 0), (0, 1), (0, 2), (1, 2), (1, 1)]
+            return [(0, 0), (0, 1), (0, 2), (1, 2), (1, 1)], 3
         if arrangement == "cycle":
-            return [(0, 0), (0, 1), (0, 2), (1, 1.5), (1, 0.5)]
-        return [(0, 0), (0, 1), (0, 2), (1, 0.5), (1, 1.5)]
+            return [(0, 0), (0, 1), (0, 2), (1, 1.5), (1, 0.5)], 3
+        return [(0, 0), (0, 1), (0, 2), (1, 0.5), (1, 1.5)], 3
     if arrangement == "set":
-        return [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)]
-    return [(0, 0), (0, 1), (0, 2), (1, 2), (1, 1), (1, 0)]
+        return [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)], 3
+    return [(0, 0), (0, 1), (0, 2), (1, 2), (1, 1), (1, 0)], 3
 
 
-def card_boxes(n: int, arrangement: str, height: float | None = None) -> list[Box]:
+def card_boxes(n: int, arrangement: str, body: Box, height: float | None = None) -> list[Box]:
     """Card boxes, centred in the body. Without a height, the tallest that fits."""
-    cells = _grid(n, arrangement)
-    rows = 1 + max(row for row, _ in cells)
-    columns = 3 if n in (3, 5, 6) else 2
-    gap = GAP_X if columns == 3 else 240
-    width = min((BODY.w - (columns - 1) * gap) / columns, MAX_CARD_WIDTH)
-    left = BODY.x + (BODY.w - (columns * width + (columns - 1) * gap)) / 2
-    tallest = MAX_ONE_ROW_HEIGHT if rows == 1 else (BODY.h - GAP_Y) / 2
+    cells, columns = _grid(n, arrangement)
+    rows = 1 + int(max(row for row, _ in cells))
+    gap = GAPS[columns]
+    width = min((body.w - (columns - 1) * gap) / columns, MAX_CARD_WIDTH)
+    left = body.x + (body.w - (columns * width + (columns - 1) * gap)) / 2
+    tallest = min(MAX_ONE_ROW_HEIGHT, body.h) if rows == 1 else (body.h - GAP_Y) / 2
     height = tallest if height is None else min(height, tallest)
-    top = BODY.y + (BODY.h - (rows * height + (rows - 1) * GAP_Y)) / 2
+    top = body.y + (body.h - (rows * height + (rows - 1) * GAP_Y)) / 2
     tops = [top + row * (height + GAP_Y) for row in range(rows)]
-    return [Box(left + column * (width + gap), tops[row], width, height) for row, column in cells]
+    return [Box(left + column * (width + gap), tops[int(row)], width, height) for row, column in cells]
 
 
-def _card_blocks(idea: dict, box: Box, errors: list[str] | None) -> tuple[list[TextBlock], float]:
-    """The label and text blocks of one card, and the height they need."""
+def _block(name, box, text, size, line, weight, color, anchor="start", max_lines=None,
+           errors=None, letter_spacing=0.0) -> TextBlock:
+    lines = wrap(text, box.w, size, weight)
+    block = TextBlock(name, box, lines, size, line, weight, color, anchor,
+                      box.y + size * 0.8, letter_spacing)
+    block.box.h = max(box.h, len(lines) * line)
+    if errors is not None:
+        for value in lines:
+            if text_width(value, size, weight, letter_spacing) > box.w + 0.5:
+                errors.append(f"{name}: {value!r} is too wide for its box; shorten it")
+        if max_lines is not None and len(lines) > max_lines:
+            errors.append(f"{name} needs {len(lines)} lines; at most {max_lines} fit. Shorten it.")
+    return block
+
+
+def _card(idea: dict, box: Box, number: int | None, errors: list[str] | None) -> tuple[Card, float]:
+    """Lay out one card. Returns the card and the height its contents need."""
     name = f"idea {idea.get('id')!r}"
-    x, y, w = box.x + CARD_PAD, box.y + CARD_BAR + CARD_PAD - 4, box.w - 2 * CARD_PAD
-    label = _block(f"{name} label", Box(x, y, w, 0), str(idea.get("label", "")),
-                   LABEL_SIZE, LABEL_LINE, True, COLORS["navy"], errors=errors)
+    x0, y0, width = box.x + CARD_PAD, box.y + CARD_TOP, box.w - 2 * CARD_PAD
+    has_icon = isinstance(idea.get("icon"), str)
+    label_x = x0 + (BADGE + 12 if number else 0)
+    label_width = x0 + width - label_x - (ICON + 12 if has_icon else 0)
+    # A narrow card gives the badge and icon a row of their own above the label.
+    stacked = (number or has_icon) and label_width < MIN_INLINE_LABEL
+    if stacked:
+        label_x, label_width = x0, width
+    label = _block(f"{name} label", Box(label_x, y0, label_width, 0), str(idea.get("label", "")),
+                   LABEL_SIZE, LABEL_LINE, 700, COLORS["navy"], errors=errors)
+    if stacked:
+        label.first_baseline = y0 + max(BADGE, ICON if has_icon else 0) + 12 + LABEL_SIZE * 0.8
+    else:
+        # The first line of the label sits level with the number badge.
+        label.first_baseline = y0 + BADGE / 2 + LABEL_SIZE * 0.36
+    label.box.y = label.first_baseline - LABEL_SIZE * 0.8
     label.box.h = len(label.lines) * LABEL_LINE
+    used = max(label.box.y + label.box.h - y0, BADGE if number else 0, ICON if has_icon else 0)
     blocks = [label]
-    used = label.box.h
     if _text(idea.get("text")):
-        body = _block(f"{name} text", Box(x, y + used + 10, w, 0), str(idea["text"]),
-                      TEXT_SIZE, TEXT_LINE, False, COLORS["navy"], errors=errors)
-        body.box.h = len(body.lines) * TEXT_LINE
-        used += 10 + body.box.h
+        body = _block(f"{name} text", Box(x0, y0 + used + 12, width, 0), str(idea["text"]),
+                      TEXT_SIZE, TEXT_LINE, 400, COLORS["body-text"], errors=errors)
+        used += 12 + body.box.h
         blocks.append(body)
-    return blocks, used
+    badge = Box(x0, y0, BADGE, BADGE) if number else None
+    icon = Box(x0 + width - ICON, y0 + (BADGE - ICON) / 2, ICON, ICON) if has_icon else None
+    return Card(idea, box, blocks, number, badge, icon), used
 
 
 def _exit(box: Box, dx: float, dy: float) -> float:
@@ -650,66 +827,55 @@ def _segment_hits(box: Box, x1: float, y1: float, x2: float, y2: float) -> bool:
     return True
 
 
-def _block(name, box, text, size, line, bold, color, anchor="start", max_lines=None,
-           errors=None, top_pad=0.0, letter_spacing=0.0) -> TextBlock:
-    lines = wrap(text, box.w, size, bold)
-    block = TextBlock(name, box, lines, size, line, bold, color, anchor,
-                      box.y + top_pad + size * 0.8, letter_spacing)
-    if errors is not None:
-        for value in lines:
-            if text_width(value, size, bold) > box.w + 0.5:
-                errors.append(f"{name}: {value!r} is too wide for its box; shorten it")
-        if max_lines is not None and len(lines) > max_lines:
-            errors.append(f"{name} needs {len(lines)} lines; at most {max_lines} fit. Shorten it.")
-    return block
-
-
-def layout(spec: dict, status: str, version: str, built: str, topic: int | None,
+def layout(spec: dict, status: str, release: str | None, built: str, topic: int | None,
            notice: str | None) -> Layout:
     """Place every element. Text that does not fit is reported in errors."""
     errors: list[str] = []
-    text_right = WIDTH - MARGIN - STATUS_WIDTH - 32
-    header_box = Box(MARGIN, 0, text_right - MARGIN, HEADER_BOTTOM)
+    right = WIDTH - MARGIN
+    header_width = right - STATUS_WIDTH - 40 - MARGIN
 
-    kicker = TextBlock("kicker", Box(MARGIN, 30, 400, 20), ["TOPIC AT A GLANCE"], 15, 20, True,
-                       COLORS["light-green"], first_baseline=46, letter_spacing=2)
-    title = _block("title", Box(MARGIN, 62, header_box.w, 96), str(spec.get("title", "")),
-                   40, 48, True, COLORS["white"], max_lines=2, errors=errors)
-    purpose_top = title.box.y + len(title.lines) * 48 + 14
-    purpose_text = (spec.get("purpose") or {}).get("text", "")
-    purpose = _block("purpose", Box(MARGIN, purpose_top, header_box.w, 60), str(purpose_text),
-                     22, 30, False, COLORS["light-green"], max_lines=2, errors=errors)
-    purpose.box.h = max(len(purpose.lines), 1) * 30
-    if purpose.box.y + purpose.box.h > HEADER_BOTTOM - 8:
+    kicker = TextBlock("kicker", Box(MARGIN, 36, 420, 20), ["TOPIC AT A GLANCE"], KICKER_SIZE, 20, 700,
+                       COLORS["light-green"], first_baseline=52, letter_spacing=2.5)
+    title = _block("title", Box(MARGIN, 68, header_width, 0), str(spec.get("title", "")),
+                   TITLE_SIZE, TITLE_LINE, 700, COLORS["white"], max_lines=2, errors=errors)
+    purpose_top = title.box.y + title.box.h + 18
+    purpose_text = str((spec.get("purpose") or {}).get("text", ""))
+    purpose = _block("purpose", Box(MARGIN + PURPOSE_INDENT, purpose_top, header_width - PURPOSE_INDENT, 0),
+                     purpose_text, PURPOSE_SIZE, PURPOSE_LINE, 400, COLORS["pale-green"], max_lines=3,
+                     errors=errors)
+    purpose_bar = Box(MARGIN, purpose_top + 4, 4, max(purpose.box.h - 8, 8))
+    header_bottom = max(MIN_HEADER, purpose.box.y + purpose.box.h + 30)
+    if header_bottom > MAX_HEADER:
         errors.append("title and purpose together are too long for the header; shorten one")
+        header_bottom = MAX_HEADER
 
-    status_right = WIDTH - MARGIN
     tag = status.upper()
-    tag_width = text_width(tag, 16, True) + 2 * 14 + len(tag) * 1.5
-    status_box = Box(status_right - tag_width, 38, tag_width, 32)
-    meta = [
-        _block("version", Box(status_right - STATUS_WIDTH, 92, STATUS_WIDTH, 24),
-               f"Version {version}", 18, 24, False, COLORS["white"], "end", 1, errors),
-        _block("date", Box(status_right - STATUS_WIDTH, 122, STATUS_WIDTH, 24),
-               f"Built {built}", 18, 24, False, COLORS["light-gray"], "end", 1, errors),
-    ]
+    tag_width = text_width(tag, 16, 700, 1.5) + 28
+    status_box = Box(right - tag_width, 40, tag_width, 32)
+    meta = [_block("date", Box(right - STATUS_WIDTH, 92, STATUS_WIDTH, 0), f"Built {built}", 18, 24, 400,
+                   COLORS["light-gray"], "end", 1, errors)]
+    if release:
+        meta.append(_block("release", Box(right - STATUS_WIDTH, 120, STATUS_WIDTH, 0), f"Release {release}",
+                           18, 24, 700, COLORS["white"], "end", 1, errors))
 
+    body = Box(MARGIN, header_bottom + 36, WIDTH - 2 * MARGIN, FOOTER_TOP - 30 - header_bottom - 36)
     ideas = [idea for idea in spec.get("ideas") or [] if isinstance(idea, dict)]
     arrangement = spec.get("arrangement", "set")
-    cards = []
+    numbered = arrangement in NUMBERED
+    cards: list[Card] = []
     if MIN_IDEAS <= len(ideas) <= MAX_IDEAS:
-        widest = card_boxes(len(ideas), arrangement)
-        needed = max(_card_blocks(idea, box, None)[1] for idea, box in zip(ideas, widest))
-        height = max(needed + CARD_BAR + 2 * CARD_PAD - 4, MIN_CARD_HEIGHT)
-        for idea, box in zip(ideas, card_boxes(len(ideas), arrangement, height)):
-            blocks, used = _card_blocks(idea, box, errors)
-            room = box.h - CARD_BAR - 2 * CARD_PAD + 4
+        widest = card_boxes(len(ideas), arrangement, body)
+        needed = max(_card(idea, box, 1 if numbered else None, None)[1] for idea, box in zip(ideas, widest))
+        height = max(needed + CARD_TOP + CARD_PAD, MIN_CARD_HEIGHT)
+        for number, (idea, box) in enumerate(zip(ideas, card_boxes(len(ideas), arrangement, body, height)), 1):
+            card, used = _card(idea, box, number if numbered else None, errors)
+            room = box.h - CARD_TOP - CARD_PAD
             if used > room + 0.5:
                 errors.append(f"idea {idea.get('id')!r}: the label and text need {used:.0f}px but "
                               f"the card holds {room:.0f}px; shorten them")
-            cards.append((idea, box, blocks))
+            cards.append(card)
 
-    by_id = {str(idea.get("id")): box for idea, box, _ in cards}
+    by_id = {str(card.idea.get("id")): card.box for card in cards}
     arrows = []
     labels: list[tuple[str, Box]] = []
     for relationship in spec.get("relationships") or []:
@@ -727,14 +893,19 @@ def layout(spec: dict, status: str, version: str, built: str, topic: int | None,
         if end <= start:
             errors.append(f"{name}: the ideas are too close to draw an arrow")
             continue
-        for idea, box, _ in cards:
-            if box is not source and box is not target and _segment_hits(box, x1, y1, x2, y2):
-                errors.append(f"{name}: the arrow crosses idea {idea.get('id')!r}; reorder the "
+        for card in cards:
+            if card.box is not source and card.box is not target and _segment_hits(card.box, x1, y1, x2, y2):
+                errors.append(f"{name}: the arrow crosses idea {card.idea.get('id')!r}; reorder the "
                               "ideas or choose another arrangement")
         block = pill = None
         label_text = _text(relationship.get("label"))
         if label_text:
-            lines = wrap(label_text, REL_WRAP, REL_SIZE)
+            limit = REL_WRAP
+            if abs(dx) >= abs(dy):
+                free = max(target.x - source.x - source.w, source.x - target.x - target.w)
+                if free > 100:
+                    limit = min(REL_WRAP, free - 32)
+            lines = wrap(label_text, limit, REL_SIZE)
             width = max(text_width(line, REL_SIZE) for line in lines)
             height = len(lines) * REL_LINE
             # Beside the arrow, not on it: above a horizontal arrow, right of a vertical one.
@@ -747,14 +918,16 @@ def layout(spec: dict, status: str, version: str, built: str, topic: int | None,
             mx, my = (x1 + x2) / 2 + nx * offset, (y1 + y2) / 2 + ny * offset
             pill = Box(mx - pill_w / 2, my - pill_h / 2, pill_w, pill_h)
             block = TextBlock(f"{name} label", Box(mx - width / 2, my - height / 2, width, height),
-                              lines, REL_SIZE, REL_LINE, False, COLORS["navy"], "middle",
+                              lines, REL_SIZE, REL_LINE, 400, COLORS["navy"], "middle",
                               my - height / 2 + REL_SIZE * 0.8)
-            if width > REL_WRAP + 0.5:
+            if width > limit + 0.5:
                 errors.append(f"{name}: label {label_text!r} has a word too long to fit; shorten it")
-            for idea, box, _ in cards:
-                if pill.overlaps(box):
-                    errors.append(f"{name}: label {label_text!r} overlaps idea {idea.get('id')!r}; "
+            for card in cards:
+                if pill.overlaps(card.box):
+                    errors.append(f"{name}: label {label_text!r} overlaps idea {card.idea.get('id')!r}; "
                                   "shorten it")
+            if pill.y < header_bottom + 8 or pill.y + pill.h > FOOTER_TOP - 8:
+                errors.append(f"{name}: label {label_text!r} does not fit in the body; shorten it")
             for other_name, other in labels:
                 if pill.overlaps(other, 4):
                     errors.append(f"{name}: label overlaps the label of {other_name}")
@@ -763,7 +936,7 @@ def layout(spec: dict, status: str, version: str, built: str, topic: int | None,
 
     logo_width, logo_height = _png_size(LOGO)
     logo_h = 52
-    logo = Box(WIDTH - MARGIN - logo_width * logo_h / logo_height, FOOTER_TOP + 24,
+    logo = Box(right - logo_width * logo_h / logo_height, FOOTER_TOP + 24,
                logo_width * logo_h / logo_height, logo_h)
     footer_width = logo.x - MARGIN - 32
     topic_line = "InteropHub topic"
@@ -771,14 +944,15 @@ def layout(spec: dict, status: str, version: str, built: str, topic: int | None,
         topic_line = f"InteropHub topic {topic}"
         if spec.get("topic_link", True):
             topic_line += " · " + INTEROPHUB_TOPIC_URL.format(topic=topic)
-    footer = [_block("topic", Box(MARGIN, FOOTER_TOP + 22, footer_width, 26), topic_line, 19, 26,
-                     False, COLORS["navy"], max_lines=1, errors=errors)]
+    footer = [_block("topic", Box(MARGIN, FOOTER_TOP + 22, footer_width, 0), topic_line, 18, 26,
+                     400, COLORS["navy"], max_lines=1, errors=errors)]
     if notice:
-        footer.append(_block("notice", Box(MARGIN, FOOTER_TOP + 56, footer_width, 24), notice, 17, 24,
-                             True, COLORS["muted"], max_lines=1, errors=errors))
+        footer.append(_block("notice", Box(MARGIN, FOOTER_TOP + 56, footer_width, 0), notice, 16, 24,
+                             700, COLORS["muted"], max_lines=1, errors=errors))
 
-    return Layout(spec, [kicker, title, purpose], (tag, *STATUS_COLORS.get(status.lower(),
-                  ("#005ea8", "#ffffff"))), status_box, meta, cards, arrows, footer, logo, errors)
+    colors = STATUS_COLORS.get(status.lower(), ("#005ea8", "#ffffff"))
+    return Layout(spec, header_bottom, body, [kicker, title, purpose], purpose_bar, (tag, *colors),
+                  status_box, meta, cards, arrows, footer, logo, errors)
 
 
 def _png_size(path: Path) -> tuple[int, int]:
@@ -807,7 +981,7 @@ def _text_svg(block: TextBlock) -> str:
     else:
         x = block.box.x
     attributes = (f'font-size="{block.size}" fill="{block.color}"'
-                  + (' font-weight="700"' if block.bold else "")
+                  + (f' font-weight="{block.weight}"' if block.weight != 400 else "")
                   + (f' text-anchor="{block.anchor}"' if block.anchor != "start" else "")
                   + (f' letter-spacing="{block.letter_spacing}"' if block.letter_spacing else ""))
     texts = "".join(
@@ -828,11 +1002,39 @@ def _link(content: str, ref, label: str, links: bool) -> str:
             f"<title>{_esc(label)}</title>{content}</a>")
 
 
+def _card_svg(card: Card) -> str:
+    box = card.box
+    parts = [
+        f'<rect x="{box.x:.1f}" y="{box.y + 3:.1f}" width="{box.w:.1f}" height="{box.h:.1f}" rx="10" '
+        f'fill="{COLORS["navy"]}" opacity="0.08"/>',
+        f'<rect x="{box.x:.1f}" y="{box.y:.1f}" width="{box.w:.1f}" height="{box.h:.1f}" rx="10" '
+        f'fill="{COLORS["white"]}" stroke="{COLORS["light-gray"]}" stroke-width="1.5"/>',
+        f'<path d="M{box.x:.1f},{box.y + CARD_BAR:.1f} V{box.y + 10:.1f} '
+        f'A10,10 0 0 1 {box.x + 10:.1f},{box.y:.1f} H{box.x + box.w - 10:.1f} '
+        f'A10,10 0 0 1 {box.x + box.w:.1f},{box.y + 10:.1f} V{box.y + CARD_BAR:.1f} Z" '
+        f'fill="{COLORS["green"]}"/>',
+    ]
+    if card.badge:
+        badge = card.badge
+        parts.append(f'<circle cx="{badge.cx:.1f}" cy="{badge.cy:.1f}" r="{badge.w / 2:.1f}" '
+                     f'fill="{COLORS["navy"]}"/>')
+        parts.append(f'<text class="ig-number" x="{badge.cx:.1f}" y="{badge.cy + 6.5:.1f}" font-size="18" '
+                     f'font-weight="700" text-anchor="middle" fill="{COLORS["white"]}">{card.number}</text>')
+    if card.icon:
+        icon = card.icon
+        parts.append(f'<g class="ig-icon" transform="translate({icon.x:.1f} {icon.y:.1f}) scale({icon.w / 24:.4f})" '
+                     f'fill="none" stroke="{COLORS["green-accessible"]}" stroke-width="1.75" '
+                     f'stroke-linecap="round" stroke-linejoin="round">{icon_shapes(card.idea["icon"])}</g>')
+    parts.extend(_text_svg(block) for block in card.blocks)
+    return "".join(parts)
+
+
 def render_svg(layout_result: Layout, root: Path, links: bool = False,
                id_prefix: str = "ig") -> str:
     """Draw a laid-out infographic. links=True makes each part link to its section."""
     spec = layout_result.spec
     title = str(spec.get("title", ""))
+    top = layout_result.header_bottom
     parts: list[str] = []
     add = parts.append
     role = "" if links else ' role="img"'
@@ -842,11 +1044,12 @@ def render_svg(layout_result: Layout, root: Path, links: bool = False,
     add(f'<title id="{id_prefix}-title">{_esc(title)}: topic at a glance</title>')
     add(f'<desc id="{id_prefix}-desc">{_esc(spec.get("alt", ""))}</desc>')
     add("<defs>"
+        f"<style>{font_face_css()}</style>"
         f'<marker id="{id_prefix}-arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="12" '
         f'markerHeight="12" markerUnits="userSpaceOnUse" orient="auto">'
         f'<path d="M1,1 L11,6 L1,11 Z" fill="{COLORS["blue-gray"]}"/></marker>'
-        f'<clipPath id="{id_prefix}-body"><rect x="0" y="{HEADER_BOTTOM}" width="{WIDTH}" '
-        f'height="{FOOTER_TOP - HEADER_BOTTOM}"/></clipPath>'
+        f'<clipPath id="{id_prefix}-body"><rect x="0" y="{top:.1f}" width="{WIDTH}" '
+        f'height="{FOOTER_TOP - top:.1f}"/></clipPath>'
         "</defs>")
 
     add(f'<rect width="{WIDTH}" height="{HEIGHT}" fill="{COLORS["off-white"]}"/>')
@@ -854,16 +1057,19 @@ def render_svg(layout_result: Layout, root: Path, links: bool = False,
     if isinstance(artwork, dict) and _text(artwork.get("file")):
         path = root / str(artwork["file"])
         opacity = artwork.get("opacity", 0.15)
-        add(f'<image class="ig-artwork" href="{_data_uri(path)}" x="0" y="{HEADER_BOTTOM}" '
-            f'width="{WIDTH}" height="{FOOTER_TOP - HEADER_BOTTOM}" preserveAspectRatio="xMidYMid slice" '
+        add(f'<image class="ig-artwork" href="{_data_uri(path)}" x="0" y="{top:.1f}" '
+            f'width="{WIDTH}" height="{FOOTER_TOP - top:.1f}" preserveAspectRatio="xMidYMid slice" '
             f'opacity="{opacity}" clip-path="url(#{id_prefix}-body)"/>')
 
-    add(f'<rect width="{WIDTH}" height="{HEADER_BOTTOM}" fill="{COLORS["navy"]}"/>')
+    add(f'<rect width="{WIDTH}" height="{top:.1f}" fill="{COLORS["navy"]}"/>')
     kicker, title_block, purpose_block = layout_result.header
     add(_text_svg(kicker))
     add(_text_svg(title_block))
+    bar = layout_result.purpose_bar
     purpose = spec.get("purpose") or {}
-    add(_link(_text_svg(purpose_block), purpose.get("ref"), "Purpose: go to its section", links))
+    add(_link(f'<rect x="{bar.x}" y="{bar.y:.1f}" width="{bar.w}" height="{bar.h:.1f}" '
+              f'fill="{COLORS["green"]}"/>' + _text_svg(purpose_block),
+              purpose.get("ref"), "Purpose: go to its section", links))
 
     tag, background, foreground = layout_result.status
     box = layout_result.status_box
@@ -873,21 +1079,15 @@ def render_svg(layout_result: Layout, root: Path, links: bool = False,
     for block in layout_result.meta:
         add(_text_svg(block))
 
-    for relationship, (x1, y1, x2, y2), block, pill in layout_result.arrows:
+    for _, (x1, y1, x2, y2), _, _ in layout_result.arrows:
         add(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="{COLORS["blue-gray"]}" '
             f'stroke-width="3" marker-end="url(#{id_prefix}-arrow)"/>')
-    for idea, box, blocks in layout_result.cards:
-        card = (f'<rect x="{box.x:.1f}" y="{box.y:.1f}" width="{box.w:.1f}" height="{box.h:.1f}" rx="8" '
-                f'fill="{COLORS["white"]}" stroke="{COLORS["light-gray"]}" stroke-width="1.5"/>'
-                f'<path d="M{box.x:.1f},{box.y + CARD_BAR:.1f} V{box.y + 8:.1f} '
-                f'A8,8 0 0 1 {box.x + 8:.1f},{box.y:.1f} H{box.x + box.w - 8:.1f} '
-                f'A8,8 0 0 1 {box.x + box.w:.1f},{box.y + 8:.1f} V{box.y + CARD_BAR:.1f} Z" '
-                f'fill="{COLORS["green"]}"/>'
-                + "".join(_text_svg(item) for item in blocks))
-        label = str(idea.get("label", ""))
-        add(f'<g class="ig-card" data-idea="{_esc(idea.get("id"))}" data-ref="{_esc(idea.get("ref"))}" '
+    for card in layout_result.cards:
+        box = card.box
+        label = str(card.idea.get("label", ""))
+        add(f'<g class="ig-card" data-idea="{_esc(card.idea.get("id"))}" data-ref="{_esc(card.idea.get("ref"))}" '
             f'data-box="{box.x:.1f} {box.y:.1f} {box.w:.1f} {box.h:.1f}">'
-            + _link(card, idea.get("ref"), f"{label}: go to its section", links) + "</g>")
+            + _link(_card_svg(card), card.idea.get("ref"), f"{label}: go to its section", links) + "</g>")
     for relationship, _, block, pill in layout_result.arrows:
         if block is None:
             continue
@@ -918,9 +1118,12 @@ def link_targets(root: Path) -> set[str]:
     return set(content_targets(root))
 
 
-def build(root: Path, config: dict, version: str, built: str, spec_path: str = SPEC_PATH,
+def build(root: Path, config: dict, release: str | None, built: str, spec_path: str = SPEC_PATH,
           links: bool = False, id_prefix: str = "ig") -> tuple[str | None, Report]:
-    """Check the specification and draw it. Returns (svg or None, report)."""
+    """Check the specification and draw it. Returns (svg or None, report).
+
+    release is the tag to draw, or None; see release_label().
+    """
     path = root / spec_path
     report = Report()
     try:
@@ -932,7 +1135,7 @@ def build(root: Path, config: dict, version: str, built: str, spec_path: str = S
     if report.errors:
         return None, report
     notice = _text(spec.get("notice")) or _text(config.get("license"))
-    result = layout(spec, str(config.get("status", "Draft")), version, built,
+    result = layout(spec, str(config.get("status", "Draft")), release, built,
                     config.get("interophubTopic"), notice)
     report.errors.extend(f"{spec_path}: {message}" for message in result.errors)
     if report.errors:
@@ -942,5 +1145,6 @@ def build(root: Path, config: dict, version: str, built: str, spec_path: str = S
 
 __all__ = [
     "SPEC_PATH", "SpecError", "Report", "load_yaml", "load_spec", "check_spec", "layout",
-    "render_svg", "build", "link_targets", "text_width", "wrap", "WIDTH", "HEIGHT",
+    "render_svg", "build", "link_targets", "release_label", "icon_names", "text_width", "wrap",
+    "WIDTH", "HEIGHT",
 ]

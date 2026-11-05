@@ -165,7 +165,7 @@ def infographic_problems(root: Path) -> tuple[list[str], list[str]]:
             return [f"{infographic.SPEC_PATH} is missing; every Topic Reference has a primary "
                     "infographic. See process/guidance/TopicReference.md."], []
         return [], []
-    _, report = infographic.build(root, config, "v0.0.0-00-g0000000-dirty", "2000-01-01")
+    _, report = infographic.build(root, config, "v00.00.00", "2000-01-01")
     return report.errors, report.warnings
 
 

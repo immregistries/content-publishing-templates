@@ -15,7 +15,7 @@ optional short labels for the section bar. Pandoc is
 required; Quarto's bundled copy is used when pandoc is not on the PATH.
 
 When content/infographic.yml exists, the primary infographic is drawn from it
-with the guide's version and placed above the first section, each part linking
+and placed above the first section, each part linking
 to the section it summarizes. It is drawn here rather than copied from
 output/, so the guide builds without a browser; build_infographic.py draws the
 same figure for the PNG, PDF, and Word document.
@@ -133,11 +133,12 @@ def arguments() -> argparse.Namespace:
 INFOGRAPHIC_ID = "guide-infographic"
 
 
-def infographic_figure(root: Path, spec: str, config: dict, version: str) -> str:
+def infographic_figure(root: Path, spec: str, config: dict, version: str | None) -> str:
     """The primary infographic as an inline figure, or "" when the project has none."""
     if not (root / spec).is_file():
         return ""
-    svg, report = infographic.build(root, config, version, date.today().isoformat(), spec,
+    release = infographic.release_label(root, version)
+    svg, report = infographic.build(root, config, release, date.today().isoformat(), spec,
                                     links=True, id_prefix=INFOGRAPHIC_ID)
     for warning in report.warnings:
         print(f"Warning: {warning}")
@@ -518,7 +519,7 @@ def main() -> int:
 
     output = root / args.output
     output.parent.mkdir(parents=True, exist_ok=True)
-    figure = infographic_figure(root, args.infographic, config, version)
+    figure = infographic_figure(root, args.infographic, config, args.version)
     document = page(title, subtitle, config, version, nav, body, figure)
     duplicates = duplicate_ids(document)
     if duplicates:

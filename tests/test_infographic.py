@@ -181,6 +181,88 @@ class CheckSpec(unittest.TestCase):
                 self.assertEqual([], errors, (arrangement, count))
 
 
+class Arrangement(unittest.TestCase):
+    def ideas(self, count, icon=None):
+        return [dict({"id": f"i{n}", "label": f"Idea {n}", "text": "A short sentence.", "ref": "purpose"},
+                     **({"icon": icon} if icon else {})) for n in range(count)]
+
+    def test_four_idea_sequence_reads_left_to_right(self):
+        result = infographic.layout(dict(SPEC, ideas=self.ideas(4), relationships=[]), "Draft", None,
+                                    "2026-01-01", 7, None)
+        boxes = [card.box for card in result.cards]
+        self.assertEqual(1, len({round(box.y) for box in boxes}))
+        self.assertEqual(sorted(box.x for box in boxes), [box.x for box in boxes])
+
+    def test_four_idea_cycle_is_a_loop(self):
+        result = infographic.layout(dict(SPEC, arrangement="cycle", ideas=self.ideas(4), relationships=[]),
+                                    "Draft", None, "2026-01-01", 7, None)
+        (a, b, c, d) = [card.box for card in result.cards]
+        self.assertEqual((a.y, c.y), (b.y, d.y))
+        self.assertLess(a.y, c.y)
+        self.assertEqual((a.x, b.x), (d.x, c.x))
+
+    def test_sequence_and_cycle_are_numbered_and_set_is_not(self):
+        for arrangement, expected in (("sequence", [1, 2, 3]), ("cycle", [1, 2, 3]), ("set", [None] * 3)):
+            result = infographic.layout(dict(SPEC, arrangement=arrangement, relationships=[]), "Draft", None,
+                                        "2026-01-01", 7, None)
+            self.assertEqual(expected, [card.number for card in result.cards], arrangement)
+
+    def test_icons_are_checked_and_drawn(self):
+        report = infographic.check_spec(dict(SPEC, ideas=self.ideas(3, "no-such-icon")), ROOT, TARGETS)
+        self.assertIn("icon 'no-such-icon' is not in", " ".join(report.errors))
+        spec = dict(SPEC, arrangement="sequence", ideas=self.ideas(4, "users"), relationships=[])
+        self.assertEqual([], infographic.check_spec(spec, ROOT, TARGETS).errors)
+        result = infographic.layout(spec, "Draft", None, "2026-01-01", 7, None)
+        self.assertEqual([], result.errors)
+        svg = infographic.render_svg(result, ROOT)
+        self.assertEqual(4, svg.count('class="ig-icon"'))
+        self.assertEqual(4, svg.count('class="ig-number"'))
+
+    def test_vendored_assets_have_licenses(self):
+        assets = ROOT / "templates" / "infographic"
+        self.assertTrue((assets / "fonts" / "OFL.txt").is_file())
+        self.assertTrue((assets / "icons" / "LICENSE").is_file())
+        self.assertGreater(len(infographic.icon_names()), 20)
+        for name in infographic.icon_names():
+            self.assertNotIn("<script", (assets / "icons" / f"{name}.svg").read_text(encoding="utf-8"))
+
+    def test_open_sans_metrics(self):
+        self.assertGreater(infographic.text_width("Wording", 20, 700), infographic.text_width("Wording", 20))
+        self.assertAlmostEqual(infographic.text_width("a", 1000), infographic.advance_widths(400)["a"])
+
+
+class ReleaseLabel(unittest.TestCase):
+    def git(self, *args):
+        subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.org", *args],
+                       cwd=self.root, check=True, capture_output=True)
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.git("init", "-q")
+        (self.root / "file.txt").write_text("one", encoding="utf-8")
+        self.git("add", "file.txt")
+        self.git("commit", "-q", "-m", "first")
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_only_an_exact_clean_tag_is_drawn(self):
+        self.assertIsNone(infographic.release_label(self.root))
+        self.git("tag", "v1.2.0")
+        self.assertEqual("v1.2.0", infographic.release_label(self.root))
+        self.assertEqual("v1.2.0", infographic.release_label(self.root, "v1.2.0"))
+        self.assertIsNone(infographic.release_label(self.root, "v1.2.0-3-gabc1234"))
+        (self.root / "file.txt").write_text("changed", encoding="utf-8")
+        self.assertIsNone(infographic.release_label(self.root))
+        self.git("commit", "-q", "-am", "second")
+        self.assertIsNone(infographic.release_label(self.root))
+
+    def test_a_non_release_tag_is_not_drawn(self):
+        self.git("tag", "draft-for-review")
+        self.assertIsNone(infographic.release_label(self.root))
+
+
 class Render(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -221,7 +303,9 @@ topic_link: false
         self.assertEqual([], report.errors)
         self.assertIn("Sample &lt;Topic&gt; &amp; more", svg)
         self.assertIn("DRAFT", svg)
-        self.assertIn("Version v1.2.3", svg)
+        self.assertIn("Release v1.2.3", svg)
+        self.assertIn("Open Sans Infographic", svg)
+        self.assertIn("data:font/woff;base64,", svg)
         self.assertIn("Built 2026-01-01", svg)
         self.assertIn("InteropHub topic 7<", svg)
         self.assertNotIn("informatics.immregistries.org", svg)
@@ -259,7 +343,7 @@ topic_link: false
         (self.root / "guide.json").write_text('{"status": "Review", "interophubTopic": 7}')
         result = subprocess.run(
             [sys.executable, str(ROOT / "tools" / "build_infographic.py"), "--root", str(self.root),
-             "--version", "v9"], capture_output=True, text=True)
+             ], capture_output=True, text=True)
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         png = (self.root / "output" / "infographic.png").read_bytes()
         self.assertEqual(b"\x89PNG", png[:4])
@@ -292,7 +376,7 @@ topic_link: false
         spec_path.write_text(spec_path.read_text(encoding="utf-8").replace("label: First", "label: " + "\u5bec" * 15), encoding="utf-8")
         result = subprocess.run(
             [sys.executable, str(ROOT / "tools" / "build_infographic.py"), "--root", str(self.root),
-             "--version", "v9"], capture_output=True, text=True)
+             ], capture_output=True, text=True)
         self.assertNotEqual(0, result.returncode)
         self.assertIn("renders", result.stdout)
 

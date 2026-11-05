@@ -27,6 +27,15 @@
   the Word document after.
 - "Sanctioned summaries" in the conventions records the infographic as a
   deliberate exception to stating each fact once.
+- The infographic is set in Open Sans, vendored with its license in
+  `templates/infographic/fonts/` and embedded in each SVG. Text is wrapped with
+  Open Sans's own advance widths, read from the vendored files.
+- The image shows the status and build date, and the release tag only when the
+  build is exactly on a clean tag; it never shows a git describe string.
+- Ideas in a sequence or cycle are numbered. A sequence of four ideas reads
+  left to right in one row; a cycle of four is a two-by-two loop.
+- Each idea may name an `icon` from a vendored subset of Lucide icons (ISC
+  license), listed in `templates/infographic/README.md`.
 
 To adopt this in an existing Topic Reference: move `process/` to this version;
 copy `content/infographic.yml` and `products/infographic/brief.yml` from the
