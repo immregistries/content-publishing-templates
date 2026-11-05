@@ -204,6 +204,16 @@ def replace_anchors(text: str) -> str:
     return "".join(output)
 
 
+IMAGE_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+    ".webp": "image/webp",
+}
+
+
 def prepared_markdown(
     root: Path, paths: list[Path], repository: str | None, ref: str
 ) -> str:
@@ -227,6 +237,11 @@ def prepared_markdown(
             resolved = (source.parent / relative).resolve()
             if resolved in anchors:
                 moved = "#" + (fragment or anchors[resolved])
+            elif resolved.suffix.lower() in IMAGE_TYPES and resolved.is_file():
+                # Embed images so the guide stays one self-contained file and
+                # shows them even when the repository is private.
+                data = base64.b64encode(resolved.read_bytes()).decode("ascii")
+                moved = f"data:{IMAGE_TYPES[resolved.suffix.lower()]};base64,{data}"
             elif repository:
                 relative_to_root = Path(os.path.relpath(resolved, root)).as_posix()
                 moved = f"{repository.rstrip('/')}/blob/{ref}/{relative_to_root}"

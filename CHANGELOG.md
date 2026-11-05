@@ -37,6 +37,14 @@
 - Each idea may name an `icon` from a vendored subset of Lucide icons (ISC
   license), listed in `templates/infographic/README.md`.
 
+- The web guide embeds images linked from `content/` instead of linking them
+  to the repository, so they show in a private project's guide and the guide
+  stays one file. Link images relative to the Markdown file that uses them
+  (for example, `images/figure.png` from `content/`); the skeleton's
+  `_quarto.yml` adds `content` to Quarto's `resource-path` so the Word and
+  HTML builds find them too. Existing projects should add the same
+  `resource-path` entry.
+
 To adopt this in an existing Topic Reference: move `process/` to this version;
 copy `content/infographic.yml` and `products/infographic/brief.yml` from the
 skeleton (`templates/topic-reference/project/content/` and
