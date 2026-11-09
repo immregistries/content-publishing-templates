@@ -1352,7 +1352,30 @@
       target.appendChild(form);
     }
 
-    function renderRemote() {
+    function renderRemote(preserveOpenForms) {
+      var openThreads = {};
+      var activeControl = null;
+      var selectionStart = null;
+      var selectionEnd = null;
+      if (preserveOpenForms) {
+        if (
+          document.activeElement &&
+          document.activeElement.closest &&
+          document.activeElement.closest(".guide-comment-form")
+        ) {
+          activeControl = document.activeElement;
+          selectionStart = activeControl.selectionStart;
+          selectionEnd = activeControl.selectionEnd;
+        }
+        Array.prototype.forEach.call(
+          content.querySelectorAll(".guide-comment[id^='comment-']"),
+          function (node) {
+            if (node.querySelector(".guide-comment-form")) {
+              openThreads[node.id.slice("comment-".length)] = node;
+            }
+          },
+        );
+      }
       Array.prototype.forEach.call(
         content.querySelectorAll(".guide-thread,.guide-orphans"),
         function (node) {
@@ -1369,8 +1392,9 @@
           return;
         }
         var target = remotePlacement(thread);
+        var rendered = openThreads[String(thread.id)] || itemElement(thread, null);
         if (target) {
-          threadHolder(target).appendChild(itemElement(thread, null));
+          threadHolder(target).appendChild(rendered);
         } else {
           orphans.push(thread);
         }
@@ -1396,7 +1420,9 @@
         orphans.forEach(function (thread) {
           var holder = document.createElement("div");
           holder.className = "guide-thread";
-          holder.appendChild(itemElement(thread, null));
+          holder.appendChild(
+            openThreads[String(thread.id)] || itemElement(thread, null),
+          );
           group.appendChild(holder);
         });
         content.appendChild(group);
@@ -1404,6 +1430,12 @@
       count.textContent = String(threads.length);
       renderReviewFlags();
       followRemoteHash();
+      if (activeControl && document.body.contains(activeControl)) {
+        activeControl.focus({ preventScroll: true });
+        if (selectionStart !== null && activeControl.setSelectionRange) {
+          activeControl.setSelectionRange(selectionStart, selectionEnd);
+        }
+      }
     }
 
     function renderReviewFlags() {
@@ -1804,9 +1836,6 @@
         }
         changed = true;
       });
-      if (changed) {
-        renderRemote();
-      }
       return changed;
     }
 
@@ -1830,7 +1859,7 @@
           serverTime = result.serverTime;
           reviewFlags = result.reviewFlags || [];
           var changed = mergeChanges(result.comments);
-          renderRemote();
+          renderRemote(true);
           pollStep = changed
             ? 0
             : Math.min(pollStep + 1, pollDelays.length - 1);

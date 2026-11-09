@@ -34,6 +34,9 @@
   `validate.ps1` no longer name the submodule command when `process/` is
   missing, and `build.ps1` asks Dropbox not to sync the `.quarto` cache and
   keeps Python from writing caches.
+- Periodic comment refreshes keep open reply, edit, and disposition forms in
+  place, preserving their draft text, focus, and cursor position until the
+  reader submits or closes the form.
 
 ## v0.13.0
 

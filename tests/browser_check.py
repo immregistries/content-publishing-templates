@@ -129,11 +129,30 @@ def main():
         evaluate(author, "document.querySelector('.guide-author-form textarea').value='Browser disposition note'; document.querySelector('.guide-author-form').requestSubmit()")
         wait_for(author, "document.body.innerText.includes('Browser disposition note')")
 
+        # Open forms must survive the periodic refresh, including their value,
+        # focus, and selection. Use separate threads so both forms are open at once.
+        evaluate(author, "Array.from(document.querySelectorAll('.guide-comment-button')).find(b => !b.hidden).click()")
+        wait_for(author, "document.querySelector('.guide-comment-form textarea') !== null")
+        evaluate(author, "document.querySelector('.guide-comment-form textarea').value='Second browser comment'; document.querySelector('.guide-comment-form').requestSubmit()")
+        wait_for(author, "Array.from(document.querySelectorAll('.guide-comment__text')).some(n => n.textContent.includes('Second browser comment'))")
+        evaluate(author, "var t=Array.from(document.querySelectorAll('.guide-comment')).find(n => n.querySelector('.guide-comment__text').textContent.includes('Browser smoke comment')); Array.from(t.querySelectorAll(':scope > .guide-comment__tools button')).find(b => b.textContent==='Change disposition').click()")
+        wait_for(author, "document.querySelector('.guide-author-form textarea') !== null")
+        evaluate(author, "var n=document.querySelector('.guide-author-form textarea'); n.value='Disposition draft through refreshes'; n.focus(); n.setSelectionRange(12,12)")
+        evaluate(author, "var t=Array.from(document.querySelectorAll('.guide-comment')).find(n => n.querySelector('.guide-comment__text').textContent.includes('Second browser comment')); Array.from(t.querySelectorAll(':scope > .guide-comment__tools button')).find(b => b.textContent==='Reply').click()")
+        wait_for(author, "document.querySelectorAll('.guide-comment-form textarea').length === 2")
+        evaluate(author, "var n=Array.from(document.querySelectorAll('.guide-comment-form textarea')).find(n => !n.closest('.guide-author-form')); n.value='Reply draft through refreshes'; n.focus(); n.setSelectionRange(8,8)")
+        time.sleep(65)
+        if not evaluate(author, "var a=document.querySelector('.guide-author-form textarea'); var r=Array.from(document.querySelectorAll('.guide-comment-form textarea')).find(n => !n.closest('.guide-author-form')); a && r && a.value==='Disposition draft through refreshes' && r.value==='Reply draft through refreshes' && document.activeElement===r && r.selectionStart===8 && r.selectionEnd===8"):
+            raise RuntimeError("Open comment forms lost text, focus, or selection during refresh.")
+        evaluate(author, "var a=document.querySelector('.guide-author-form'); var r=Array.from(document.querySelectorAll('.guide-comment-form')).find(n => !n.classList.contains('guide-author-form')); a.requestSubmit(); r.requestSubmit()")
+        wait_for(author, "document.body.innerText.includes('Disposition draft through refreshes')")
+        wait_for(author, "document.body.innerText.includes('Reply draft through refreshes')")
+
         reader = open_profile(9224, "ihg_browser_reader", {"userId": 10, "displayName": "Test Reader", "organization": "Example Organization"}, False)
-        wait_for(reader, "document.body.innerText.includes('Browser disposition note')")
+        wait_for(reader, "document.body.innerText.includes('Disposition draft through refreshes')")
         if evaluate(reader, "Array.from(document.querySelectorAll('.guide-comment__tools button')).some(b => ['Dispose','Close','Delete','Re-attach'].includes(b.textContent))"):
             raise RuntimeError("Reader profile was shown author controls.")
-        print("Two-profile browser comment post, author disposition, and reader visibility check passed.")
+        print("Two-profile browser comments, refresh-safe drafts, author disposition, and reader visibility check passed.")
     finally:
         for process in processes: process.terminate()
         for process in processes:
