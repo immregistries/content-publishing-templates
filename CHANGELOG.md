@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.14.0
 
 - A Topic Reference is one of two types. A **Standing Topic Reference** is a
   lasting, versioned reference for an InteropHub topic, as before. A
