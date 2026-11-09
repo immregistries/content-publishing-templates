@@ -5,10 +5,7 @@
 <!-- CONFIRM: In one or two paragraphs, say what this topic is and why it
 matters. -->
 
-This repository is the Topic Reference for
-[{{TOPIC_NAME}}, InteropHub topic {{TOPIC}}]({{TOPIC_URL}}). It records where
-the topic currently stands: its definitions, principles, diagrams, working
-decisions, and open questions.
+{{README_IDENTITY}}
 
 ## Start here
 
@@ -22,18 +19,12 @@ decisions, and open questions.
 topics or projects. -->
 
 {{README_COORDINATION}}
-[{{TOPIC_NAME}}, topic {{TOPIC}}]({{TOPIC_URL}}). Meetings, agendas, and
-discussion notes are tracked there.
 
 ## Build
 
-Initialize the shared templates after cloning:
+{{README_BUILD_SETUP}}
 
-```powershell
-git submodule update --init
-```
-
-Then build the reading copy, Word and HTML review copies, and the web guide in
+Build the reading copy, Word and HTML review copies, and the web guide in
 `output/`:
 
 ```powershell
@@ -55,7 +46,7 @@ content/            canonical Markdown for the core document
 products/           derived products, including the web guide
 review/             review inputs awaiting adjudication
 sources/            list of source material and how it is used
-process/            submodule: shared public templates and tools
+process/            {{PROCESS_ROLE}}
 output/             generated files; not committed
 {{ASSEMBLY}}.qmd    assembly authority for section order
 CoreDocument.md     generated single-file reading copy

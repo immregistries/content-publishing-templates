@@ -1,0 +1,1 @@
+| Working folder, {{LOCATION}} | Current | Notes and documents this workspace was made from |

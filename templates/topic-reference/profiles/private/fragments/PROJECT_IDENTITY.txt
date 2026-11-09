@@ -1,0 +1,4 @@
+- This is the Standing Topic Reference for InteropHub topic {{TOPIC}},
+  [{{TOPIC_NAME}}]({{TOPIC_URL}}): the current, versioned statement of the
+  topic's definitions, principles, diagrams, working decisions, and open
+  questions. See `process/guidance/TopicReference.md`.

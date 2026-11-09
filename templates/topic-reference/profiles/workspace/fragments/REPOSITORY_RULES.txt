@@ -1,0 +1,11 @@
+## Workspace
+
+- This is a Workspace Topic Reference kept in a shared folder. Access follows
+  the rules of that folder.
+- Canonical source is the Markdown in `content/`. Notes, drafts, and documents
+  in the folder are working material: list them in `sources/README.md` and
+  write reviewed prose in `content/`.
+- Do not copy material from this workspace to public places, including the
+  shared templates under `process/`.
+- Do not place credentials, personal health information, or contact lists in
+  `content/`.

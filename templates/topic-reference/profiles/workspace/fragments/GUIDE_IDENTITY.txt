@@ -1,0 +1,2 @@
+"topicReferenceType": "workspace",
+  "location": {{LOCATION_JSON}},

@@ -1,0 +1,52 @@
+id: web-guide
+status: draft
+core_built: null  # the date the core was built, such as 2026-11-09
+
+product:
+  type: web page
+  format: self-contained HTML, built in the workspace; not published
+  length: the complete core document
+  presentation_time: null
+  template: process/templates/guide (AIRA Web theme)
+
+audience:
+  name: People working on this topic in the workspace
+  assumed_knowledge: []
+
+purpose: >-
+  Build the Topic Reference for review in the workspace: one readable copy of where
+  the topic currently stands, to refer to in discussions, with a way to
+  comment on it during and between meetings.
+
+desired_outcome: >-
+  Readers can find any section quickly, see the document's status and build date,
+  and leave comments that are brought back to this repository as review inputs.
+
+emphasize:
+  - The status and build date
+  - Where the workspace is kept
+
+exclude_or_deemphasize:
+  - Repository build and maintenance detail
+
+tone:
+  - Plain language
+
+allowed_sources:
+  - ../../content/
+
+required_elements:
+  - Status tag on the page
+  - The workspace location and build date on the page
+  - Comments that stay in the reader's browser until downloaded
+  - The workspace notice in the page footer
+
+published_locations: {}
+
+assumptions:
+  - Not published. It is shared according to the rules of the folder the
+    workspace is kept in.
+delivery_context: []
+requested_by: null
+requested_date: null
+needed_by: null

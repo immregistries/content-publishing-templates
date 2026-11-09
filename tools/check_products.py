@@ -14,6 +14,11 @@ still exists.
 
 Missing sources always fail. Stale products are reported, and fail only with
 --fail-on-stale. Uses only the standard library and Git.
+
+In a Workspace Topic Reference, which has no Git, each manifest records
+core_built, the date (or date and time) the core was built, and core_location,
+where the workspace is kept. A product needs review when a core file was
+modified after core_built, judged by file dates.
 """
 
 from __future__ import annotations
@@ -23,6 +28,7 @@ import json
 import re
 import subprocess
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
 LIST_KEYS = {"sources", "allowed_sources"}
@@ -100,6 +106,53 @@ def changes_since(root: Path, commit: str) -> list[str]:
     return changes
 
 
+def parse_built(value: str | None) -> datetime | None:
+    """A manifest's core_built: a date, or a date and time, in ISO form."""
+    if not value or value == "null":
+        return None
+    try:
+        built = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    # A bare date covers the whole day it names.
+    if len(value) == 10:
+        built += timedelta(days=1)
+    return built
+
+
+def changes_by_date(root: Path, built: datetime) -> list[str]:
+    """Core files modified after the build, judged by file dates (no Git)."""
+    changes = []
+    for name in core_paths(root):
+        path = root / name
+        files = [path] if path.is_file() else sorted(p for p in path.rglob("*") if p.is_file())
+        for file in files:
+            if datetime.fromtimestamp(file.stat().st_mtime) > built:
+                changes.append(f"changed: {file.relative_to(root).as_posix()}")
+    return changes
+
+
+def check_by_date(manifest: Path, root: Path) -> bool:
+    """Report one product in a workspace; return True when it needs review."""
+    scalars, _ = read_manifest(manifest)
+    built_text = scalars.get("core_built")
+    built = parse_built(built_text)
+    location = scalars.get("core_location")
+    print(f"{manifest.parent.name} (core built {built_text or 'not recorded'}"
+          f"{', ' + location if location else ''})")
+    if built is None:
+        print("  NEEDS REVIEW: record core_built, the date the core was built, in the manifest.")
+        return True
+    changes = changes_by_date(root, built)
+    if changes:
+        print(f"  NEEDS REVIEW: the core changed after {built_text}, by file dates:")
+        for change in changes:
+            print(f"    {change}")
+        return True
+    print("  Current with the core, by file dates.")
+    return False
+
+
 def missing_sources(root: Path, product: Path) -> list[str]:
     missing = []
     for name in ("manifest.yml", "brief.yml"):
@@ -123,8 +176,10 @@ def missing_sources(root: Path, product: Path) -> list[str]:
 def main() -> int:
     args = arguments()
     root = args.root.resolve()
-    if git(root, "rev-parse", "--git-dir").returncode != 0:
-        raise SystemExit(f"{root} is not a Git repository.")
+    try:
+        by_date = git(root, "rev-parse", "--git-dir").returncode != 0
+    except OSError:
+        by_date = True
 
     manifests = sorted(root.glob("products/*/manifest.yml"))
     if not manifests:
@@ -133,8 +188,20 @@ def main() -> int:
 
     failed = False
     stale = 0
+    if by_date:
+        print("Not a Git repository: comparing core file dates with each product's core_built.")
+        print("Removed core files cannot be detected this way.")
     for manifest in manifests:
         product = manifest.parent
+        if by_date:
+            stale += check_by_date(manifest, root)
+            missing = missing_sources(root, product)
+            if missing:
+                failed = True
+                print("  MISSING SOURCES:")
+                for item in missing:
+                    print(f"    {item}")
+            continue
         scalars, _ = read_manifest(manifest)
         release = scalars.get("core_release")
         commit = resolve(root, scalars.get("canonical_source_revision")) or resolve(root, release)

@@ -1,18 +1,58 @@
 # Topic References
 
-A **Topic Reference** is the current, versioned statement of where an
-InteropHub topic stands: its definitions, principles, diagrams, working
-decisions, and open questions, in one document that people can read and refer
-to in discussions and meetings, and that other tools can use.
+A **Topic Reference** is the current statement of where a topic stands: its
+definitions, principles, diagrams, working decisions, and open questions, in
+one document that people can read and refer to in discussions and meetings,
+and that other tools can use.
 
 It is the most common kind of content project built with these templates. The
 same process and tools can be used for other kinds of documents.
 
-A Topic Reference's visibility follows its topic's. A public topic's Topic
-Reference is developed and published openly; a private topic's is kept in a
-private repository and shared only with people who may see the topic. Both use
-the same source, build, validation, release, review, and product model. See
-[Visibility](#visibility).
+A Topic Reference is one of two types, described in
+[Workspace and Standing Topic References](#workspace-and-standing-topic-references).
+A **Standing Topic Reference** is a lasting, versioned reference for an
+InteropHub topic. A **Workspace Topic Reference** is kept in a shared folder
+while a topic is still taking shape, without Git, releases, or an InteropHub
+topic.
+
+A Standing Topic Reference's visibility follows its topic's. A public topic's
+Topic Reference is developed and published openly; a private topic's is kept
+in a private repository and shared only with people who may see the topic.
+Both use the same source, build, validation, release, review, and product
+model. See [Visibility](#visibility).
+
+## Workspace and Standing Topic References
+
+The pattern is useful before a topic is settled, so work often moves through
+three stages:
+
+1. A **working folder** of notes, drafts, and documents. It is source
+   material, not a Topic Reference.
+2. A **Workspace Topic Reference**, made in or beside that folder, with a
+   bounded purpose, canonical Markdown, and one complete core document.
+3. A **Standing Topic Reference**, if the work becomes a lasting reference for
+   an InteropHub topic.
+
+| | Workspace | Standing |
+|---|---|---|
+| Kept in | A shared folder, such as a synced Dropbox folder | A Git repository, public or private |
+| InteropHub topic | None | One, which the guide links back to |
+| Shared templates | A copy in `process/`, recorded in `process/PROCESS-VERSION.txt` | The `process/` Git submodule at a release tag |
+| Identifies a build by | Its build date; the guide shows "Workspace build" and the date | A release tag such as `v0.1.0` |
+| Products record | `core_built` and `core_location` | `core_release` |
+| Stale products found by | File dates after `core_built` | Git changes since the release |
+| Review | Downloaded guide comments, meeting notes, and document comments, in `review/` | The same, plus issues and, for a public project, signed-in comments |
+
+Both types share the content model: one bounded purpose, one canonical
+source, one complete core document, and products traceable to it. The names
+describe permanence, not approval. Either type can hold draft or settled
+material, and the status shown on the page is set separately. Visibility is
+also separate: a Workspace's access follows the rules of the folder it is kept
+in.
+
+Promotion from Workspace to Standing is a deliberate decision, not something
+that happens because a workspace has lasted. See
+[Promoting a Workspace Topic Reference](#promoting-a-workspace-topic-reference).
 
 ## What a Topic Reference is not
 
@@ -30,8 +70,9 @@ the same source, build, validation, release, review, and product model. See
 
 ## How it relates to its InteropHub topic
 
-- A topic has at most one Topic Reference, and a Topic Reference belongs to one
-  topic. Related topics are linked, not merged.
+- A topic has at most one Standing Topic Reference, and a Standing Topic
+  Reference belongs to one topic. Related topics are linked, not merged. A
+  Workspace Topic Reference has no topic until it is promoted.
 - The InteropHub topic of a public Topic Reference links to it beside its other
   links. The link always points to the latest release,
   `https://<owner>.github.io/<id>/latest/`.
@@ -57,14 +98,15 @@ first.
 ## In terms of the process
 
 A Topic Reference is a content project, as described in [the process](Process.md),
-whose bounded purpose is one InteropHub topic:
+whose bounded purpose is one topic:
 
 - The Markdown in `content/` is the canonical source, and it builds the
   complete core document.
 - The Topic Reference is that core document built as a
   [web guide](../templates/guide/README.md). A public one is published with
-  GitHub Pages; a private one is built locally. The web guide is the format;
-  the Topic Reference is what it presents.
+  GitHub Pages; a private one is built locally; a Workspace one is built in
+  its folder. The web guide is the format; the Topic Reference is what it
+  presents.
 - `CoreDocument.md` is the single-file reading copy on GitHub. Word and Quarto
   HTML builds are review copies.
 - The [primary infographic](#primary-infographic), the topic at a glance, is
@@ -183,8 +225,9 @@ a new Topic Reference builds while it is being written.
 
 ## Visibility
 
-A project's visibility is chosen when it is created and must match its
-InteropHub topic. Linking a private topic to a publicly readable page, or a
+A Standing project's visibility is chosen when it is created and must match
+its InteropHub topic. A Workspace project has no visibility setting; access
+follows the rules of the folder it is kept in. Linking a private topic to a publicly readable page, or a
 public topic to a private one, is a setup mistake.
 
 | | Public | Private |
@@ -216,6 +259,11 @@ registering it with InteropHub, is not yet supported.
   status.
 - Earlier releases stay at their own addresses. How a topic presents an earlier
   official release alongside a later working draft is not settled yet.
+- A Workspace Topic Reference has no releases. Its guide shows the date it was
+  built, and each product's manifest records `core_built`, the date the core
+  was built, and `core_location`, where the workspace is kept.
+  `tools/check_products.py` reports a product for review when a core file was
+  modified after that date. Releases begin when the workspace is promoted.
 
 ## Feedback
 
@@ -234,6 +282,12 @@ before the first heading or named anchor belongs to the `document-start` area.
 See [Review anchors](Conventions.md#review-anchors) for naming and placement.
 
 ## Starting a new Topic Reference
+
+Choose the type first. Start a Workspace when the topic is still taking shape
+in a shared folder; start a Standing project when there is an InteropHub topic
+and the work is meant to last.
+
+### Starting a Standing Topic Reference
 
 1. Create the project with the skeleton. Do not assemble one by hand:
 
@@ -262,6 +316,53 @@ See [Review anchors](Conventions.md#review-anchors) for naming and placement.
 6. For a private project, create the private GitHub repository and push. Do
    not enable GitHub Pages. Tag releases as usual.
 
+### Starting a Workspace Topic Reference
+
+1. Create the workspace with the skeleton, in the working folder or in a new
+   folder beside it:
+
+   ```powershell
+   python tools/new_topic_reference.py "<shared folder>\<Working Folder>" --type workspace `
+       --id <id> --title "<Title>" --location "<where the folder is kept>"
+   ```
+
+   `--location` names the folder in a form every collaborator recognizes, such
+   as its path within a shared Dropbox, not one person's local path. `--id` is
+   the project ID when the folder name is not lowercase words joined by
+   hyphens. The working folder may already hold its notes and documents; the
+   script stops without changing anything if a skeleton file would replace
+   one. It copies these templates into `process/` at the latest release tag
+   (`--process-ref` chooses another) and does not create a Git repository.
+2. List the working folder's notes and documents in `sources/README.md`.
+   They stay where they are and are not canonical source.
+3. Resolve the `CONFIRM` notes and write the sections, as for a Standing
+   project. Run `build.ps1` and `validate.ps1`, and open
+   `output/guide/index.html`.
+4. Share the built guide and other products according to the rules of the
+   folder. When a product is made, record `core_built` and `core_location` in
+   its manifest.
+
+### Promoting a Workspace Topic Reference
+
+Promote a workspace when it has, or belongs to, an InteropHub topic and is to
+be kept as a lasting reference. Before promoting it, confirm the topic and its
+visibility, name the Author who will maintain it, and decide which working
+material may enter the repository.
+
+1. Create a Standing project with the skeleton, as above. Do not convert the
+   workspace folder in place.
+2. Copy the canonical content, `content/infographic.yml`, cited assets, and
+   the review records that are still open, keeping heading IDs and review
+   anchors so comments stay attached.
+3. Adjudicate what is current, obsolete, sensitive, or outside the topic.
+   Working material stays out of the repository and is listed in
+   `sources/README.md`.
+4. Build, validate, and review, then tag the first release. Products kept from
+   the workspace are rebuilt from that release and their manifests updated to
+   cite it.
+5. Mark the workspace as superseded in its `README.md`, with a link to the
+   Standing project, and keep or remove it according to the folder's rules.
+
 ## Keeping projects in line
 
 Every Topic Reference uses the same build and validation files, and every
@@ -271,3 +372,9 @@ change deliberately: move the `process/` pointer, compare the project's shared
 files with `templates/topic-reference/project/` and
 `templates/topic-reference/profiles/<visibility>/`, rebuild, review, and
 commit.
+
+A Workspace adopts a change by refreshing its copy with
+`python tools/workspace_process.py "<workspace folder>"` from a checkout of
+this repository, comparing its shared files with
+`templates/topic-reference/project/` and
+`templates/topic-reference/profiles/workspace/`, rebuilding, and reviewing.

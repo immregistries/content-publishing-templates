@@ -1,0 +1,4 @@
+> **Status:** Workspace Topic Reference, working draft. It is kept in a shared
+> workspace and has no releases. Nothing in it is a published standard or a
+> final decision. Working decisions are recorded so participants can see,
+> question, and improve them, and any of them may change.

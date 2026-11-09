@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
 if (-not (Test-Path .\process\tools\build_core_markdown.py)) {
-    throw "Shared tools are missing. Run: git submodule update --init"
+    throw "Shared tools are missing from process/. See Build in README.md."
 }
 
 $python = Get-Command python -ErrorAction Stop

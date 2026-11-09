@@ -1,0 +1,4 @@
+- `process/` is a Git submodule of
+  `immregistries/content-publishing-templates`, pinned to a release tag. Do not
+  edit or copy files under it. Adopt changes by moving the pointer, rebuilding,
+  reviewing the output, and committing.

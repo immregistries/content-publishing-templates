@@ -1,6 +1,8 @@
 """Tests for tools/check_products.py against a throwaway Git project."""
 
 import json
+import os
+from datetime import datetime
 import subprocess
 import sys
 import tempfile
@@ -77,6 +79,49 @@ class CheckProductsTest(unittest.TestCase):
         )
         result = run(self.root)
         self.assertIn("release is not a Git tag or commit", result.stdout)
+
+
+
+class WorkspaceCheckTest(unittest.TestCase):
+    """A Workspace Topic Reference has no Git; products are compared by file dates."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        (self.root / "content").mkdir()
+        self.core = self.root / "content" / "01-idea.md"
+        self.core.write_text("# Idea\n", encoding="utf-8")
+        old = datetime(2026, 1, 1, 12).timestamp()
+        os.utime(self.core, (old, old))
+        self.product = self.root / "products" / "deck"
+        self.product.mkdir(parents=True)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def manifest(self, built):
+        (self.product / "manifest.yml").write_text(
+            f"product_id: deck\ncore_release: null\ncore_built: {built}\n"
+            "core_location: Team Dropbox/Ideas\n\nsources:\n  - path: ../../content/01-idea.md\n",
+            encoding="utf-8")
+
+    def test_current_by_date(self):
+        self.manifest("2026-01-01")
+        result = run(self.root, "--fail-on-stale")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Not a Git repository", result.stdout)
+        self.assertIn("Current with the core, by file dates.", result.stdout)
+
+    def test_later_change_needs_review(self):
+        self.manifest("2025-12-31")
+        result = run(self.root, "--fail-on-stale")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("changed: content/01-idea.md", result.stdout)
+
+    def test_missing_build_date_needs_review(self):
+        self.manifest("null")
+        result = run(self.root)
+        self.assertIn("record core_built", result.stdout)
 
 
 if __name__ == "__main__":

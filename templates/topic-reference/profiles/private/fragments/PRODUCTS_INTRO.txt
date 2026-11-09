@@ -1,0 +1,3 @@
+Each product is built from a named release of the core document. Every product
+has a brief before it is assembled and a manifest that names the core release
+and source files it uses.

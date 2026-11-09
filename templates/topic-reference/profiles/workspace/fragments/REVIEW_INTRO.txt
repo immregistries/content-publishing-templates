@@ -1,0 +1,7 @@
+Feedback arrives as comments on the Topic Reference web guide, meeting
+discussion, and comments on generated Word or HTML documents. None of it
+changes the Topic Reference until it is adjudicated into `content/`.
+
+- **Meeting feedback and discussion** are summarized in a dated file here,
+  such as `2026-11-15-planning-call.md`. Record the substance and source, not
+  personal details.

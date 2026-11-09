@@ -9,7 +9,7 @@ resolved silently.
 
 | Source | Date | Use |
 |---|---|---|
-| [InteropHub topic {{TOPIC}}: {{TOPIC_NAME}}]({{TOPIC_URL}}) | Current | {{TOPIC_SOURCE_USE}} |
+{{TOPIC_SOURCE_ROW}}
 
 ## Working documents
 

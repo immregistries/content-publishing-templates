@@ -124,10 +124,20 @@ def set_text(shape, blocks: list[dict[str, Any]]) -> None:
                 run.font.bold = True
 
 
+def core_label(source: dict) -> str:
+    """The core a deck was built from: a release, or for a workspace its build date."""
+    if source.get("core_release"):
+        return f"Core release: {source['core_release']}"
+    if source.get("core_built"):
+        return f"Core built: {source['core_built']}"
+    raise SystemExit("slides.json needs core_release, or core_built for a Workspace Topic Reference.")
+
+
 def set_notes(slide, speaker_notes: str, sources: list[str], core_release: str) -> None:
+    """core_release is the label from core_label(), such as "Core release: v0.2.0"."""
     notes = speaker_notes.strip()
     traceability = "\n\nSources:\n" + "\n".join(f"- {source}" for source in sources)
-    release = f"\n\nCore release: {core_release}"
+    release = f"\n\n{core_release}"
     slide.notes_slide.notes_text_frame.text = notes + traceability + release
 
 
@@ -198,7 +208,7 @@ def main() -> None:
     base = args.source.resolve().parent
     for number, slide_spec in enumerate(source["slides"], start=1):
         try:
-            add_slide(presentation, slide_spec, source["core_release"], family, base)
+            add_slide(presentation, slide_spec, core_label(source), family, base)
         except PatternError as error:
             raise SystemExit(f"Slide {number}: {error}") from None
 

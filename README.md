@@ -30,8 +30,10 @@ Start with [the process](guidance/Process.md) and
 
 ## Start a Topic Reference
 
-Most projects are Topic References: the current, versioned statement of where
-an InteropHub topic stands. Create one with the skeleton rather than by hand:
+Most projects are Topic References: the current statement of where a topic
+stands. A Standing Topic Reference is a lasting, versioned reference for an
+InteropHub topic; a Workspace Topic Reference is kept in a shared folder while
+the topic takes shape. Create one with the skeleton rather than by hand:
 
 ```powershell
 python tools/new_topic_reference.py ..\my-topic --visibility public --title "My Topic" --topic 42 --topic-name "My Topic"
@@ -40,6 +42,12 @@ python tools/new_topic_reference.py ..\my-topic --visibility public --title "My 
 `--visibility` must match the InteropHub topic. A private Topic Reference also
 needs `--owner`; it is built but not published, and carries an internal-use
 notice instead of open licenses.
+
+For a Workspace, in or beside the folder that holds its working material:
+
+```powershell
+python tools/new_topic_reference.py "<folder>" --type workspace --id my-topic --title "My Topic" --location "<shared folder path>"
+```
 
 See [Topic References](guidance/TopicReference.md) for what one contains and
 the steps after the project is created.

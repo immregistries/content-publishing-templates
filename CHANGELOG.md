@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased
+
+- A Topic Reference is one of two types. A **Standing Topic Reference** is a
+  lasting, versioned reference for an InteropHub topic, as before. A
+  **Workspace Topic Reference** is kept in a shared folder, such as a synced
+  Dropbox folder, without Git, releases, or an InteropHub topic, and can later
+  be promoted. See
+  [Workspace and Standing Topic References](guidance/TopicReference.md#workspace-and-standing-topic-references),
+  with the starting and promotion steps, and the terms in the conventions.
+- `new_topic_reference.py --type workspace --location "<where it is kept>"`
+  creates a Workspace from the new `profiles/workspace/`. It may be made in a
+  working folder that already holds notes and documents, and stops if a
+  skeleton file would replace one; `--id` names the project when the folder
+  name is not an ID. `--type standing` is the default, and `--visibility`,
+  `--topic`, and `--topic-name` are required only for it.
+- New `tools/workspace_process.py` copies these templates into a workspace's
+  `process/` at a tag or commit, with `process/PROCESS-VERSION.txt`, and
+  refreshes the copy later.
+- `build_guide.py`: with `"topicReferenceType": "workspace"` in `guide.json`,
+  the page shows "Workspace Topic Reference", "Workspace build" and the build
+  date instead of a version, and "Kept in" with the `location`.
+- `check_products.py` works without Git: it compares core file dates with each
+  manifest's `core_built`. The product manifest template has `core_built` and
+  `core_location` for workspaces. Decks may give `core_built` instead of
+  `core_release` in `slides.json`.
+- Skeleton: the lines that link to an InteropHub topic or describe the Git
+  submodule are now profile fragments (`PROJECT_IDENTITY`, `README_IDENTITY`,
+  `README_BUILD_SETUP`, `SHARED_TEMPLATES_RULE`, `PROCESS_ROLE`,
+  `GUIDE_IDENTITY`, `RELATED_TOPIC_ROW`, `TOPIC_SOURCE_ROW`, `REVIEW_INTRO`,
+  `PRODUCTS_INTRO`); `GUIDE_COMMENTS` and `TOPIC_SOURCE_USE` are folded into
+  them. Generated Standing projects are unchanged except that `build.ps1` and
+  `validate.ps1` no longer name the submodule command when `process/` is
+  missing, and `build.ps1` asks Dropbox not to sync the `.quarto` cache and
+  keeps Python from writing caches.
+
 ## v0.13.0
 
 - Every Topic Reference has a primary infographic, the topic at a glance. Its

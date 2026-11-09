@@ -1,0 +1,4 @@
+Each product is built from the core document as it stood on a build date.
+Every product has a brief before it is assembled and a manifest that records
+the workspace's location, the date its core was built, and the source files
+it uses.

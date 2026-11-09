@@ -11,6 +11,7 @@ $tools = Join-Path $PSScriptRoot 'tools'
     (Join-Path $tools 'build_guide.py') `
     (Join-Path $tools 'import_guide_comments.py') `
     (Join-Path $tools 'new_topic_reference.py') `
+    (Join-Path $tools 'workspace_process.py') `
     (Join-Path $tools 'check_products.py') `
     (Join-Path $tools 'build_rapid_presentation.py') `
     (Join-Path $tools 'rapid_patterns.py') `
@@ -198,6 +199,28 @@ if ($privateGuide -notmatch '<figure class="guide-infographic"' -or $privateGuid
 }
 if (Test-Path (Join-Path $privateReference '.github/workflows/publish-guide.yml')) {
     throw "The private Topic Reference has a publishing workflow."
+}
+
+$workspaceReference = Join-Path $PSScriptRoot 'output/Workspace Test'
+if (Test-Path $workspaceReference) {
+    Remove-Item -Recurse -Force $workspaceReference
+}
+& $python.Source (Join-Path $tools 'new_topic_reference.py') $workspaceReference --no-git --type workspace `
+    --id workspace-test --title 'Workspace Test' --location 'Team Dropbox/Ideas/Workspace Test'
+if ($LASTEXITCODE -ne 0) {
+    throw "Creating a Workspace Topic Reference from the skeleton failed."
+}
+& $python.Source (Join-Path $tools 'check_content.py') --root $workspaceReference
+if ($LASTEXITCODE -ne 0) {
+    throw "The Workspace Topic Reference's content checks failed."
+}
+& $python.Source (Join-Path $tools 'build_guide.py') --root $workspaceReference --assembly WorkspaceTest.qmd `
+    --output (Join-Path $workspaceReference 'output/guide/index.html')
+if ($LASTEXITCODE -ne 0) {
+    throw "The Workspace Topic Reference's guide build failed."
+}
+if ((Get-Content -LiteralPath (Join-Path $workspaceReference 'output/guide/index.html') -Raw) -notmatch 'Workspace build \d{4}-\d{2}-\d{2}') {
+    throw "The Workspace Topic Reference's guide does not show its build date."
 }
 
 & $python.Source -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('pptx') else 1)"

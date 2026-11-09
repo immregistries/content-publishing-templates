@@ -1,7 +1,8 @@
 # Process
 
-The most common project is a Topic Reference, which documents one InteropHub
-topic; see [Topic References](TopicReference.md) for how to start one.
+The most common project is a Topic Reference, which documents one topic; see
+[Topic References](TopicReference.md) for its two types, Workspace and
+Standing, and how to start one.
 
 ## 1. Define the project goal and boundary
 
@@ -70,6 +71,10 @@ Tag each core release in Git, such as `v0.2.0`, and record that tag as the
 was built from, so tools can tell which products the source has changed under.
 A working draft can be tagged too; the tag identifies the version, not its
 status.
+
+A Workspace Topic Reference, kept in a shared folder without Git, has no
+releases. Its products record `core_built`, the date the core was built, and
+`core_location`, where the workspace is kept, instead of `core_release`.
 
 The release record should identify:
 

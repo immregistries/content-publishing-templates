@@ -1,0 +1,4 @@
+- `process/` is a copy of `immregistries/content-publishing-templates`, not a
+  Git submodule; `process/PROCESS-VERSION.txt` records its version. Do not
+  edit or copy files under it. Refresh it with that repository's
+  `tools/workspace_process.py`, rebuild, and review the output.

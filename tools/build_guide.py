@@ -14,6 +14,9 @@ repository URL, an optional document type such as "Topic Reference", and
 optional short labels for the section bar. Pandoc is
 required; Quarto's bundled copy is used when pandoc is not on the PATH.
 
+A Workspace Topic Reference ("topicReferenceType": "workspace") has no Git
+version; the page shows its build date and the "location" where it is kept.
+
 When content/infographic.yml exists, the primary infographic is drawn from it
 and placed above the first section, each part linking
 to the section it summarizes. It is drawn here rather than copied from
@@ -162,6 +165,11 @@ def pandoc_command() -> list[str]:
     if shutil.which("quarto"):
         return ["quarto", "pandoc"]
     raise RuntimeError("Pandoc is required. Install pandoc or Quarto.")
+
+
+def is_workspace(config: dict) -> bool:
+    """A Workspace Topic Reference: no Git or releases; it is identified by its build date."""
+    return config.get("topicReferenceType") == "workspace"
 
 
 def git_version(root: Path) -> str:
@@ -427,11 +435,18 @@ def page(
         rail_links.append(
             f'<li><a href="{html.escape(repository)}/releases">Releases and downloads</a></li>'
         )
+    workspace = is_workspace(config)
+    location = config.get("location") if workspace else None
+    if location:
+        rail_links.append(f'<li class="aira-meta">Kept in {html.escape(str(location))}</li>')
+    version_label = f"Workspace build {guide_data['built']}" if workspace else f"Version {version}"
     license_note = config.get("license", "")
     subtitle_html = (
         f'<p class="aira-topic-summary">{html.escape(subtitle)}</p>' if subtitle else ""
     )
     document_type = config.get("documentType")
+    if workspace and document_type == "Topic Reference":
+        document_type = "Workspace Topic Reference"
     document_type_html = (
         f'<p class="aira-meta guide-document-type">{html.escape(document_type)}</p>'
         if document_type
@@ -480,7 +495,7 @@ def page(
           </div>
           <div class="aira-topic-actions guide-status">
             <span class="aira-tag {status_class} guide-status-tag">{html.escape(status.upper())}</span>
-            <span class="aira-meta">Version {html.escape(version)}</span>
+            <span class="aira-meta">{html.escape(version_label)}</span>
           </div>
         </div>
       </header>
@@ -518,7 +533,7 @@ def page(
   </main>
   <footer class="aira-footer" aria-label="Document information">
     <p><a href="https://www.immregistries.org/">American Immunization Registry Association (AIRA)</a> supports collaboration, standards, and shared solutions that strengthen immunization information systems and improve the use of vaccination data to protect public health.</p>
-    <p>{html.escape(title)} &middot; version {html.escape(version)} &middot; generated {guide_data["built"]}{" &middot; " + html.escape(license_note) if license_note else ""}</p>
+    <p>{html.escape(title)} &middot; {html.escape(version_label[0].lower() + version_label[1:])} &middot; generated {guide_data["built"]}{" &middot; " + html.escape(license_note) if license_note else ""}</p>
   </footer>
 </div>
 <script type="application/json" id="guide-data">{json.dumps(guide_data)}</script>
@@ -556,7 +571,12 @@ def main() -> int:
         raise RuntimeError(f"No title in the front matter of {assembly}")
     subtitle = config.get("subtitle") or front_matter_value(front_matter, "subtitle")
 
-    version = args.version or git_version(root)
+    if args.version:
+        version = args.version
+    elif is_workspace(config):
+        version = f"workspace-{date.today().isoformat()}"
+    else:
+        version = git_version(root)
     ref = args.ref or (version if re.match(r"^v\d", version) else "main")
     paths = include_paths(root, assembly)
     markdown = prepared_markdown(root, paths, config.get("repository"), ref)

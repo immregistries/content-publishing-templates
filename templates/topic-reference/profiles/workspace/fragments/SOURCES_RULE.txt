@@ -1,0 +1,4 @@
+The working folder's notes and documents stay where they are. Content drawn
+from them is rewritten, reviewed, and placed in `content/`.
+
+## Referenced sources

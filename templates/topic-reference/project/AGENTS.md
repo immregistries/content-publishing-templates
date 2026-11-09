@@ -2,10 +2,7 @@
 
 ## What this repository is
 
-- This is the Topic Reference for InteropHub topic {{TOPIC}},
-  [{{TOPIC_NAME}}]({{TOPIC_URL}}): the current, versioned statement of the
-  topic's definitions, principles, diagrams, working decisions, and open
-  questions. See `process/guidance/TopicReference.md`.
+{{PROJECT_IDENTITY}}
 {{GUIDE_ROLE}}
 
 {{REPOSITORY_RULES}}
@@ -55,10 +52,7 @@ projects, and any rules specific to this subject. -->
 
 ## Shared templates
 
-- `process/` is a Git submodule of
-  `immregistries/content-publishing-templates`, pinned to a release tag. Do not
-  edit or copy files under it. Adopt changes by moving the pointer, rebuilding,
-  reviewing the output, and committing.
+{{SHARED_TEMPLATES_RULE}}
 
 ## Validation
 

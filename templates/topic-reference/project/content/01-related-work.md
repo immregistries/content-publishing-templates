@@ -7,4 +7,4 @@ this topic relates to each. Link to them rather than repeating their detail. -->
 
 | Topic | Relationship to this work |
 |---|---|
-| [{{TOPIC_NAME}}, topic {{TOPIC}}]({{TOPIC_URL}}) | This work. |
+{{RELATED_TOPIC_ROW}}

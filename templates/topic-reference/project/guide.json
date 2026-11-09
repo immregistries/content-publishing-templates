@@ -2,8 +2,7 @@
   "id": "{{ID}}",
   "documentType": "Topic Reference",
   "status": "Draft",
-  "interophubTopic": {{TOPIC}},
-  "repository": "{{REPOSITORY}}",
+  {{GUIDE_IDENTITY}}
   "license": "{{LICENSE_NOTE}}",
   "navLabels": {
     "status-and-scope": "Scope",

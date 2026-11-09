@@ -265,11 +265,17 @@ then added to maintained source if accepted.
 
 ## 13. Terms
 
-- **Topic Reference:** a content project whose bounded purpose is one
-  InteropHub topic, and the document it produces, whether the topic is public
-  or private. Use this name for the document in links, on its page, and in
-  project files, and do not give private ones a different name. See
-  [Topic References](TopicReference.md).
+- **Topic Reference:** a content project whose bounded purpose is one topic,
+  and the document it produces. Use this name for the document in links, on
+  its page, and in project files, and do not give private ones a different
+  name. See [Topic References](TopicReference.md).
+- **Workspace Topic Reference** and **Standing Topic Reference:** the two
+  types. A Workspace is kept in a shared folder without Git, releases, or an
+  InteropHub topic; a Standing one is a lasting reference for an InteropHub
+  topic, public or private, kept in Git with releases. Moving from one to the
+  other is to **promote** it. A folder of notes and documents not yet organized
+  as a Topic Reference is a **working folder**. The type names permanence, not
+  approval or visibility; do not call a Standing one "formal" or "final".
 - **Web guide:** the single-page HTML format built by `tools/build_guide.py`.
   A Topic Reference is presented as a web guide; other core documents may be
   too.

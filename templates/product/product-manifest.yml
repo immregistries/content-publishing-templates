@@ -1,7 +1,11 @@
 product_id: implementer-overview-10-slide
 status: draft
+# A Standing Topic Reference names its core release:
 core_release: null  # the Git tag of the core release, such as v0.2.0
 canonical_source_revision: null
+# A Workspace Topic Reference, which has no releases, records instead:
+core_built: null     # the date the core was built, such as 2026-11-09
+core_location: null  # where the workspace is kept, as in its guide.json
 
 brief: brief.yml
 product_source: ./

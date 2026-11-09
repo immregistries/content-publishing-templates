@@ -4,9 +4,13 @@ $ErrorActionPreference = 'Stop'
 # or service accounts that cannot write to the normal Windows profile cache.
 $env:LOCALAPPDATA = Join-Path (Get-Location) '.quarto\local-app-data'
 New-Item -ItemType Directory -Force -Path $env:LOCALAPPDATA | Out-Null
+# In a workspace kept in a synced folder, ask Dropbox not to sync the cache, and
+# keep Python from writing caches beside the shared tools. Harmless elsewhere.
+try { Set-Content -LiteralPath .quarto -Stream com.dropbox.ignored -Value 1 -ErrorAction Stop } catch {}
+$env:PYTHONDONTWRITEBYTECODE = '1'
 
 if (-not (Test-Path .\process\templates\word\aira-reference-document.docx)) {
-    throw "Shared templates are missing. Run: git submodule update --init"
+    throw "Shared templates are missing from process/. See Build in README.md."
 }
 
 $python = Get-Command python -ErrorAction Stop

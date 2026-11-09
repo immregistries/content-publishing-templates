@@ -52,8 +52,10 @@ def project_text(root: Path) -> dict[str, str]:
 
 class ProfileFiles(unittest.TestCase):
     def test_profiles_define_the_same_placeholders(self):
-        names = {p: sorted(f.name for f in (PROFILES / p / "fragments").iterdir()) for p in ("public", "private")}
+        names = {p: sorted(f.name for f in (PROFILES / p / "fragments").iterdir())
+                 for p in ("public", "private", "workspace")}
         self.assertEqual(names["public"], names["private"])
+        self.assertEqual(names["public"], names["workspace"])
 
 
 class GenerateTopicReference(unittest.TestCase):
@@ -114,6 +116,86 @@ class GenerateTopicReference(unittest.TestCase):
         self.assertNotIn("comments", guide)
         self.assertIn("internal use only", guide["license"])
 
+
+
+def create_workspace(target: Path, *extra: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(TOOL), str(target), "--type", "workspace", "--title", "Sample Idea",
+         "--location", "Team Dropbox/Ideas/Sample Idea", *extra],
+        capture_output=True, text=True,
+    )
+
+
+class GenerateWorkspaceTopicReference(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.base = Path(self.temp.name)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_workspace_in_a_working_folder(self):
+        target = self.base / "Sample Idea"
+        target.mkdir()
+        (target / "notes.txt").write_text("Working notes.\n", encoding="utf-8")
+        result = create_workspace(target, "--id", "sample-idea", "--no-git")
+        self.assertEqual(0, result.returncode, result.stderr)
+        files = project_text(target)
+        self.assertEqual("Working notes.\n", files["notes.txt"])
+        for name in PUBLIC_ONLY + PRIVATE_ONLY + [".gitignore", ".github/workflows/validate.yml"]:
+            self.assertNotIn(name, files)
+        for name, text in files.items():
+            for phrase in PUBLIC_PHRASES + ["InteropHub topic 7", "git submodule"]:
+                self.assertNotIn(phrase, text, f"{name} contains {phrase!r}")
+        guide = json.loads(files["guide.json"])
+        self.assertEqual("workspace", guide["topicReferenceType"])
+        self.assertEqual("Team Dropbox/Ideas/Sample Idea", guide["location"])
+        self.assertNotIn("interophubTopic", guide)
+        self.assertNotIn("repository", guide)
+        self.assertIn("Workspace Topic Reference", files["AGENTS.md"])
+        self.assertIn("Team Dropbox/Ideas/Sample Idea", files["sources/README.md"])
+
+        built = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "build_guide.py"), "--root", str(target),
+             "--assembly", "SampleIdea.qmd"], capture_output=True, text=True)
+        self.assertEqual(0, built.returncode, built.stdout + built.stderr)
+        html = (target / "output" / "guide" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("Workspace build ", html)
+        self.assertIn("Kept in Team Dropbox/Ideas/Sample Idea", html)
+        self.assertNotIn("Return to InteropHub", html)
+
+    def test_workspace_gets_a_copy_of_the_shared_templates(self):
+        target = self.base / "sample-idea"
+        result = create_workspace(target, "--process-ref", "HEAD")
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertTrue((target / "process" / "tools" / "build_guide.py").is_file())
+        self.assertFalse((target / "process" / "tests").exists())
+        self.assertFalse((target / ".git").exists())
+        self.assertIn("Commit: ", (target / "process" / "PROCESS-VERSION.txt").read_text(encoding="utf-8"))
+
+    def test_workspace_does_not_replace_existing_files(self):
+        target = self.base / "sample-idea"
+        target.mkdir()
+        (target / "README.md").write_text("Mine.\n", encoding="utf-8")
+        result = create_workspace(target, "--no-git")
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("README.md", result.stdout + result.stderr)
+        self.assertEqual(["README.md"], [p.name for p in target.iterdir()])
+
+    def test_workspace_rejects_topic_and_needs_location(self):
+        result = create_workspace(self.base / "sample-idea", "--visibility", "private", "--no-git")
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("Standing", result.stderr)
+        result = subprocess.run(
+            [sys.executable, str(TOOL), str(self.base / "sample-idea"), "--type", "workspace",
+             "--title", "Sample Idea", "--no-git"], capture_output=True, text=True)
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("--location", result.stderr)
+
+    def test_folder_name_that_is_not_an_id_needs_id(self):
+        result = create_workspace(self.base / "Sample Idea", "--no-git")
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("--id", result.stderr)
 
 
 class PrimaryInfographic(unittest.TestCase):
