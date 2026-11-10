@@ -16,6 +16,18 @@ PNG = base64.b64decode(
 )
 
 
+class HostingConfigTests(unittest.TestCase):
+    def test_defaults_and_rules(self):
+        self.assertEqual("github-pages", build_guide.hosting_config({}))
+        self.assertEqual("github-pages", build_guide.hosting_config({"hosting": "github-pages"}))
+        hosted = {"hosting": "interophub", "comments": {"mode": "interophub", "hub": "https://example.test/hub", "document": "sample-guide"}}
+        self.assertEqual("interophub", build_guide.hosting_config(hosted))
+        for invalid in ({"hosting": "other"}, {"hosting": "interophub"},
+                        {"hosting": "interophub", "comments": {"mode": "local"}}):
+            with self.assertRaises(RuntimeError):
+                build_guide.hosting_config(invalid)
+
+
 class PreparedMarkdownTests(unittest.TestCase):
     def test_local_images_are_embedded_and_other_files_link_to_the_repository(self):
         with tempfile.TemporaryDirectory() as directory:

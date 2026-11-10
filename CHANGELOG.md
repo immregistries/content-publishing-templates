@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.15.0
+
+- Guides declare `hosting` as `local`, `github-pages` (the default when
+  absent), or `interophub`. Hosted guides require InteropHub comments with a
+  hub URL and document key; builds and content checks enforce the rules.
+- `publish_guide_to_hub.py` validates and uploads a self-contained guide under
+  one or more labels using `INTEROPHUB_TOKEN`, with a no-network dry run.
+- Private Standing projects may choose local or hosted setup. Hosted projects
+  receive an Actions workflow that publishes `main`, release tags, and
+  `latest`; local projects receive no publishing workflow.
+- `tests/mock_hub.py` serves the version upload and listing endpoints in the
+  shape the hub returns: `uploadedBy` is a display name, and the listing is
+  `{"versions": [...]}` with `historyCount` and `earlier` per label.
+
 ## v0.14.0
 
 - A Topic Reference is one of two types. A **Standing Topic Reference** is a

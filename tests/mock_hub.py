@@ -1,5 +1,5 @@
 """In-memory implementation of the guide comments contract for tests."""
-import argparse, base64, hashlib, json, secrets, threading
+import argparse, base64, hashlib, json, re, secrets, threading
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -12,6 +12,7 @@ def challenge(value): return base64.urlsafe_b64encode(hashlib.sha256(value.encod
 class State:
     def __init__(self, origins):
         self.origins=set(origins); self.codes={}; self.tokens={}; self.comments={}; self.flags={}
+        self.versions={}; self.hosted_documents={"document"}
         self.next_id=1; self.next_flag_id=1; self.can_view=True; self.active=True; self.lock=threading.Lock()
 
 class Handler(BaseHTTPRequestHandler):
@@ -56,6 +57,8 @@ class Handler(BaseHTTPRequestHandler):
         who=self.identity()
         if not who: return
         parts=p.path.strip("/").split("/"); user=who["user"]
+        if len(parts)==4 and parts[:2]==["api","guide"] and parts[3]=="versions":
+            self.json(200,{"versions":[dict(uploads[-1],historyCount=len(uploads),earlier=[{k:u[k] for k in ("uploadedAt","uploadedBy","sizeBytes")} for u in reversed(uploads[:-1])]) for uploads in self.state.versions.get(parts[2],{}).values()]}); return
         if len(parts)==3 and parts[:2]==["api","guide"]:
             self.json(200,{"documentKey":parts[2],"title":"Fixture guide","isActive":self.state.active,"topic":{} if self.state.can_view else None,"permissions":{"canView":self.state.can_view,"canComment":self.state.can_view and self.state.active,"isAuthor":who.get("isAuthor",False)},"user":user,"dispositions":DISPOSITIONS,"editWindowDays":14,"serverTime":now()}); return
         if len(parts)==4 and parts[:2]==["api","guide"] and parts[3]=="comments":
@@ -74,16 +77,30 @@ class Handler(BaseHTTPRequestHandler):
         self.state.codes[code]={"challenge":q["code_challenge"][0],"returnTo":q["return_to"][0],"user":user,"isAuthor":name=="Test Author"}
         self.send_response(302); self.send_header("Location",q["return_to"][0]+"#"+urlencode({"code":code,"state":q["state"][0]})); self.end_headers()
     def do_POST(self):
-        p=urlparse(self.path); payload=self.body() or {}
-        if p.path=="/api/guide/token": self.exchange(payload); return
+        p=urlparse(self.path)
+        if p.path=="/api/guide/token": self.exchange(self.body() or {}); return
         if self.refuse_origin(): return
         who=self.identity()
         if not who: return
         parts=p.path.strip("/").split("/")
+        if len(parts)==5 and parts[:2]==["api","guide"] and parts[3]=="versions": self.upload_version(parts[2],parts[4],who); return
+        payload=self.body() or {}
         if len(parts)==4 and parts[:2]==["api","guide"] and parts[3]=="comments": self.add_comment(parts[2],payload,who); return
         if len(parts)==5 and parts[:3]==["api","guide","comments"] and parts[4]=="withdraw": self.withdraw(int(parts[3]),who); return
         if len(parts)==4 and parts[:2]==["api","guide"] and parts[3]=="review-flags": self.set_flag(parts[2],payload,who); return
         self.error(404,"not_found","Not found.")
+    def upload_version(self,document,label,who):
+        if not who.get("isAuthor"): self.error(403,"forbidden","Only an author can publish this guide."); return
+        if document not in self.state.hosted_documents: self.error(409,"invalid_state","This document is not set up for hosted publishing."); return
+        if not (label in ("latest","main") or re.fullmatch(r"v\d+(?:\.\d+)*(?:-[A-Za-z0-9][A-Za-z0-9.-]*)?",label)):
+            self.error(400,"invalid_field","Choose a valid version label.","label"); return
+        payload=self.rfile.read(int(self.headers.get("Content-Length","0")))
+        if self.headers.get_content_type()!="text/html" or len(payload)>20*1024*1024:
+            self.error(400,"invalid_field","Upload a self-contained HTML guide no larger than 20 MB.","guide"); return
+        versions=self.state.versions.setdefault(document,{})
+        status=200 if label in versions else 201; stamp=now()
+        value={"label":label,"sizeBytes":len(payload),"uploadedBy":who["user"]["displayName"],"uploadedAt":stamp,"viewUrl":f"http://127.0.0.1:{self.server.server_port}/guide/view/{document}/{label}/"}
+        versions.setdefault(label,[]).append(value); self.json(status,value)
     def exchange(self,payload):
         if self.refuse_origin(): return
         r=self.state.codes.get(payload.get("code")); valid=r and not r.get("used") and payload.get("returnTo")==r["returnTo"] and challenge(payload.get("codeVerifier",""))==r["challenge"]

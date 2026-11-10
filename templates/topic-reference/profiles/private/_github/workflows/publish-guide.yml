@@ -1,0 +1,55 @@
+name: Publish hosted web guide
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+permissions:
+  contents: read
+concurrency:
+  group: publish-guide
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check hosting and choose labels
+        id: hosting
+        shell: bash
+        run: |
+          mode=$(python -c "import json; print(json.load(open('guide.json')).get('hosting', 'github-pages'))")
+          if [ "$mode" != interophub ]; then
+            echo "Guide hosting is $mode, not interophub; nothing will be uploaded."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          elif [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "version=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+            echo "ref=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+            echo "labels=--label $GITHUB_REF_NAME --label latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "version=main ($(git rev-parse --short HEAD))" >> "$GITHUB_OUTPUT"
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+            echo "labels=--label main" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install pandoc
+        if: steps.hosting.outputs.publish == 'true'
+        run: sudo apt-get update && sudo apt-get install -y pandoc
+      - name: Build guide
+        if: steps.hosting.outputs.publish == 'true'
+        run: >-
+          python process/tools/build_guide.py --assembly {{ASSEMBLY}}.qmd
+          --version "${{ steps.hosting.outputs.version }}" --ref "${{ steps.hosting.outputs.ref }}"
+          --output "$RUNNER_TEMP/guide/index.html"
+      - name: Upload guide
+        if: steps.hosting.outputs.publish == 'true'
+        env:
+          INTEROPHUB_TOKEN: ${{ secrets.INTEROPHUB_TOKEN }}
+        run: >-
+          python process/tools/publish_guide_to_hub.py "$RUNNER_TEMP/guide/index.html"
+          ${{ steps.hosting.outputs.labels }}

@@ -4,7 +4,7 @@ core_release: null
 
 product:
   type: web page
-  format: self-contained HTML, built locally; not published
+  format: self-contained HTML, built locally and optionally hosted in InteropHub
   length: the complete core document
   presentation_time: null
   template: process/templates/guide (AIRA Web theme)
@@ -41,11 +41,12 @@ required_elements:
   - Comments that stay in the reader's browser until downloaded
   - The internal-use notice in the page footer
 
-published_locations: {}
+published_locations:
+  interophub: When guide.json hosting is interophub, versioned access-controlled URLs
 
 assumptions:
-  - Not published. Its InteropHub topic is private, and GitHub Pages sites
-    built from private repositories can be publicly readable.
+  - guide.json hosting says whether the guide stays local or is hosted in InteropHub.
+  - GitHub Pages is not used because a Pages site may be publicly readable.
 delivery_context: []
 requested_by: null
 requested_date: null

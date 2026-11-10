@@ -113,8 +113,20 @@ class GenerateTopicReference(unittest.TestCase):
         guide = json.loads(files["guide.json"])
         self.assertEqual("https://github.com/example-org/sample-topic", guide["repository"])
         self.assertEqual(7, guide["interophubTopic"])
-        self.assertNotIn("comments", guide)
+        self.assertEqual("local", guide["hosting"])
+        self.assertEqual({"mode": "local"}, guide["comments"])
         self.assertIn("internal use only", guide["license"])
+
+    def test_private_hosted_project(self):
+        target = self.base / "sample-topic"
+        result = create(target, "--visibility", "private", "--owner", "example-org", "--hosting", "interophub", "--hub", "https://example.test/hub")
+        self.assertEqual(0, result.returncode, result.stderr)
+        files = project_text(target)
+        self.assertIn(".github/workflows/publish-guide.yml", files)
+        guide = json.loads(files["guide.json"])
+        self.assertEqual("interophub", guide["hosting"])
+        self.assertEqual("interophub", guide["comments"]["mode"])
+        self.assertEqual("sample-topic", guide["comments"]["document"])
 
 
 

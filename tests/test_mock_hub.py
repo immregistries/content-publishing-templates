@@ -178,6 +178,33 @@ class MockHubTest(unittest.TestCase):
         self.assertEqual(204, self.request(path, "DELETE", token=author)[0])
         self.assertFalse(self.request("/api/guide/document/review-flags", token=reader)[2]["reviewFlags"])
 
+    def test_hosted_versions_create_replace_list_and_permissions(self):
+        author, reader = self.author_token(), self.token()
+        def upload(document, label, token, value=b"<!DOCTYPE html><title>Guide</title>"):
+            request = urllib.request.Request(
+                f"{self.base}/api/guide/{document}/versions/{label}", data=value,
+                headers={"Authorization": "Bearer " + token, "Content-Type": "text/html"}, method="POST")
+            try:
+                with urllib.request.urlopen(request) as response:
+                    return response.status, json.load(response)
+            except urllib.error.HTTPError as error:
+                try:
+                    return error.code, json.load(error)
+                finally:
+                    error.close()
+        status, created = upload("document", "latest", author)
+        self.assertEqual((201, "latest", len(b"<!DOCTYPE html><title>Guide</title>")),
+                         (status, created["label"], created["sizeBytes"]))
+        self.assertEqual(200, upload("document", "latest", author, b"<!doctype html>new")[0])
+        self.assertEqual(403, upload("document", "main", reader)[0])
+        self.assertEqual((409, "invalid_state"),
+                         (lambda result: (result[0], result[1]["error"]))(upload("external", "main", author)))
+        listed = self.request("/api/guide/document/versions", token=reader)[2]
+        self.assertEqual(["latest"], [item["label"] for item in listed["versions"]])
+        latest = listed["versions"][0]
+        self.assertEqual((2, "Test Author", 1), (latest["historyCount"], latest["uploadedBy"], len(latest["earlier"])))
+        self.assertIsInstance(created["uploadedBy"], str)
+
 
 if __name__ == "__main__":
     unittest.main()

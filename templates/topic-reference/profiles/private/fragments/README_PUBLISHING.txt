@@ -1,3 +1,4 @@
-This Topic Reference is not published. Share it only with people who may see
-the InteropHub topic, by giving them access to this repository or a built copy
-of the guide; see [INTERNAL-USE.md](INTERNAL-USE.md).
+Check `hosting` in `guide.json`. With `local`, share the built guide only with
+people who may see the topic. With `interophub`, the publishing workflow uploads
+the guide to access-controlled version URLs. Never enable GitHub Pages; see
+[INTERNAL-USE.md](INTERNAL-USE.md).

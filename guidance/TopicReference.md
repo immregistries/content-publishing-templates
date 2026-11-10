@@ -233,7 +233,7 @@ public topic to a private one, is a setup mistake.
 | | Public | Private |
 |---|---|---|
 | Repository | Public | Private |
-| Web guide | Published with GitHub Pages at `/main/`, each release, and `/latest/` | Built locally from `build.ps1`; not published |
+| Web guide | Published with GitHub Pages at `/main/`, each release, and `/latest/` | Built locally, or hosted in InteropHub for signed-in topic readers |
 | Comments | Local mode, or signed-in comments through InteropHub | Local mode |
 | Linked from the InteropHub topic | Yes, through the topic's Topic Reference registration | Not yet |
 | Licenses | CC BY 4.0 for content and Apache 2.0 for code | None; `INTERNAL-USE.md` restricts use to the organization |
@@ -243,10 +243,26 @@ public topic to a private one, is a setup mistake.
 Everything else, including the content structure, build, validation, release
 tags, review records, and products, is the same.
 
-A private Topic Reference is not published, because GitHub Pages sites built
-from private repositories can be publicly readable unless the hosting plan
-restricts access. Publishing one to an access-controlled location, and
-registering it with InteropHub, is not yet supported.
+### Guide hosting
+
+`hosting` in `guide.json` chooses one of three modes. `local` keeps the built
+file on the author's machine and normally uses local browser comments.
+`github-pages` publishes a public guide and is the default when `hosting` is
+absent, preserving existing projects. `interophub` uploads the guide for
+signed-in readers who can view its topic; it requires InteropHub comments plus
+`comments.hub` and `comments.document`. Hosted guides need no change to
+`guide.js`: they use the same comment API and sign-in flow.
+
+For hosted publishing, create a personal access token with `topics:write` on
+the hub account page and save it as the repository secret `INTEROPHUB_TOKEN`.
+The private workflow uploads `main` on a push to main, and uploads both the tag
+and `latest` for a `vX.Y.Z` tag. To publish manually:
+
+```powershell
+$env:INTEROPHUB_TOKEN = "<personal access token>"
+python process/tools/publish_guide_to_hub.py output/guide/index.html `
+    --label v0.4.0 --label latest
+```
 
 ## Releases and status
 
@@ -298,6 +314,9 @@ and the work is meant to last.
 
    `--visibility` is `public` or `private` and must match the topic. A private
    project also needs `--owner`, the owner of its private repository. The
+   optional `--hosting interophub --hub "<hub base URL>"` makes a private guide
+   hosted; otherwise it defaults to `--hosting local`. These options apply only
+   to private Standing projects. The
    directory name becomes the project ID and the repository name. Add
    `--with presentation` for a review deck. The script fills in the names,
    generates `CoreDocument.md`, and adds these templates as `process/` at the
@@ -314,7 +333,8 @@ and the work is meant to last.
    GitHub Pages to publish from the `gh-pages` branch. Tag the first release,
    then link the release's `/latest/` address from the InteropHub topic.
 6. For a private project, create the private GitHub repository and push. Do
-   not enable GitHub Pages. Tag releases as usual.
+   not enable GitHub Pages. For hosted mode, add `INTEROPHUB_TOKEN`; for local
+   mode there is no publishing workflow. Tag releases as usual.
 
 ### Starting a Workspace Topic Reference
 

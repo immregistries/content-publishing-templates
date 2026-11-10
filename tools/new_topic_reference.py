@@ -8,7 +8,8 @@ is one of two types (see guidance/TopicReference.md):
   topic. A public project is published with GitHub Pages under open licenses.
   A private project has no GitHub Pages workflow or open licenses, carries an
   internal-use notice, and needs --owner, the GitHub owner of its private
-  repository.
+  repository. It defaults to --hosting local; --hosting interophub adds
+  access-controlled publishing.
 
       python tools/new_topic_reference.py ../immunization-cds --visibility public \\
           --title "Immunization CDS (ImmDS + HALO)" --topic 1 \\
@@ -44,6 +45,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import workspace_process
 
@@ -54,6 +56,7 @@ RENAMES = {"_gitignore": ".gitignore", "_github": ".github"}
 OPTIONS = ["presentation"]
 TYPES = ["standing", "workspace"]
 VISIBILITIES = ["public", "private"]
+HOSTING = ["local", "interophub"]
 DEFAULT_SUBTITLES = {
     "public": "A Topic Reference for community discussion",
     "private": "A Topic Reference for internal discussion",
@@ -83,6 +86,11 @@ def arguments() -> argparse.Namespace:
         help="Standing projects only, and required for them; must match the InteropHub topic. "
         "Public projects are published with GitHub Pages; private projects are not.",
     )
+    parser.add_argument(
+        "--hosting", choices=HOSTING, default=None,
+        help="Private Standing projects only: local (the default) or interophub.",
+    )
+    parser.add_argument("--hub", help="Hub base URL; required with --hosting interophub.")
     parser.add_argument("--title", required=True, help="Document title.")
     parser.add_argument("--subtitle", help="Document subtitle. Defaults to one for the type and visibility.")
     parser.add_argument("--topic", type=int, help="InteropHub topic number. Standing projects only.")
@@ -235,7 +243,7 @@ def standing_values(args: argparse.Namespace, project_id: str) -> dict[str, str]
 
 
 def workspace_values(args: argparse.Namespace) -> dict[str, str]:
-    for name, given in [("--visibility", args.visibility), ("--topic", args.topic),
+    for name, given in [("--visibility", args.visibility), ("--hosting", args.hosting), ("--hub", args.hub), ("--topic", args.topic),
                         ("--topic-name", args.topic_name), ("--owner", args.owner)]:
         if given is not None:
             raise SystemExit(
@@ -273,6 +281,18 @@ def main() -> int:
     profile_name = "workspace" if workspace else args.visibility
     if not workspace and args.visibility is None:
         raise SystemExit("A Standing Topic Reference needs --visibility, matching its InteropHub topic.")
+    if args.hosting and (workspace or args.visibility != "private"):
+        raise SystemExit("--hosting is only for a private Standing Topic Reference.")
+    hosting = args.hosting or ("local" if args.visibility == "private" else None)
+    if args.hub and hosting != "interophub":
+        raise SystemExit("--hub is only used with --hosting interophub.")
+    if hosting == "interophub":
+        if not args.hub:
+            raise SystemExit("--hosting interophub needs --hub, the hub base URL.")
+        parsed_hub = urlsplit(args.hub)
+        local_http = parsed_hub.scheme == "http" and parsed_hub.hostname in {"localhost", "127.0.0.1"}
+        if not (parsed_hub.scheme == "https" or local_http) or not parsed_hub.netloc or parsed_hub.query or parsed_hub.fragment:
+            raise SystemExit("--hub must be an absolute https URL, or http on localhost, without a query or fragment.")
     subtitle = args.subtitle or DEFAULT_SUBTITLES[profile_name]
     check_text("title", args.title)
     check_text("subtitle", subtitle)
@@ -286,7 +306,19 @@ def main() -> int:
         staging = Path(temp) / project_id
         skip = WORKSPACE_SKIP if workspace else ()
         copy_tree(SKELETON / "project", staging, values, skip=skip)
-        copy_tree(profile, staging, values, skip=("fragments", *skip), overlay=True)
+        profile_skip = ["fragments", *skip]
+        copy_tree(profile, staging, values, skip=tuple(profile_skip), overlay=True)
+        if args.visibility == "private" and hosting == "local":
+            (staging / ".github" / "workflows" / "publish-guide.yml").unlink()
+        if args.visibility == "private":
+            guide_path = staging / "guide.json"
+            guide = json.loads(guide_path.read_text(encoding="utf-8"))
+            guide["hosting"] = hosting
+            if hosting == "interophub":
+                guide["comments"] = {"mode": "interophub", "hub": args.hub.rstrip("/"), "document": project_id}
+            else:
+                guide["comments"] = {"mode": "local"}
+            guide_path.write_text(json.dumps(guide, indent=2) + "\n", encoding="utf-8", newline="\n")
         if "presentation" in args.options:
             add_presentation(staging, values)
         target.mkdir(parents=True, exist_ok=True)
@@ -319,7 +351,10 @@ def main() -> int:
     print("Next: resolve the CONFIRM notes, add topic sections to content/, run build.ps1,")
     print("and open output/guide/index.html. See process/guidance/TopicReference.md.")
     if args.visibility == "private":
-        print("This project is not published. Keep its repository private and do not enable GitHub Pages.")
+        if hosting == "interophub":
+            print("This project publishes its guide to InteropHub. Add the INTEROPHUB_TOKEN repository secret.")
+        else:
+            print("This project is local only. Keep its repository private and do not enable GitHub Pages.")
     return 0
 
 

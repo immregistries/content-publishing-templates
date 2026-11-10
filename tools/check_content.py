@@ -25,6 +25,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from build_guide import hosting_config  # noqa: E402
 
 
 LINK_PATTERN = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+|<[^>]+>)\)|!\[[^\]]*\]\(([^)\s]+|<[^>]+>)\)")
@@ -255,6 +256,14 @@ def main() -> int:
     failures.extend(infographic_failures)
     for warning in infographic_warnings:
         confirms.append(warning)
+
+    config_path = root / "guide.json"
+    if config_path.is_file():
+        try:
+            config = json.loads(config_path.read_text(encoding="utf-8-sig"))
+            hosting_config(config)
+        except (json.JSONDecodeError, RuntimeError) as error:
+            failures.append(f"guide.json: {error}")
 
     if confirms:
         print(f"{len(confirms)} CONFIRM item(s) awaiting human resolution:")

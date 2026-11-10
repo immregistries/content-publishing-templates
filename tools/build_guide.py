@@ -75,6 +75,7 @@ STATUS_TAGS = {
 DOCUMENT_START_ANCHOR = "document-start"
 DOCUMENT_KEY_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 RESERVED_DOCUMENT_KEYS = {"comments", "review-flags", "token"}
+HOSTING_MODES = {"local", "github-pages", "interophub"}
 
 
 def comments_config(config: dict) -> dict | None:
@@ -110,6 +111,23 @@ def comments_config(config: dict) -> dict | None:
         raise RuntimeError("guide.json comments.document uses a reserved document key.")
     result.update({"hub": hub.rstrip("/"), "document": document})
     return result
+
+
+def hosting_config(config: dict) -> str:
+    """Validate hosting and its relationship to the comment backend."""
+    hosting = config.get("hosting", "github-pages")
+    if hosting not in HOSTING_MODES:
+        raise RuntimeError(
+            "guide.json hosting must be 'local', 'github-pages', or 'interophub'."
+        )
+    comments = comments_config(config)
+    if hosting == "interophub":
+        if not comments or comments.get("mode") != "interophub":
+            raise RuntimeError(
+                "guide.json comments.mode must be 'interophub' when hosting is 'interophub'."
+            )
+        # comments_config validates and requires hub and document in this mode.
+    return hosting
 
 
 def arguments() -> argparse.Namespace:
@@ -413,6 +431,7 @@ def page(
         "version": version,
         "built": date.today().isoformat(),
     }
+    hosting_config(config)
     normalized_comments = comments_config(config)
     if normalized_comments is not None:
         guide_data["comments"] = normalized_comments
