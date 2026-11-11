@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.15.1
+
+- The Topic Reference publishing workflows, public and private, install
+  pandoc 3.7.0.2 from its GitHub release instead of the Ubuntu package
+  servers. On 11 November 2026 the GitHub runners could not reach those
+  servers, and every publish failed. Projects adopt the change by copying
+  the new "Install pandoc" step into their own
+  `.github/workflows/publish-guide.yml`.
+- The repository's own validation workflow installs pandoc the same way.
+
 ## v0.15.0
 
 - Guides declare `hosting` as `local`, `github-pages` (the default when
