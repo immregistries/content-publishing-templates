@@ -266,6 +266,70 @@
     );
   }
 
+  // A table row is a comment block when its table names each row (see
+  // "Review anchors"). Its controls go in its last cell; its threads and forms
+  // go in a full-width row inserted after it, so the table stays valid.
+  function isRowBlock(block) {
+    return block.tagName === "TR";
+  }
+
+  function controlHost(block) {
+    return isRowBlock(block) && block.cells.length
+      ? block.cells[block.cells.length - 1]
+      : block;
+  }
+
+  function rowExtra(row) {
+    var next = row.nextElementSibling;
+    if (next && next.classList.contains("guide-row-extra")) {
+      return next.cells[0];
+    }
+    var extra = document.createElement("tr");
+    extra.className = "guide-row-extra";
+    var cell = document.createElement("td");
+    cell.colSpan = row.cells.length || 1;
+    extra.appendChild(cell);
+    row.insertAdjacentElement("afterend", extra);
+    return cell;
+  }
+
+  function threadAfter(target) {
+    var holder;
+    if (isRowBlock(target)) {
+      var cell = rowExtra(target);
+      holder = cell.querySelector(":scope > .guide-thread");
+      if (!holder) {
+        holder = document.createElement("div");
+        holder.className = "guide-thread";
+        cell.insertBefore(holder, cell.firstChild);
+      }
+      return holder;
+    }
+    var next = target.nextElementSibling;
+    if (next && next.classList.contains("guide-thread")) {
+      return next;
+    }
+    holder = document.createElement("div");
+    holder.className = "guide-thread";
+    target.insertAdjacentElement("afterend", holder);
+    return holder;
+  }
+
+  function formHost(target) {
+    return isRowBlock(target) ? rowExtra(target) : target;
+  }
+
+  function pruneRowExtras() {
+    Array.prototype.forEach.call(
+      content.querySelectorAll(".guide-row-extra"),
+      function (row) {
+        if (!row.cells[0] || !row.cells[0].firstElementChild) {
+          row.remove();
+        }
+      },
+    );
+  }
+
   // Commentable blocks are annotated by the build with their anchor area.
   var BLOCK_SELECTOR = "[data-anchor][data-block-index]";
   var blocks = Array.prototype.filter.call(
@@ -300,7 +364,7 @@
     button.addEventListener("click", function () {
       openForm(block, selectionWithin(block));
     });
-    block.appendChild(button);
+    controlHost(block).appendChild(button);
   });
 
   function selectionWithin(block) {
@@ -410,14 +474,7 @@
   }
 
   function threadFor(block) {
-    var next = block.nextElementSibling;
-    if (next && next.classList.contains("guide-thread")) {
-      return next;
-    }
-    var thread = document.createElement("div");
-    thread.className = "guide-thread";
-    block.insertAdjacentElement("afterend", thread);
-    return thread;
+    return threadAfter(block);
   }
 
   function formatTime(iso) {
@@ -493,6 +550,7 @@
         thread.remove();
       },
     );
+    pruneRowExtras();
     index.textContent = "";
     var oldOrphans = content.querySelector(".guide-orphans");
     if (oldOrphans) {
@@ -996,7 +1054,9 @@
     function remoteSnippet(block) {
       var copy = block.cloneNode(true);
       Array.prototype.forEach.call(
-        copy.querySelectorAll(".guide-comment-button,.guide-thread"),
+        copy.querySelectorAll(
+          ".guide-comment-button,.guide-thread,.guide-flag-control,.guide-comment-form",
+        ),
         function (node) {
           node.remove();
         },
@@ -1026,14 +1086,7 @@
     }
 
     function threadHolder(target) {
-      var next = target.nextElementSibling;
-      if (next && next.classList.contains("guide-thread")) {
-        return next;
-      }
-      var holder = document.createElement("div");
-      holder.className = "guide-thread";
-      target.insertAdjacentElement("afterend", holder);
-      return holder;
+      return threadAfter(target);
     }
 
     function person(user) {
@@ -1382,6 +1435,7 @@
           node.remove();
         },
       );
+      pruneRowExtras();
       remoteIndex.textContent = "";
       var orphans = [];
       threads = threads.filter(function (thread) {
@@ -1441,7 +1495,9 @@
     function renderReviewFlags() {
       remoteBlocks.forEach(function (block) {
         block.classList.remove("guide-review-flagged");
-        var old = block.querySelector(":scope > .guide-flag-control");
+        var old = controlHost(block).querySelector(
+          ":scope > .guide-flag-control",
+        );
         if (old) {
           old.remove();
         }
@@ -1509,7 +1565,7 @@
               false,
             );
           });
-          block.appendChild(button);
+          controlHost(block).appendChild(button);
         });
       }
     }
@@ -1525,7 +1581,7 @@
       }
       if (!validAuth()) {
         remoteBlocks.forEach(function (block) {
-          var button = block.querySelector(":scope > .guide-comment-button");
+          var button = controlHost(block).querySelector(":scope > .guide-comment-button");
           if (button) {
             button.hidden = true;
           }
@@ -1542,7 +1598,7 @@
         return;
       }
       remoteBlocks.forEach(function (block) {
-        var button = block.querySelector(":scope > .guide-comment-button");
+        var button = controlHost(block).querySelector(":scope > .guide-comment-button");
         if (button) {
           button.hidden = !(
             documentInfo &&
@@ -1731,6 +1787,7 @@
     }
 
     function openRemoteForm(target, label, operation, initial, needsNotice) {
+      target = formHost(target);
       var old = target.querySelector(":scope > .guide-comment-form");
       if (old) {
         old.remove();
@@ -1927,7 +1984,7 @@
           );
         }
       });
-      block.appendChild(button);
+      controlHost(block).appendChild(button);
     });
     remoteToggle.addEventListener("click", function () {
       var hidden = document.body.classList.toggle("guide-comments-hidden");

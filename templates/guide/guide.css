@@ -254,6 +254,38 @@ html {
   opacity: 1;
 }
 
+/* Table rows that are review areas of their own (row anchors). */
+tr.guide-row-block {
+  scroll-margin-top: 4.5rem;
+}
+
+.guide-row-block > td:last-child {
+  position: relative;
+  padding-right: 2.5rem;
+}
+
+.guide-row-block > td:last-child > .guide-comment-button {
+  top: 0.35rem;
+  right: 0.35rem;
+}
+
+.guide-block:hover > td > .guide-comment-button {
+  opacity: 1;
+}
+
+.guide-row-extra > td {
+  background: var(--aira-surface);
+}
+
+.guide-row-extra:has(> td:empty),
+.guide-comments-hidden .guide-row-extra {
+  display: none;
+}
+
+.guide-row-extra .guide-thread {
+  margin: 0;
+}
+
 .guide-comment-button:hover {
   border-color: var(--aira-green);
   color: var(--aira-green-accessible);

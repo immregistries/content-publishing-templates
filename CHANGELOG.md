@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.16.0
+
+- Row anchors. A `<!-- row-anchors -->` line just before a pipe table makes
+  each body row a review area of its own, named from its first cell (`OQ-13`
+  becomes `oq-13`). In the web guide, each row has its own comment button,
+  review flag, and link target. Its comments and forms appear in a full-width
+  row beneath it. Other tables are unchanged and stay one comment block.
+- `check_content.py` reports duplicate, reserved, and malformed row anchors,
+  and a directive with no table after it. `build_guide.py` fails on them too.
+  `build_core_markdown.py` leaves the directive out of the reading copy.
+- Comment snippets sent to InteropHub leave out the review flag button's text.
+- Fix: a table whose column widths fill the line, which pandoc writes as
+  `<table style="width:100%;">`, now gets the AIRA table styling and wrapper
+  like any other table. Before, it was left unstyled and was not a comment
+  block.
+- Guidance: Topic References should use row anchors on their working
+  decisions and open questions tables. Projects adopt this by adding the
+  directive to those tables.
+
 ## v0.15.1
 
 - The Topic Reference publishing workflows, public and private, install

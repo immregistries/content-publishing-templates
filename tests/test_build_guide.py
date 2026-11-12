@@ -82,5 +82,57 @@ class MermaidTests(unittest.TestCase):
         self.assertEqual(build_guide.duplicate_ids(document + '<p id="a"></p>'), ["a"])
 
 
+ROW_TABLE = (
+    "# Chapter {#chapter}\n\n<!-- anchor: intro -->\n\nBefore.\n\n<!-- row-anchors -->\n\n"
+    "| ID | Question |\n|---|---|\n| **OQ-1** | First |\n| [WD-2](x.md) | Second |\n\nAfter.\n"
+)
+
+
+class RowAnchorTests(unittest.TestCase):
+    def test_each_row_is_a_review_area_named_from_its_first_cell(self):
+        body = build_guide.body_html(build_guide.replace_anchors(ROW_TABLE))
+        self.assertIn(
+            '<tr id="oq-1" class="guide-row-block" data-guide-anchor="oq-1" '
+            'data-anchor="oq-1" data-block-index="0">',
+            body,
+        )
+        self.assertIn('<tr id="wd-2" class="guide-row-block"', body)
+        self.assertIn('<div class="aira-table-wrap guide-row-table"><table', body)
+        self.assertNotIn("guide-row-anchors", body)
+        self.assertIn('<p data-anchor="intro" data-block-index="1">After.</p>', body)
+
+    def test_tables_with_column_widths_are_styled_and_take_row_anchors(self):
+        wide = (
+            "<!-- row-anchors -->\n\n| ID | Question | Context | Status |\n"
+            "|---|-----------|-----------|-----|\n"
+            "| OQ-1 | " + "A long question that makes pandoc keep the column widths. " * 3
+            + "| Context | Open |\n"
+        )
+        body = build_guide.body_html(build_guide.replace_anchors(wide))
+        self.assertIn('<table class="aira-table" style="width:100%;">', body)
+        self.assertIn('<tr id="oq-1" class="guide-row-block"', body)
+
+    def test_other_tables_stay_one_block(self):
+        body = build_guide.body_html("| A |\n|---|\n| OQ-1 |\n")
+        self.assertIn('<div class="aira-table-wrap" data-anchor="document-start" data-block-index="0">', body)
+        self.assertNotIn("guide-row-block", body)
+
+    def test_a_directive_without_a_table_or_with_an_unusable_name_fails(self):
+        with self.assertRaises(RuntimeError):
+            build_guide.body_html(build_guide.replace_anchors("<!-- row-anchors -->\n\nText.\n"))
+        with self.assertRaises(RuntimeError):
+            build_guide.body_html(
+                build_guide.replace_anchors("<!-- row-anchors -->\n\n| A |\n|---|\n| guide-x |\n")
+            )
+
+    def test_markdown_rows_give_the_same_names(self):
+        import build_core_markdown  # noqa: PLC0415
+
+        names, problems = build_core_markdown.row_anchors(ROW_TABLE)
+        self.assertEqual([name for name, _ in names], ["oq-1", "wd-2"])
+        self.assertEqual(problems, [])
+        self.assertNotIn("row-anchors", build_core_markdown.strip_anchors(ROW_TABLE))
+
+
 if __name__ == "__main__":
     unittest.main()

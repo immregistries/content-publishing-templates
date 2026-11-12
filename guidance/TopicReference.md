@@ -295,6 +295,8 @@ Named anchors in the Markdown divide the document into stable review areas.
 They let a comment remain near its text as wording shifts and provide direct
 links such as `#stable-name`; headings serve as anchors automatically. Content
 before the first heading or named anchor belongs to the `document-start` area.
+The working decisions and open questions tables should use row anchors, so
+each decision or question can be commented on, linked, and flagged on its own.
 See [Review anchors](Conventions.md#review-anchors) for naming and placement.
 
 ## Starting a new Topic Reference

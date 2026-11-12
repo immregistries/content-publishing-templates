@@ -25,6 +25,10 @@ LINK_TARGET_PATTERN = re.compile(r"(\]\()([^)\s]+)(\))")
 ANCHOR_PATTERN = re.compile(
     r"^\s*<!-- anchor: [a-z0-9]+(?:-[a-z0-9]+)* -->\s*$"
 )
+ROW_ANCHORS_PATTERN = re.compile(r"^\s*<!-- row-anchors -->\s*$")
+ROW_ANCHORS_LIKE_PATTERN = re.compile(r"^\s*<!--\s*row-anchors?\b", re.IGNORECASE)
+ANCHOR_NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+RESERVED_ANCHOR_PREFIXES = ("comment-", "guide-")
 FENCE_PATTERN = re.compile(r"^\s*(`{3,}|~{3,})")
 MERMAID_FENCE_PATTERN = re.compile(r"^(\s*)(`{3,}|~{3,})\s*\{mermaid\}\s*$")
 
@@ -126,6 +130,79 @@ def relocated_links(text: str, source: Path, output: Path) -> str:
     return LINK_TARGET_PATTERN.sub(relocate, text)
 
 
+def row_anchor_name(cell: str) -> str:
+    """The anchor name for a table row, from the text of its first cell.
+
+    "OQ-13" becomes "oq-13". Markup is ignored, so the same name comes from the
+    Markdown cell and from the cell pandoc renders.
+    """
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", cell)
+    text = re.sub(r"<[^>]+>", "", text)
+    text = re.sub(r"&[a-zA-Z0-9#]+;", " ", text)
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+
+def anchor_name_problem(name: str) -> str | None:
+    """Why a name cannot be an anchor, or None when it can."""
+    if not ANCHOR_NAME_PATTERN.fullmatch(name):
+        return "is not lowercase letters and digits separated by single hyphens"
+    if name == "document-start" or name.startswith(RESERVED_ANCHOR_PREFIXES):
+        return "is reserved"
+    return None
+
+
+def row_anchors(text: str) -> tuple[list[tuple[str, int]], list[tuple[int, str]]]:
+    """Row anchors declared in one Markdown file.
+
+    A `<!-- row-anchors -->` line placed just before a pipe table makes each
+    body row a review area of its own, named from its first cell. Returns the
+    names with their line numbers, and problems with their line numbers.
+    """
+    names: list[tuple[str, int]] = []
+    problems: list[tuple[int, str]] = []
+    lines = text.splitlines()
+    fence: tuple[str, int] | None = None
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        fence_match = FENCE_PATTERN.match(line)
+        if fence_match:
+            marker = fence_match.group(1)
+            if fence is None:
+                fence = (marker[0], len(marker))
+            elif marker[0] == fence[0] and len(marker) >= fence[1]:
+                fence = None
+            index += 1
+            continue
+        if fence is not None or not ROW_ANCHORS_PATTERN.fullmatch(line):
+            index += 1
+            continue
+        directive = index + 1
+        index += 1
+        while index < len(lines) and not lines[index].strip():
+            index += 1
+        table = []
+        while index < len(lines) and lines[index].lstrip().startswith("|"):
+            table.append((index + 1, lines[index]))
+            index += 1
+        if len(table) < 2 or not re.fullmatch(r"[\s|:-]+", table[1][1]):
+            problems.append(
+                (directive, "row-anchors must be followed by a pipe table")
+            )
+            continue
+        for line_number, row in table[2:]:
+            cells = re.split(r"(?<!\\)\|", row.strip().strip("|"))
+            name = row_anchor_name(cells[0])
+            problem = anchor_name_problem(name)
+            if problem:
+                problems.append(
+                    (line_number, f"row anchor {name!r} from the first cell {problem}")
+                )
+            else:
+                names.append((name, line_number))
+    return names, problems
+
+
 def strip_anchors(text: str) -> str:
     """Remove anchor directives outside fenced code blocks."""
     output = []
@@ -145,7 +222,10 @@ def strip_anchors(text: str) -> str:
             elif marker[0] == fence[0] and len(marker) >= fence[1]:
                 fence = None
             output.append(line)
-        elif fence is None and ANCHOR_PATTERN.fullmatch(line.rstrip("\r\n")):
+        elif fence is None and (
+            ANCHOR_PATTERN.fullmatch(line.rstrip("\r\n"))
+            or ROW_ANCHORS_PATTERN.fullmatch(line.rstrip("\r\n"))
+        ):
             skip_blank_after_anchor = bool(output and not output[-1].strip())
             continue
         else:

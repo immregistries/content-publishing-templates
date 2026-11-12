@@ -235,6 +235,14 @@ then added to maintained source if accepted.
   and elements supplied by the web guide.
 - Place anchors sparingly at natural review points; do not add one before every
   paragraph.
+- A table whose rows are separate items, such as a register of working
+  decisions or open questions, can make each row a review area of its own.
+  Write `<!-- row-anchors -->` on a line by itself just before the pipe table.
+  Each body row is then named from its first cell, so a row starting `OQ-13`
+  becomes the anchor `oq-13`. Readers comment on and link to each row, and
+  authors flag each row for review. The first cell must give a name that
+  follows these rules, so use it for a stable ID and never reuse an ID for a
+  different item. Other tables stay one comment block.
 - Keep names stable when nearby wording changes or content moves.
 - Agents that edit or reorganize canonical content maintain the anchors as part
   of the edit.

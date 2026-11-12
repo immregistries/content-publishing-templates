@@ -25,6 +25,11 @@ from pathlib import Path
 from urllib.parse import unquote
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from build_core_markdown import (  # noqa: E402
+    ROW_ANCHORS_LIKE_PATTERN,
+    ROW_ANCHORS_PATTERN,
+    row_anchors,
+)
 from build_guide import hosting_config  # noqa: E402
 
 
@@ -123,7 +128,10 @@ def content_targets(root: Path) -> dict[str, tuple[str, int]]:
         relative = path.relative_to(root).as_posix()
         first_heading = True
         fence: tuple[str, int] | None = None
-        for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        text = path.read_text(encoding="utf-8")
+        for name, line_number in row_anchors(text)[0]:
+            targets.setdefault(name, (relative, line_number))
+        for line_number, line in enumerate(text.splitlines(), 1):
             fence_match = FENCE_PATTERN.match(line)
             if fence_match:
                 marker = fence_match.group(1)
@@ -219,6 +227,8 @@ def main() -> int:
                     continue
                 if ANCHOR_LIKE_PATTERN.search(line):
                     failures.append(f"{relative}:{line_number}: malformed anchor syntax")
+                if ROW_ANCHORS_LIKE_PATTERN.search(line) and not ROW_ANCHORS_PATTERN.fullmatch(line):
+                    failures.append(f"{relative}:{line_number}: malformed row-anchors syntax")
                 heading_match = HEADING_PATTERN.match(line)
                 if heading_match:
                     identifier = heading_id(heading_match.group(2))
@@ -227,6 +237,18 @@ def main() -> int:
                         first_heading = False
                     if identifier:
                         headings.setdefault(identifier, (relative, line_number))
+            names, problems = row_anchors(text)
+            for line_number, problem in problems:
+                failures.append(f"{relative}:{line_number}: {problem}")
+            for name, line_number in names:
+                if name in anchors:
+                    first_file, first_line = anchors[name]
+                    failures.append(
+                        f"{relative}:{line_number}: duplicate row anchor {name!r} "
+                        f"(first used at {first_file}:{first_line})"
+                    )
+                else:
+                    anchors[name] = (relative, line_number)
 
         if relative.startswith("content/") and path.name != "README.md":
             for pattern in PLACEHOLDER_PATTERNS:

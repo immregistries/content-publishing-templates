@@ -43,9 +43,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build_core_markdown import (  # noqa: E402
     FRONT_MATTER_PATTERN,
     LINK_TARGET_PATTERN,
+    ROW_ANCHORS_PATTERN,
+    anchor_name_problem,
     front_matter_value,
     include_paths,
     plain_mermaid_fences,
+    row_anchor_name,
 )
 import infographic  # noqa: E402
 
@@ -73,6 +76,16 @@ STATUS_TAGS = {
     "published": "aira-tag--success",
 }
 DOCUMENT_START_ANCHOR = "document-start"
+ROW_ANCHORS_MARKER = "guide-row-anchors"
+ROW_TABLE_PATTERN = re.compile(
+    r'<div class="guide-row-anchors">\s*</div>\s*'
+    r'(?:<div class="aira-table-wrap">(<table class="aira-table"[^>]*>.*?</table>)</div>)?',
+    re.DOTALL,
+)
+TABLE_OPEN_PATTERN = re.compile(r"<table((?:\s[^>]*)?)>")
+BODY_PATTERN = re.compile(r"(<tbody>)(.*?)(</tbody>)", re.DOTALL)
+ROW_PATTERN = re.compile(r"<tr\b([^>]*)>(.*?)</tr>", re.DOTALL)
+FIRST_CELL_PATTERN = re.compile(r"<t[dh]\b[^>]*>(.*?)</t[dh]>", re.DOTALL)
 DOCUMENT_KEY_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 RESERVED_DOCUMENT_KEYS = {"comments", "review-flags", "token"}
 HOSTING_MODES = {"local", "github-pages", "interophub"}
@@ -223,7 +236,10 @@ def replace_anchors(text: str) -> str:
             output.append(line)
             continue
         match = ANCHOR_PATTERN.fullmatch(line.rstrip("\r\n")) if fence is None else None
-        if match:
+        if fence is None and ROW_ANCHORS_PATTERN.fullmatch(line.rstrip("\r\n")):
+            ending = "\r\n" if line.endswith("\r\n") else "\n" if line.endswith("\n") else ""
+            output.append(f'<div class="{ROW_ANCHORS_MARKER}"></div>{ending}')
+        elif match:
             ending = "\r\n" if line.endswith("\r\n") else "\n" if line.endswith("\n") else ""
             name = match.group(1)
             output.append(
@@ -302,15 +318,59 @@ def body_html(markdown: str) -> str:
         encoding="utf-8",
         check=True,
     )
-    body = result.stdout.replace(
-        "<table>", '<div class="aira-table-wrap"><table class="aira-table">'
+    # Pandoc writes <table style="width:100%;"> when a table's column widths
+    # fill the line, so keep any attributes it adds.
+    body = TABLE_OPEN_PATTERN.sub(
+        r'<div class="aira-table-wrap"><table class="aira-table"\1>', result.stdout
     ).replace("</table>", "</table></div>")
     # Mermaid reads a diagram's text from its element, so drop pandoc's <code>.
     # Until the diagram is drawn, or if scripts are off, the text is shown.
     body = MERMAID_BLOCK_PATTERN.sub(
         r'<div class="guide-diagram"><pre class="mermaid">\1</pre></div>', body
     )
-    return annotate_commentable_blocks(body)
+    return annotate_commentable_blocks(apply_row_anchors(body))
+
+
+def apply_row_anchors(body: str) -> str:
+    """Give each body row of a table marked with row-anchors its own anchor.
+
+    The row's ID comes from its first cell, so "OQ-13" becomes "oq-13". Each
+    such row is a review area of its own, and the table as a whole is not a
+    comment block.
+    """
+
+    def anchor_row(match: re.Match[str]) -> str:
+        attributes, cells = match.group(1), match.group(2)
+        cell = FIRST_CELL_PATTERN.search(cells)
+        name = row_anchor_name(html.unescape(cell.group(1))) if cell else ""
+        problem = anchor_name_problem(name)
+        if problem:
+            raise RuntimeError(
+                f"Row anchor {name!r} from the first cell {problem}. Row anchors "
+                "are named from the first cell of each row, such as 'OQ-13'."
+            )
+        attributes = CLASS_PATTERN.sub("", attributes).strip()
+        attributes = (" " + attributes) if attributes else ""
+        return (
+            f'<tr id="{name}" class="guide-row-block" data-guide-anchor="{name}"'
+            f"{attributes}>{cells}</tr>"
+        )
+
+    def anchor_table(match: re.Match[str]) -> str:
+        table = match.group(1)
+        if table is None:
+            raise RuntimeError(
+                "A '<!-- row-anchors -->' line must come just before a table."
+            )
+        table = BODY_PATTERN.sub(
+            lambda body_match: body_match.group(1)
+            + ROW_PATTERN.sub(anchor_row, body_match.group(2))
+            + body_match.group(3),
+            table,
+        )
+        return f'<div class="aira-table-wrap guide-row-table">{table}</div>'
+
+    return ROW_TABLE_PATTERN.sub(anchor_table, body)
 
 
 TOKEN_PATTERN = re.compile(r"<[^>]+>|[^<]+")
@@ -323,6 +383,7 @@ COMMENTABLE_TAGS = {"p", "ul", "ol", "blockquote"}
 def annotate_commentable_blocks(body: str) -> str:
     """Mark outermost commentable blocks with their anchor area and position."""
     area = DOCUMENT_START_ANCHOR
+    area_before_rows: str | None = None
     positions: dict[str, int] = {}
     open_commentable: list[str] = []
     output: list[str] = []
@@ -343,6 +404,9 @@ def annotate_commentable_blocks(body: str) -> str:
             output.append(token)
             if open_commentable and open_commentable[-1] == tag:
                 open_commentable.pop()
+            if tag == "table" and area_before_rows is not None:
+                area = area_before_rows
+                area_before_rows = None
             continue
 
         identifier = ID_PATTERN.search(token)
@@ -350,9 +414,20 @@ def annotate_commentable_blocks(body: str) -> str:
             area = html.unescape(identifier.group(1))
         elif "guide-anchor" in classes and identifier:
             area = html.unescape(identifier.group(1))
+        elif "guide-row-table" in classes:
+            # Rows name their own areas; text after the table returns to the
+            # area the table is in.
+            area_before_rows = area
+        elif "guide-row-block" in classes and identifier:
+            area = html.unescape(identifier.group(1))
 
-        commentable = tag in COMMENTABLE_TAGS or bool(
-            {"aira-table-wrap", "guide-diagram"} & classes
+        commentable = (
+            tag in COMMENTABLE_TAGS
+            or "guide-row-block" in classes
+            or (
+                bool({"aira-table-wrap", "guide-diagram"} & classes)
+                and "guide-row-table" not in classes
+            )
         )
         if commentable:
             if not open_commentable:

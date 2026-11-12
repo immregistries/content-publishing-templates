@@ -67,6 +67,13 @@ if ($guideText -notmatch '<div class="guide-diagram" data-anchor="review-item"' 
     $guideText -notmatch 'window\.guideDiagramsReady') {
     throw "Fixture guide is missing its Mermaid diagram or the diagram library."
 }
+if ($guideText -notmatch '<tr id="fx-1" class="guide-row-block" data-guide-anchor="fx-1" data-anchor="fx-1" data-block-index="0">' -or
+    $guideText -notmatch '<tr id="fx-2" class="guide-row-block" data-guide-anchor="fx-2" data-anchor="fx-2" data-block-index="0">' -or
+    $guideText -notmatch '<div class="aira-table-wrap guide-row-table"><table' -or
+    $guideText -notmatch '<p data-anchor="review-item" data-block-index="\d+">Text after the table' -or
+    $readingCopyText -match 'row-anchors') {
+    throw "Fixture guide did not make each row of the row-anchored table its own review area."
+}
 
 $remoteFixture = Join-Path $PSScriptRoot 'output/fixture-remote'
 if (Test-Path -LiteralPath $remoteFixture) { Remove-Item -LiteralPath $remoteFixture -Recurse -Force }
@@ -105,9 +112,12 @@ if (Test-Path -LiteralPath $badFixture) {
     Remove-Item -LiteralPath $badFixture -Recurse -Force
 }
 Copy-Item -LiteralPath $fixture -Destination $badFixture -Recurse
-Add-Content -LiteralPath (Join-Path $badFixture 'content/01-detail.md') -Value "`n<!-- anchor: fixture-introduction -->`n<!-- anchor: Bad Anchor -->`n<!-- anchor: document-start -->"
+Add-Content -LiteralPath (Join-Path $badFixture 'content/01-detail.md') -Value "`n<!-- anchor: fixture-introduction -->`n<!-- anchor: Bad Anchor -->`n<!-- anchor: document-start -->`n`n<!-- row-anchors -->`n`n| ID |`n|---|`n| Review item |`n`n<!-- row-anchor -->`n`n<!-- row-anchors -->`n`nNo table follows."
 $badCheck = & $python.Source (Join-Path $tools 'check_content.py') --root $badFixture 2>&1
 if ($LASTEXITCODE -eq 0 -or
+    ($badCheck -join "`n") -notmatch 'duplicate row anchor' -or
+    ($badCheck -join "`n") -notmatch 'malformed row-anchors syntax' -or
+    ($badCheck -join "`n") -notmatch 'must be followed by a pipe table' -or
     ($badCheck -join "`n") -notmatch 'duplicate anchor' -or
     ($badCheck -join "`n") -notmatch 'malformed anchor syntax' -or
     ($badCheck -join "`n") -notmatch 'is reserved') {

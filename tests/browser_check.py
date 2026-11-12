@@ -148,6 +148,17 @@ def main():
         wait_for(author, "document.body.innerText.includes('Disposition draft through refreshes')")
         wait_for(author, "document.body.innerText.includes('Reply draft through refreshes')")
 
+        # A row of a row-anchored table takes its own comment, shown in a
+        # full-width row beneath it, and has its own review flag control.
+        wait_for(author, "document.querySelector('tr#fx-2.guide-block > td:last-child > .guide-comment-button') !== null")
+        wait_for(author, "document.querySelector('tr#fx-2 > td:last-child > .guide-flag-control') !== null")
+        evaluate(author, "document.querySelector('tr#fx-2 > td:last-child > .guide-comment-button').click()")
+        wait_for(author, "document.querySelector('tr#fx-2 + tr.guide-row-extra .guide-comment-form textarea') !== null")
+        evaluate(author, "var f=document.querySelector('tr#fx-2 + tr.guide-row-extra .guide-comment-form'); f.querySelector('textarea').value='Row comment'; f.requestSubmit()")
+        wait_for(author, "Array.from(document.querySelectorAll('tr#fx-2 + tr.guide-row-extra .guide-comment__text')).some(n => n.textContent.includes('Row comment'))")
+        if not evaluate(author, "!document.querySelector('tr#fx-1 + tr.guide-row-extra') || getComputedStyle(document.querySelector('tr#fx-1 + tr.guide-row-extra')).display === 'none'"):
+            raise RuntimeError("An empty comment row was shown under a row without comments.")
+
         reader = open_profile(9224, "ihg_browser_reader", {"userId": 10, "displayName": "Test Reader", "organization": "Example Organization"}, False)
         wait_for(reader, "document.body.innerText.includes('Disposition draft through refreshes')")
         if evaluate(reader, "Array.from(document.querySelectorAll('.guide-comment__tools button')).some(b => ['Dispose','Close','Delete','Re-attach'].includes(b.textContent))"):

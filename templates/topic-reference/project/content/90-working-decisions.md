@@ -7,6 +7,8 @@ it can be revisited.
 
 ## Working decisions
 
+<!-- row-anchors -->
+
 | ID | Working decision | Basis |
 |---|---|---|
 
@@ -14,6 +16,8 @@ it can be revisited.
 
 Each question needs discussion before the affected text is settled. Questions
 that belong to a related topic are referred there rather than answered here.
+
+<!-- row-anchors -->
 
 | ID | Question | Sources in tension | Status |
 |---|---|---|---|
