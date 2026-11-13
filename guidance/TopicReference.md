@@ -83,15 +83,24 @@ that happens because a workspace has lasted. See
 When connected comments are enabled, signed-in readers see each thread's review
 state. A disposed comment also shows the server-provided disposition label, the
 author's change note, and who disposed it. Closed threads are hidden initially;
-readers can select **Show closed** to load them with their replies. Areas marked
-for another look are highlighted and listed as **Flagged for review** in the
-rail, with links back to the text.
+readers can select **Show closed** to load them with their replies.
+
+Review flags are how authors point readers, and each other, to an area that
+needs attention. A flagged area starts with a purple **Review** badge showing
+the start of the note, and a purple bar runs down its left side; a flagged
+table row has the bar and a small badge in its first cell. Hovering over or
+selecting the badge shows the whole note, who flagged it, and when. Section
+links with flagged areas carry a purple dot, and the comments panel lists the
+flags first, under **Review flags**, with links to each. Everyone signed in
+sees flags.
 
 Authors get controls permitted by the comment service. From the guide they can
 set, change, or clear a disposition and its required change note; close or
 reopen a thread; delete inappropriate comments or replies after an in-page
 confirmation; and re-attach an orphaned thread by choosing one of the page's
-anchor areas. They can also add, edit, and clear review flags. The service
+anchor areas. They flag an area with the flag button that appears under the
+comment button on hover, and edit or clear a flag from its badge or from the
+panel list. The service
 checks every action again and reports when another person changed the thread
 first.
 

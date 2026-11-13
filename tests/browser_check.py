@@ -83,6 +83,7 @@ def wait_for(ws, expression, timeout=12):
 
 def main():
     parser = argparse.ArgumentParser(); parser.add_argument("--browser", required=True); parser.add_argument("--root", required=True)
+    parser.add_argument("--screenshots", help="Folder to save screenshots of review flags for a visual check.")
     args = parser.parse_args()
     static = QuietServer(("127.0.0.1", 8765), lambda *values, **kw: Quiet(*values, directory=args.root, **kw))
     hub = mock_hub.serve(8766, ["http://127.0.0.1:8765"])
@@ -149,9 +150,9 @@ def main():
         wait_for(author, "document.body.innerText.includes('Reply draft through refreshes')")
 
         # A row of a row-anchored table takes its own comment, shown in a
-        # full-width row beneath it, and has its own review flag control.
+        # full-width row beneath it, and has its own review flag button.
         wait_for(author, "document.querySelector('tr#fx-2.guide-block > td:last-child > .guide-comment-button') !== null")
-        wait_for(author, "document.querySelector('tr#fx-2 > td:last-child > .guide-flag-control') !== null")
+        wait_for(author, "document.querySelector('tr#fx-2 > td:last-child > .guide-flag-button') !== null")
         evaluate(author, "document.querySelector('tr#fx-2 > td:last-child > .guide-comment-button').click()")
         wait_for(author, "document.querySelector('tr#fx-2 + tr.guide-row-extra .guide-comment-form textarea') !== null")
         evaluate(author, "var f=document.querySelector('tr#fx-2 + tr.guide-row-extra .guide-comment-form'); f.querySelector('textarea').value='Row comment'; f.requestSubmit()")
@@ -177,11 +178,46 @@ def main():
         if not evaluate(author, "document.querySelector('tr#fx-1 + tr.guide-row-extra .guide-comment-form textarea').value==='' && !Object.keys(localStorage).some(k => k.startsWith('content-guide-draft:'))"):
             raise RuntimeError("Discarding a draft did not clear it.")
 
+        # Review flags: an author flags an area from the flag button beside the
+        # comment button. The area gets a purple marker and bar instead of a
+        # highlight, the section link gets a dot, and the panel lists the flags.
+        evaluate(author, "document.querySelector('p[data-anchor=\"review-item\"] > .guide-flag-button').click()")
+        wait_for(author, "document.querySelector('p[data-anchor=\"review-item\"] > .guide-comment-form textarea') !== null")
+        evaluate(author, "var f=document.querySelector('p[data-anchor=\"review-item\"] > .guide-comment-form'); f.querySelector('textarea').value='Please check this area'; f.requestSubmit()")
+        wait_for(author, "document.querySelector('.guide-flag-marker:not(.guide-flag-marker--row)') !== null")
+        if not evaluate(author, "var m=document.querySelector('.guide-flag-marker:not(.guide-flag-marker--row)'); m.nextElementSibling.dataset.anchor==='review-item' && m.textContent.includes('Please check this area') && document.querySelectorAll('[data-anchor=\"review-item\"].guide-review-flagged').length===document.querySelectorAll('[data-anchor=\"review-item\"]').length && document.querySelectorAll('.guide-review-flagged--continued').length>=1 && document.querySelector('.guide-nav-flagged') !== null"):
+            raise RuntimeError("A flagged area did not get its marker, bar, or section dot.")
+        evaluate(author, "document.querySelector('tr#fx-2 > td:last-child > .guide-flag-button').click()")
+        wait_for(author, "document.querySelector('tr#fx-2 + tr.guide-row-extra .guide-comment-form textarea') !== null")
+        evaluate(author, "var f=document.querySelector('tr#fx-2 + tr.guide-row-extra .guide-comment-form'); f.querySelector('textarea').value='Row needs a decision'; f.requestSubmit()")
+        wait_for(author, "document.querySelector('tr#fx-2.guide-review-flagged > td:first-child > .guide-flag-marker--row') !== null")
+        wait_for(author, "(document.querySelector('.guide-review-flag-heading')||{}).textContent==='Review flags (2)'")
+        if args.screenshots:
+            import base64, os
+            os.makedirs(args.screenshots, exist_ok=True)
+            author.send("Emulation.setDeviceMetricsOverride", {"width": 1400, "height": 1000, "deviceScaleFactor": 1, "mobile": False})
+            for name, selector in (("flag-area", ".guide-flag-marker:not(.guide-flag-marker--row)"), ("flag-row", "tr#fx-2")):
+                evaluate(author, "document.querySelector(%s).scrollIntoView({block:'center'}); document.querySelector(%s).querySelector('.guide-flag-badge') && document.querySelector(%s).querySelector('.guide-flag-badge').click()" % ((json.dumps(selector),) * 3))
+                time.sleep(.5)
+                shot = author.send("Page.captureScreenshot", {"format": "png"})
+                with open(os.path.join(args.screenshots, name + ".png"), "wb") as handle: handle.write(base64.b64decode(shot["result"]["data"]))
+                evaluate(author, "document.querySelectorAll('.guide-flag-marker.is-open .guide-flag-badge').forEach(b => b.click())")
+
         reader = open_profile(9224, "ihg_browser_reader", {"userId": 10, "displayName": "Test Reader", "organization": "Example Organization"}, False)
         wait_for(reader, "document.body.innerText.includes('Disposition draft through refreshes')")
         if evaluate(reader, "Array.from(document.querySelectorAll('.guide-comment__tools button')).some(b => ['Dispose','Close','Delete','Re-attach'].includes(b.textContent))"):
             raise RuntimeError("Reader profile was shown author controls.")
-        print("Two-profile browser comments, refresh-safe drafts, blocked-request drafts, author disposition, and reader visibility check passed.")
+        wait_for(reader, "document.querySelectorAll('.guide-flag-marker').length === 2")
+        if evaluate(reader, "document.querySelector('.guide-flag-button') !== null || document.querySelector('.guide-flag-popover button') !== null || document.querySelector('.guide-review-flag-entry button') !== null"):
+            raise RuntimeError("Reader profile was shown review flag controls.")
+
+        # The author clears a flag from its marker.
+        evaluate(author, "document.querySelector('tr#fx-2 .guide-flag-badge').click()")
+        wait_for(author, "document.querySelector('tr#fx-2 .guide-flag-marker.is-open') !== null")
+        evaluate(author, "Array.from(document.querySelectorAll('tr#fx-2 .guide-flag-popover button')).find(b => b.textContent==='Clear').click()")
+        wait_for(author, "document.querySelector('tr#fx-2 .guide-flag-marker') === null && !document.querySelector('tr#fx-2').classList.contains('guide-review-flagged')")
+        wait_for(author, "(document.querySelector('.guide-review-flag-heading')||{}).textContent==='Review flags (1)'")
+        print("Two-profile browser comments, refresh-safe drafts, blocked-request drafts, review flags, author disposition, and reader visibility check passed.")
     finally:
         for process in processes: process.terminate()
         for process in processes:

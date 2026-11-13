@@ -411,20 +411,203 @@ tr.guide-row-block {
   flex-basis: 100%;
 }
 
-.guide-review-flagged {
-  outline: 3px solid var(--aira-yellow);
-  outline-offset: 3px;
-  background: var(--aira-warning-surface);
+/* Review flags. Purple marks an area authors want readers to look at; yellow
+   stays with comments and red with errors. AIRA Web has no purple, so the
+   colors are guide tokens. */
+:root {
+  --guide-flag: #6d28d9;
+  --guide-flag-surface: #f5f0ff;
+  --guide-flag-on-dark: #d8b4fe;
+  --guide-flag-bar: 5px;
+  --guide-flag-gutter: calc(-1 * var(--aira-space-4));
 }
 
-.guide-flag-control {
-  margin: 0 0 var(--aira-space-2) var(--aira-space-2);
+.guide-review-flagged:not(tr)::before,
+.guide-flag-marker:not(.guide-flag-marker--row)::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--guide-flag-gutter);
+  width: var(--guide-flag-bar);
+  border-radius: 2px;
+  background: var(--guide-flag);
+}
+
+/* Join the bar across the margin above a block that continues the area. It
+   reaches as far as the largest block margin; any overlap is the same color. */
+.guide-review-flagged--continued:not(tr)::before {
+  top: calc(-1 * var(--aira-space-6));
+}
+
+.guide-flag-marker:not(.guide-flag-marker--row)::before {
+  bottom: calc(-1 * var(--aira-space-2));
+}
+
+/* Blocks that scroll sideways clip the margin bar, so they carry it inside. */
+pre.guide-review-flagged,
+.aira-table-wrap.guide-review-flagged,
+tr.guide-review-flagged > td:first-child {
+  box-shadow: inset var(--guide-flag-bar) 0 0 var(--guide-flag);
+}
+
+.guide-flag-marker {
+  position: relative;
+  margin: 0 0 var(--aira-space-2);
+}
+
+.guide-flag-marker--row {
+  display: inline-block;
+  margin: 0 var(--aira-space-1) 0 0;
+  vertical-align: top;
+}
+
+.guide-flag-badge {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--aira-space-1);
+  max-width: 100%;
+  padding: 0.15rem 0.6rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--guide-flag);
+  color: #fff;
   font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+}
+
+.guide-flag-marker--row .guide-flag-badge {
+  padding: 0.05rem 0.4rem;
+}
+
+.guide-flag-badge:focus-visible {
+  outline: 3px solid var(--guide-flag-on-dark);
+  outline-offset: 2px;
+}
+
+.guide-flag-badge__note {
+  overflow: hidden;
+  font-weight: 400;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.guide-flag-popover {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 30;
+  width: min(28rem, 85vw);
+  padding: var(--aira-space-2) var(--aira-space-4);
+  border: 2px solid var(--guide-flag);
+  border-radius: var(--aira-radius-control);
+  background: var(--aira-surface);
+  box-shadow: var(--aira-shadow-dialog);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: normal;
+}
+
+.guide-flag-marker:hover > .guide-flag-popover,
+.guide-flag-marker:focus-within > .guide-flag-popover,
+.guide-flag-marker.is-open > .guide-flag-popover {
+  display: block;
+}
+
+.guide-flag-popover p {
+  margin: 0 0 var(--aira-space-1);
+}
+
+.guide-flag-popover__note {
+  white-space: pre-wrap;
+}
+
+.guide-flag-popover .guide-comment__tools {
+  margin: 0;
+  justify-content: flex-end;
+}
+
+/* The author's flag control sits under the comment button and, like it,
+   shows on hover. */
+.guide-flag-button {
+  position: absolute;
+  top: 2rem;
+  right: -2.25rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid var(--aira-border);
+  border-radius: var(--aira-radius-control);
+  background: var(--aira-surface);
+  color: var(--aira-text-secondary);
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.guide-row-block > td:last-child > .guide-flag-button {
+  top: 0.35rem;
+  right: 2.35rem;
+}
+
+.guide-block:hover > .guide-flag-button,
+.guide-block:hover > td > .guide-flag-button,
+.guide-flag-button:focus-visible {
+  opacity: 1;
+}
+
+.guide-flag-button:hover,
+.guide-flag-button--active {
+  border-color: var(--guide-flag);
+  color: var(--guide-flag);
+}
+
+.guide-comments-hidden .guide-flag-button {
+  display: none;
+}
+
+.guide-nav-flagged::after {
+  content: "";
+  display: inline-block;
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-left: 0.35rem;
+  border-radius: 50%;
+  background: var(--guide-flag);
+  vertical-align: middle;
+}
+
+.aira-context-nav a.guide-nav-flagged::after {
+  background: var(--guide-flag-on-dark);
+}
+
+.aira-context-nav a.guide-nav-flagged[aria-current="page"]::after {
+  background: var(--guide-flag);
+}
+
+.guide-review-flag-heading {
+  color: var(--guide-flag);
+  font-weight: 700;
 }
 
 .guide-review-flag-entry {
+  display: flex;
+  gap: var(--aira-space-2);
   padding-left: var(--aira-space-2);
-  border-left: 3px solid var(--aira-yellow);
+  border-left: 3px solid var(--guide-flag);
+}
+
+.guide-review-flag-entry a {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .guide-comment-form textarea {
@@ -472,6 +655,17 @@ tr.guide-row-block {
     opacity: 1;
   }
 
+  .guide-flag-button {
+    right: 2rem;
+    top: -1.9rem;
+    opacity: 1;
+  }
+
+  :root {
+    --guide-flag-gutter: calc(-1 * var(--aira-space-2));
+    --guide-flag-bar: 4px;
+  }
+
   .guide-rail {
     max-height: none;
   }
@@ -479,6 +673,8 @@ tr.guide-row-block {
 
 @media print {
   .guide-comment-button,
+  .guide-flag-button,
+  .guide-flag-popover,
   .guide-comment-form,
   .guide-context {
     display: none;

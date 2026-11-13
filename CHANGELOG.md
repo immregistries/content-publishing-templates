@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.18.0
+
+- Review flags are redrawn in purple, which signals "look here" without
+  clashing with yellow comments or red errors. They no longer outline and
+  shade each paragraph in yellow.
+  - A flagged area starts with a purple **Review** badge that shows the start
+    of the note.
+  - A purple bar runs unbroken down the area's left side.
+  - A flagged table row has the bar on its left edge and a small badge in its
+    first cell.
+  - Hovering over or focusing the badge shows the whole note, who flagged it,
+    and when. Clicking keeps it open.
+  - Authors can **Edit** or **Clear** the flag from the badge.
+- Authors flag an area with a flag button that appears under the comment
+  button on hover. It replaces the "Flag for review" text button that was
+  always shown on every area. The button turns purple on a flagged area.
+- Section links in the top bar and the subsection rail show a purple dot when
+  their section holds a flagged area.
+- The comments panel lists flags first, under **Review flags (n)**. Authors
+  can still clear them there.
+- Everyone signed in sees flags. Only authors see the flag button and the
+  Edit and Clear controls.
+- `tests/browser_check.py` covers flagging an area and a row, the reader's
+  view, and clearing a flag. A new `--screenshots` option saves images of the
+  markers for a visual check.
+- Projects adopt this by moving their `process` submodule to v0.18.0 and
+  rebuilding and republishing the guide.
+
 ## v0.17.0
 
 - InteropHub comment forms save an unsaved draft in the browser as the reader

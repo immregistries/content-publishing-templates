@@ -70,6 +70,28 @@
       item.appendChild(link);
       subnav.appendChild(item);
     });
+    markFlaggedNav();
+  }
+
+  // Mark section and subsection links whose section holds a review flag.
+  var flaggedNavTitle = "Has areas flagged for review";
+  function markFlaggedNav() {
+    sectionLinks
+      .concat(Array.prototype.slice.call(subnav.querySelectorAll("a")))
+      .forEach(function (link) {
+        var href = link.getAttribute("href") || "";
+        var target =
+          href.charAt(0) === "#" ? document.getElementById(href.slice(1)) : null;
+        var flagged = !!(
+          target && target.querySelector(".guide-review-flagged")
+        );
+        link.classList.toggle("guide-nav-flagged", flagged);
+        if (flagged) {
+          link.title = flaggedNavTitle;
+        } else if (link.title === flaggedNavTitle) {
+          link.removeAttribute("title");
+        }
+      });
   }
 
   // Scroll only the section bar sideways. scrollIntoView would also scroll the
@@ -858,6 +880,7 @@
     );
     var threads = [];
     var reviewFlags = [];
+    var openFlagAnchor = null;
     var showClosed = false;
     var documentInfo = null;
     var serverTime = null;
@@ -1126,7 +1149,7 @@
       var copy = block.cloneNode(true);
       Array.prototype.forEach.call(
         copy.querySelectorAll(
-          ".guide-comment-button,.guide-thread,.guide-flag-control,.guide-comment-form",
+          ".guide-comment-button,.guide-thread,.guide-flag-button,.guide-flag-marker,.guide-comment-form",
         ),
         function (node) {
           node.remove();
@@ -1565,83 +1588,217 @@
       }
     }
 
-    function renderReviewFlags() {
-      remoteBlocks.forEach(function (block) {
-        block.classList.remove("guide-review-flagged");
-        var old = controlHost(block).querySelector(
-          ":scope > .guide-flag-control",
-        );
-        if (old) {
-          old.remove();
+    function flagFor(anchor) {
+      return (
+        reviewFlags.filter(function (flag) {
+          return flag.anchor === anchor;
+        })[0] || null
+      );
+    }
+
+    function openFlagForm(block) {
+      var existing = flagFor(block.dataset.anchor);
+      openRemoteForm(
+        block,
+        existing ? "Save review flag" : "Flag for review",
+        function (note) {
+          return store.flag(block.dataset.anchor, note).then(function (flag) {
+            reviewFlags = reviewFlags.filter(function (current) {
+              return current.anchor !== flag.anchor;
+            });
+            reviewFlags.push(flag);
+            renderRemote();
+            return null;
+          });
+        },
+        existing ? existing.note : "",
+        false,
+        { draft: "flag:" + block.dataset.anchor, maxLength: 500 },
+      );
+    }
+
+    function clearReviewFlag(flag) {
+      store
+        .clearFlag(flag)
+        .then(function () {
+          reviewFlags = reviewFlags.filter(function (current) {
+            return current.id !== flag.id;
+          });
+          if (openFlagAnchor === flag.anchor) {
+            openFlagAnchor = null;
+          }
+          renderRemote();
+        })
+        .catch(showStatusError);
+    }
+
+    // The marker that starts a flagged area: a badge that shows the note on
+    // hover or focus, and keeps it open when clicked. Authors can edit or
+    // clear the flag from it.
+    function flagMarker(flag, block, inRow) {
+      var marker = document.createElement(inRow ? "span" : "div");
+      marker.className =
+        "guide-flag-marker" + (inRow ? " guide-flag-marker--row" : "");
+      var badge = document.createElement("button");
+      badge.type = "button";
+      badge.className = "guide-flag-badge";
+      badge.setAttribute("aria-expanded", "false");
+      var icon = document.createElement("span");
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = "⚑";
+      badge.appendChild(icon);
+      var label = document.createElement("span");
+      label.className = inRow
+        ? "aira-visually-hidden"
+        : "guide-flag-badge__label";
+      label.textContent = "Review";
+      badge.appendChild(label);
+      if (!inRow) {
+        var excerpt = document.createElement("span");
+        excerpt.className = "guide-flag-badge__note";
+        var text = normalizeRemote(flag.note);
+        excerpt.textContent =
+          text.length > 80 ? text.slice(0, 80) + "…" : text;
+        badge.appendChild(excerpt);
+      }
+      marker.appendChild(badge);
+
+      var popover = document.createElement("div");
+      popover.className = "guide-flag-popover";
+      popover.setAttribute("role", "group");
+      popover.setAttribute("aria-label", "Review flag");
+      var note = document.createElement("p");
+      note.className = "guide-flag-popover__note";
+      note.textContent = flag.note;
+      popover.appendChild(note);
+      var meta = document.createElement("p");
+      meta.className = "aira-meta";
+      var stamp = flag.updatedAt || flag.createdAt;
+      meta.textContent =
+        "Flagged for review by " +
+        person(flag.createdBy) +
+        (stamp ? ", " + new Date(stamp).toLocaleString() : "");
+      popover.appendChild(meta);
+      if (documentInfo && documentInfo.permissions.isAuthor) {
+        var tools = document.createElement("div");
+        tools.className = "guide-comment__tools";
+        addTool(tools, "Edit", function () {
+          setOpen(false);
+          openFlagForm(block);
+        });
+        addTool(tools, "Clear", function () {
+          clearReviewFlag(flag);
+        });
+        popover.appendChild(tools);
+      }
+      marker.appendChild(popover);
+
+      function setOpen(open) {
+        marker.classList.toggle("is-open", open);
+        badge.setAttribute("aria-expanded", open ? "true" : "false");
+        openFlagAnchor = open ? flag.anchor : null;
+      }
+      badge.addEventListener("click", function () {
+        setOpen(!marker.classList.contains("is-open"));
+      });
+      marker.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          setOpen(false);
+          badge.focus();
         }
       });
+      if (openFlagAnchor === flag.anchor) {
+        setOpen(true);
+      }
+      return marker;
+    }
+
+    function renderReviewFlags() {
+      Array.prototype.forEach.call(
+        content.querySelectorAll(".guide-flag-marker,.guide-flag-button"),
+        function (node) {
+          node.remove();
+        },
+      );
+      remoteBlocks.forEach(function (block) {
+        block.classList.remove(
+          "guide-review-flagged",
+          "guide-review-flagged--continued",
+        );
+      });
+      var first = remoteIndex.firstChild;
+      if (reviewFlags.length) {
+        var heading = document.createElement("li");
+        heading.className = "guide-review-flag-heading";
+        heading.textContent = "Review flags (" + reviewFlags.length + ")";
+        remoteIndex.insertBefore(heading, first);
+      }
       reviewFlags.forEach(function (flag) {
-        remoteBlocks
-          .filter(function (block) {
-            return block.dataset.anchor === flag.anchor;
-          })
-          .forEach(function (block) {
+        var area = remoteBlocks.filter(function (block) {
+          return block.dataset.anchor === flag.anchor;
+        });
+        if (area.length && isRowBlock(area[0])) {
+          area[0].classList.add("guide-review-flagged");
+          if (area[0].cells.length) {
+            area[0].cells[0].insertBefore(
+              flagMarker(flag, area[0], true),
+              area[0].cells[0].firstChild,
+            );
+          }
+        } else if (area.length) {
+          area[0].parentNode.insertBefore(
+            flagMarker(flag, area[0], false),
+            area[0],
+          );
+          area.forEach(function (block) {
             block.classList.add("guide-review-flagged");
-            block.title = flag.note;
+            var previous = block.previousElementSibling;
+            if (
+              previous &&
+              (previous.classList.contains("guide-flag-marker") ||
+                (previous.classList.contains("guide-review-flagged") &&
+                  previous.dataset.anchor === flag.anchor))
+            ) {
+              block.classList.add("guide-review-flagged--continued");
+            }
           });
+        }
         var entry = document.createElement("li");
         entry.className = "guide-review-flag-entry";
         var link = document.createElement("a");
         link.href = "#" + flag.anchor;
-        link.textContent = "Flagged for review: " + flag.note;
+        link.textContent = flag.note;
         entry.appendChild(link);
         if (documentInfo && documentInfo.permissions.isAuthor) {
-          addTool(entry, "Clear", function () {
-            store
-              .clearFlag(flag)
-              .then(function () {
-                reviewFlags = reviewFlags.filter(function (current) {
-                  return current.id !== flag.id;
-                });
-                renderRemote();
-              })
-              .catch(showStatusError);
+          var tools = document.createElement("span");
+          tools.className = "guide-comment__tools";
+          addTool(tools, "Clear", function () {
+            clearReviewFlag(flag);
           });
+          entry.appendChild(tools);
         }
-        remoteIndex.appendChild(entry);
+        remoteIndex.insertBefore(entry, first);
       });
       if (documentInfo && documentInfo.permissions.isAuthor) {
-        anchorChoices().forEach(function (block) {
+        remoteBlocks.forEach(function (block) {
+          var flagged = !!flagFor(block.dataset.anchor);
           var button = document.createElement("button");
           button.type = "button";
-          button.className = "guide-flag-control";
-          button.textContent = reviewFlags.some(function (flag) {
-            return flag.anchor === block.dataset.anchor;
-          })
-            ? "Edit review flag"
-            : "Flag for review";
+          button.className =
+            "guide-flag-button" + (flagged ? " guide-flag-button--active" : "");
+          button.textContent = "⚑";
+          button.title = flagged ? "Edit review flag" : "Flag for review";
+          button.setAttribute(
+            "aria-label",
+            flagged ? "Edit the review flag on this area" : "Flag this area for review",
+          );
           button.addEventListener("click", function () {
-            var existing = reviewFlags.filter(function (flag) {
-              return flag.anchor === block.dataset.anchor;
-            })[0];
-            openRemoteForm(
-              block,
-              "Save review flag",
-              function (note) {
-                return store
-                  .flag(block.dataset.anchor, note)
-                  .then(function (flag) {
-                    reviewFlags = reviewFlags.filter(function (current) {
-                      return current.anchor !== flag.anchor;
-                    });
-                    reviewFlags.push(flag);
-                    renderRemote();
-                    return null;
-                  });
-              },
-              existing ? existing.note : "",
-              false,
-              { draft: "flag:" + block.dataset.anchor, maxLength: 500 },
-            );
+            openFlagForm(block);
           });
           controlHost(block).appendChild(button);
         });
       }
+      markFlaggedNav();
     }
 
     function renderIdentity(message) {
