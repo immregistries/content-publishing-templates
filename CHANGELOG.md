@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.17.0
+
+- InteropHub comment forms save an unsaved draft in the browser as the reader
+  types, per document, signed-in user, and form (new comment on a block,
+  reply, edit, or review flag). Reopening the form after a reload or a failed
+  save restores the draft, with a "Discard draft" link. A successful save
+  clears it.
+- When a request fails with a response that is not InteropHub's JSON, such
+  as a block page from a proxy or web application firewall, the message says
+  the request was stopped before it reached InteropHub and gives the HTTP
+  status and UTC time, so the report can be matched to that system's logs.
+  A network failure says InteropHub could not be reached. Both tell the
+  reader their text is still in the form and saved in the browser. Before,
+  the message was only "The request failed."
+- Comment forms show a character count once three quarters of the limit is
+  used. The review flag form now limits its note to 500 characters, matching
+  InteropHub, instead of 4,000.
+- `tests/mock_hub.py` answers a comment containing `TEST-FIREWALL-BLOCK` with
+  an HTML 403, standing in for a firewall, and the browser check covers it.
+- Projects adopt this by moving their `process` submodule to v0.17.0 and
+  rebuilding and republishing the guide.
+
 ## v0.16.0
 
 - Row anchors. A `<!-- row-anchors -->` line just before a pipe table makes

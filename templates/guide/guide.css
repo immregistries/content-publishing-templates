@@ -442,6 +442,11 @@ tr.guide-row-block {
   background: var(--aira-surface);
 }
 
+.guide-form-count,
+.guide-form-draft {
+  margin: 0 0 var(--aira-space-2);
+}
+
 .guide-form-error {
   color: var(--aira-danger, #a11);
   font-weight: 600;

@@ -847,6 +847,7 @@
     var tokenKey = "content-guide-token:" + hub + ":" + documentKey;
     var authKey = "content-guide-signin:" + hub + ":" + documentKey;
     var noticePrefix = "content-guide-comment-notice:" + hub + ":";
+    var draftPrefix = "content-guide-draft:" + hub + ":" + documentKey + ":";
     var panel = document.getElementById("guide-comments-panel");
     var status = document.getElementById("guide-comments-status");
     var count = document.getElementById("guide-comment-count");
@@ -943,20 +944,90 @@
           }
           return response
             .json()
-            .catch(function () {
-              return {};
-            })
-            .then(function (body) {
+            .then(
+              function (body) {
+                return { body: body, fromHub: true };
+              },
+              function () {
+                return { body: {}, fromHub: false };
+              },
+            )
+            .then(function (result) {
+              var body = result.body || {};
               if (!response.ok) {
                 throw {
                   status: response.status,
-                  message: body.message || "The request failed.",
+                  blocked: !result.fromHub || !body.message,
+                  message:
+                    result.fromHub && body.message
+                      ? body.message
+                      : blockedMessage(response.status),
                   body: body,
                 };
               }
               return body;
             });
+        }, function () {
+          throw {
+            network: true,
+            message:
+              "Could not reach InteropHub (network error at " +
+              utcStamp() +
+              "). Check your connection and try again.",
+          };
         });
+    }
+
+    // A failed response that is not InteropHub's JSON came from something in
+    // between, such as a proxy or web application firewall. Say so, with the
+    // status and time, so a report can be matched to that system's logs.
+    function blockedMessage(status) {
+      return (
+        "This request was stopped before it reached InteropHub (HTTP " +
+        status +
+        " at " +
+        utcStamp() +
+        "). Please report this with the time shown."
+      );
+    }
+
+    function utcStamp() {
+      return new Date().toISOString().slice(0, 19).replace("T", " ") + " UTC";
+    }
+
+    function draftStorageKey(draft) {
+      if (!draft || !auth || !auth.user) {
+        return null;
+      }
+      return draftPrefix + auth.user.userId + ":" + draft;
+    }
+
+    function readDraft(draft) {
+      var key = draftStorageKey(draft);
+      if (!key) {
+        return null;
+      }
+      try {
+        return window.localStorage.getItem(key);
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function writeDraft(draft, value) {
+      var key = draftStorageKey(draft);
+      if (!key) {
+        return;
+      }
+      try {
+        if (value) {
+          window.localStorage.setItem(key, value);
+        } else {
+          window.localStorage.removeItem(key);
+        }
+      } catch (error) {
+        /* Storage may be disabled; the open form still keeps the text. */
+      }
     }
 
     var store = {
@@ -1173,6 +1244,7 @@
               },
               "",
               true,
+              { draft: "reply:" + item.id },
             );
           });
         }
@@ -1186,6 +1258,7 @@
               },
               item.text,
               false,
+              { draft: "edit:" + item.id },
             );
           });
         }
@@ -1563,6 +1636,7 @@
               },
               existing ? existing.note : "",
               false,
+              { draft: "flag:" + block.dataset.anchor, maxLength: 500 },
             );
           });
           controlHost(block).appendChild(button);
@@ -1786,7 +1860,18 @@
       return false;
     }
 
-    function openRemoteForm(target, label, operation, initial, needsNotice) {
+    // options.draft names the form for its saved draft (for example
+    // "add:<anchor>"); options.maxLength matches the hub's limit for the field.
+    function openRemoteForm(
+      target,
+      label,
+      operation,
+      initial,
+      needsNotice,
+      options,
+    ) {
+      options = options || {};
+      var maxLength = options.maxLength || 4000;
       target = formHost(target);
       var old = target.querySelector(":scope > .guide-comment-form");
       if (old) {
@@ -1797,9 +1882,48 @@
       var textarea = document.createElement("textarea");
       textarea.className = "aira-textarea";
       textarea.required = true;
-      textarea.maxLength = 4000;
-      textarea.value = initial || "";
+      textarea.maxLength = maxLength;
+      var saved = readDraft(options.draft);
+      var restored = saved && saved !== (initial || "");
+      textarea.value = restored ? saved : initial || "";
       form.appendChild(textarea);
+      var counter = document.createElement("p");
+      counter.className = "aira-meta guide-form-count";
+      form.appendChild(counter);
+      function updateCounter() {
+        var used = textarea.value.length;
+        counter.hidden = used < maxLength * 0.75;
+        counter.textContent =
+          used.toLocaleString() + " / " + maxLength.toLocaleString() + " characters";
+      }
+      updateCounter();
+      textarea.addEventListener("input", function () {
+        updateCounter();
+        writeDraft(
+          options.draft,
+          textarea.value === (initial || "") ? "" : textarea.value,
+        );
+      });
+      if (restored) {
+        var draftNote = document.createElement("p");
+        draftNote.className = "aira-meta guide-form-draft";
+        draftNote.appendChild(
+          document.createTextNode("Restored your unsaved draft. "),
+        );
+        var discard = document.createElement("button");
+        discard.type = "button";
+        discard.className = "aira-button aira-button--link";
+        discard.textContent = "Discard draft";
+        discard.addEventListener("click", function () {
+          writeDraft(options.draft, "");
+          textarea.value = initial || "";
+          updateCounter();
+          draftNote.remove();
+          textarea.focus();
+        });
+        draftNote.appendChild(discard);
+        form.insertBefore(draftNote, textarea);
+      }
       var notice = null;
       if (needsNotice && !acknowledged()) {
         var noticeLabel = document.createElement("label");
@@ -1837,6 +1961,7 @@
         error.textContent = "";
         operation(value)
           .then(function (thread) {
+            writeDraft(options.draft, "");
             if (thread) {
               acceptThread(thread);
             }
@@ -1844,7 +1969,15 @@
           })
           .catch(function (failure) {
             submit.disabled = false;
-            error.textContent = errorMessage(failure);
+            writeDraft(
+              options.draft,
+              textarea.value === (initial || "") ? "" : textarea.value,
+            );
+            error.textContent =
+              errorMessage(failure) +
+              (failure && (failure.blocked || failure.network)
+                ? " Your text is still here and saved in this browser."
+                : "");
           });
       });
       target.appendChild(form);
@@ -1981,6 +2114,7 @@
             },
             "",
             true,
+            { draft: "add:" + block.dataset.anchor },
           );
         }
       });

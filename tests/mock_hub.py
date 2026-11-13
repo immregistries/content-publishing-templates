@@ -85,6 +85,9 @@ class Handler(BaseHTTPRequestHandler):
         parts=p.path.strip("/").split("/")
         if len(parts)==5 and parts[:2]==["api","guide"] and parts[3]=="versions": self.upload_version(parts[2],parts[4],who); return
         payload=self.body() or {}
+        if "TEST-FIREWALL-BLOCK" in str(payload.get("text","")):
+            # Stand in for a web application firewall in front of the hub: an HTML page, not the hub's JSON.
+            page=b"<html><body>Request rejected.</body></html>"; self.send_response(403); self.cors(); self.send_header("Content-Type","text/html"); self.send_header("Content-Length",str(len(page))); self.end_headers(); self.wfile.write(page); return
         if len(parts)==4 and parts[:2]==["api","guide"] and parts[3]=="comments": self.add_comment(parts[2],payload,who); return
         if len(parts)==5 and parts[:3]==["api","guide","comments"] and parts[4]=="withdraw": self.withdraw(int(parts[3]),who); return
         if len(parts)==4 and parts[:2]==["api","guide"] and parts[3]=="review-flags": self.set_flag(parts[2],payload,who); return
