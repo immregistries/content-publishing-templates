@@ -1,0 +1,5 @@
+Source documents stay in the working folders where they are kept and are not
+copied into this folder. Content drawn from them is rewritten, reviewed, and
+placed in `content/`.
+
+## Referenced sources

@@ -280,7 +280,9 @@ then added to maintained source if accepted.
 - **Workspace Topic Reference** and **Standing Topic Reference:** the two
   types. A Workspace is kept in a shared folder without Git, releases, or an
   InteropHub topic; a Standing one is a lasting reference for an InteropHub
-  topic, public or private, kept in Git with releases. Moving from one to the
+  topic, public or private. A Standing one is kept in Git with releases, or,
+  if private, may be kept in a shared folder with a version label and no
+  repository; where it is kept does not decide its type. Moving from one to the
   other is to **promote** it. A folder of notes and documents not yet organized
   as a Topic Reference is a **working folder**. The type names permanence, not
   approval or visibility; do not call a Standing one "formal" or "final".

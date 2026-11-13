@@ -15,6 +15,17 @@ is one of two types (see guidance/TopicReference.md):
           --title "Immunization CDS (ImmDS + HALO)" --topic 1 \\
           --topic-name "Immunization CDS (ImmDS + HALO)" --assembly ImmunizationCDS
 
+  A private Standing Topic Reference may instead be kept in a workspace
+  (--kept-in workspace): a shared folder, such as a synced Dropbox folder,
+  with no Git repository, published only by uploading its guide to
+  InteropHub. It needs --hosting interophub, --hub, and --location, and takes
+  no --owner. Its version label is set by hand in guide.json.
+
+      python tools/new_topic_reference.py "<shared folder>/example-project" --visibility private \\
+          --kept-in workspace --hosting interophub --hub https://informatics.immregistries.org/hub \\
+          --title "Example Project" --topic 1 --topic-name "Example Project" \\
+          --location "Team Dropbox/Example/Topic References/example-project"
+
 - A Workspace Topic Reference is kept in a shared folder, such as a synced
   Dropbox folder, without Git, releases, or an InteropHub topic. --location
   names where it is kept, in a form every collaborator recognizes. The folder
@@ -26,12 +37,12 @@ is one of two types (see guidance/TopicReference.md):
           --id survey-idea --title "Survey Idea" --location "Team Dropbox/Surveys/Survey Idea"
 
 The project is created from templates/topic-reference/project/ and the files of
-its profile in templates/topic-reference/profiles/<public|private|workspace>/.
+its profile in templates/topic-reference/profiles/<public|private|private-workspace|workspace>/.
 Each file in the profile's fragments/ directory supplies the value of the
 placeholder named after it. The reading copy is generated. Unless --no-git is
 given, a Standing project becomes a Git repository with this repository added
-as the process/ submodule at the latest release tag, and a Workspace project
-gets a plain copy of this repository's tools and templates in process/ (see
+as the process/ submodule at the latest release tag, and a project kept in a
+workspace, of either type, gets a plain copy of this repository's tools and templates in process/ (see
 tools/workspace_process.py). Nothing is committed or pushed.
 """
 
@@ -57,9 +68,11 @@ OPTIONS = ["presentation"]
 TYPES = ["standing", "workspace"]
 VISIBILITIES = ["public", "private"]
 HOSTING = ["local", "interophub"]
+KEPT_IN = ["git", "workspace"]
 DEFAULT_SUBTITLES = {
     "public": "A Topic Reference for community discussion",
     "private": "A Topic Reference for internal discussion",
+    "private-workspace": "A Topic Reference for internal discussion",
     "workspace": "A Workspace Topic Reference",
 }
 # Git and GitHub files a Workspace project, which has neither, does not get.
@@ -91,6 +104,11 @@ def arguments() -> argparse.Namespace:
         help="Private Standing projects only: local (the default) or interophub.",
     )
     parser.add_argument("--hub", help="Hub base URL; required with --hosting interophub.")
+    parser.add_argument(
+        "--kept-in", choices=KEPT_IN, default="git",
+        help="Standing projects: git (the default) or workspace. Workspace is only for a private "
+        "project hosted in InteropHub; it has no Git repository.",
+    )
     parser.add_argument("--title", required=True, help="Document title.")
     parser.add_argument("--subtitle", help="Document subtitle. Defaults to one for the type and visibility.")
     parser.add_argument("--topic", type=int, help="InteropHub topic number. Standing projects only.")
@@ -101,7 +119,7 @@ def arguments() -> argparse.Namespace:
     )
     parser.add_argument(
         "--location",
-        help="Workspace projects only, and required for them: where the workspace is kept, "
+        help="Required for a project kept in a workspace, of either type: where it is kept, "
         "such as \"Team Dropbox/Surveys/Survey Idea\". Recorded in its guide and product manifests.",
     )
     parser.add_argument(
@@ -214,14 +232,36 @@ def check_text(name: str, value: str) -> None:
         raise SystemExit(f"The {name} cannot contain double quotes.")
 
 
+def location_values(args: argparse.Namespace) -> dict[str, str]:
+    if not args.location or not args.location.strip():
+        raise SystemExit("A Topic Reference kept in a workspace needs --location, where it is kept.")
+    location = args.location.strip()
+    return {"LOCATION": location, "LOCATION_JSON": json.dumps(location)}
+
+
 def standing_values(args: argparse.Namespace, project_id: str) -> dict[str, str]:
     if args.visibility is None:
         raise SystemExit("A Standing Topic Reference needs --visibility, matching its InteropHub topic.")
     if args.topic is None or not args.topic_name:
         raise SystemExit("A Standing Topic Reference needs --topic and --topic-name.")
-    if args.location:
-        raise SystemExit("--location is for Workspace Topic References.")
     check_text("topic name", args.topic_name)
+    topic = {
+        "TOPIC": str(args.topic),
+        "TOPIC_NAME": args.topic_name,
+        "TOPIC_URL": INTEROPHUB_TOPIC_URL.format(topic=args.topic),
+    }
+    if args.kept_in == "workspace":
+        if args.visibility != "private" or args.hosting != "interophub":
+            raise SystemExit(
+                "Only a private Standing Topic Reference hosted in InteropHub can be kept in a "
+                "workspace: use --visibility private --hosting interophub. Public ones are kept in Git."
+            )
+        if args.owner is not None:
+            raise SystemExit("A Topic Reference kept in a workspace has no repository, so it takes no --owner.")
+        # No REPOSITORY: a file that refers to one fails as an unknown placeholder.
+        return {**topic, **location_values(args)}
+    if args.location:
+        raise SystemExit("--location is for Topic References kept in a workspace.")
     owner = args.owner
     if owner is None:
         if args.visibility == "private":
@@ -229,12 +269,7 @@ def standing_values(args: argparse.Namespace, project_id: str) -> dict[str, str]
         owner = PUBLIC_OWNER
     if not re.fullmatch(r"[A-Za-z0-9]+(-[A-Za-z0-9]+)*", owner):
         raise SystemExit("--owner must be a GitHub user or organization name.")
-    values = {
-        "TOPIC": str(args.topic),
-        "TOPIC_NAME": args.topic_name,
-        "TOPIC_URL": INTEROPHUB_TOPIC_URL.format(topic=args.topic),
-        "REPOSITORY": f"https://github.com/{owner}/{project_id}",
-    }
+    values = {**topic, "REPOSITORY": f"https://github.com/{owner}/{project_id}"}
     # Only public projects are published, so only they have a Pages address.
     # A private file that refers to one fails as an unknown placeholder.
     if args.visibility == "public":
@@ -244,29 +279,25 @@ def standing_values(args: argparse.Namespace, project_id: str) -> dict[str, str]
 
 def workspace_values(args: argparse.Namespace) -> dict[str, str]:
     for name, given in [("--visibility", args.visibility), ("--hosting", args.hosting), ("--hub", args.hub), ("--topic", args.topic),
-                        ("--topic-name", args.topic_name), ("--owner", args.owner)]:
+                        ("--topic-name", args.topic_name), ("--owner", args.owner),
+                        ("--kept-in", None if args.kept_in == "git" else args.kept_in)]:
         if given is not None:
             raise SystemExit(
                 f"{name} is for Standing Topic References. A workspace has no InteropHub topic or "
                 "repository until it is promoted."
             )
-    if not args.location or not args.location.strip():
-        raise SystemExit("A Workspace Topic Reference needs --location, where it is kept.")
-    location = args.location.strip()
     # A workspace has no InteropHub topic; its own title names it on the infographic.
     # Files that link to a topic or repository fail as unknown placeholders.
-    return {
-        "TOPIC_NAME": args.title,
-        "LOCATION": location,
-        "LOCATION_JSON": json.dumps(location),
-    }
+    return {"TOPIC_NAME": args.title, **location_values(args)}
 
 
 def main() -> int:
     args = arguments()
     workspace = args.type == "workspace"
+    # Kept in a shared folder without Git: a Workspace, or a private Standing project kept in a workspace.
+    in_workspace = workspace or args.kept_in == "workspace"
     target = Path(args.target).resolve()
-    if target.exists() and any(target.iterdir()) and not workspace:
+    if target.exists() and any(target.iterdir()) and not in_workspace:
         raise SystemExit(f"{target} already exists and is not empty.")
 
     project_id = args.id or target.name
@@ -278,7 +309,9 @@ def main() -> int:
     assembly = args.assembly or "".join(word.capitalize() for word in project_id.split("-"))
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9]*", assembly):
         raise SystemExit("--assembly must be letters and digits, starting with a letter.")
-    profile_name = "workspace" if workspace else args.visibility
+    profile_name = "workspace" if workspace else (
+        "private-workspace" if args.kept_in == "workspace" else args.visibility
+    )
     if not workspace and args.visibility is None:
         raise SystemExit("A Standing Topic Reference needs --visibility, matching its InteropHub topic.")
     if args.hosting and (workspace or args.visibility != "private"):
@@ -304,11 +337,11 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory() as temp:
         staging = Path(temp) / project_id
-        skip = WORKSPACE_SKIP if workspace else ()
+        skip = WORKSPACE_SKIP if in_workspace else ()
         copy_tree(SKELETON / "project", staging, values, skip=skip)
         profile_skip = ["fragments", *skip]
         copy_tree(profile, staging, values, skip=tuple(profile_skip), overlay=True)
-        if args.visibility == "private" and hosting == "local":
+        if args.visibility == "private" and hosting == "local" and not in_workspace:
             (staging / ".github" / "workflows" / "publish-guide.yml").unlink()
         if args.visibility == "private":
             guide_path = staging / "guide.json"
@@ -330,9 +363,15 @@ def main() -> int:
         target,
     )
 
+    if in_workspace and not args.no_git:
+        print(f"Copied the shared templates into process/ at {workspace_process.install(target, args.process_ref)}.")
+    if args.kept_in == "workspace":
+        print(f"Created the private Standing Topic Reference {project_id}, kept in a workspace, in {target}.")
+        print("It has no Git repository. Next: resolve the CONFIRM notes, add topic sections to content/,")
+        print("run build.ps1, and upload output/guide/index.html to the topic in InteropHub, labeled with")
+        print("the version in guide.json and latest. See process/guidance/TopicReference.md.")
+        return 0
     if workspace:
-        if not args.no_git:
-            print(f"Copied the shared templates into process/ at {workspace_process.install(target, args.process_ref)}.")
         print(f"Created the Workspace Topic Reference {project_id} in {target}.")
         print("Next: resolve the CONFIRM notes, list the working material in sources/README.md,")
         print("add sections to content/, run build.ps1, and open output/guide/index.html.")

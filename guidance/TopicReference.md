@@ -17,9 +17,10 @@ topic.
 
 A Standing Topic Reference's visibility follows its topic's. A public topic's
 Topic Reference is developed and published openly; a private topic's is kept
-in a private repository and shared only with people who may see the topic.
-Both use the same source, build, validation, release, review, and product
-model. See [Visibility](#visibility).
+in a private repository, or in a shared workspace with no repository, and
+shared only with people who may see the topic. Both use the same source,
+build, validation, review, and product model. See [Visibility](#visibility)
+and [Where a Standing Topic Reference is kept](#where-a-standing-topic-reference-is-kept).
 
 ## Workspace and Standing Topic References
 
@@ -35,15 +36,17 @@ three stages:
 
 | | Workspace | Standing |
 |---|---|---|
-| Kept in | A shared folder, such as a synced Dropbox folder | A Git repository, public or private |
 | InteropHub topic | None | One, which the guide links back to |
-| Shared templates | A copy in `process/`, recorded in `process/PROCESS-VERSION.txt` | The `process/` Git submodule at a release tag |
-| Identifies a build by | Its build date; the guide shows "Workspace build" and the date | A release tag such as `v0.1.0` |
-| Products record | `core_built` and `core_location` | `core_release` |
-| Stale products found by | File dates after `core_built` | Git changes since the release |
-| Review | Downloaded guide comments, meeting notes, and document comments, in `review/` | The same, plus issues and, for a public project, signed-in comments |
+| Kept in | A shared folder, such as a synced Dropbox folder | A Git repository, public or private; or, for a private topic, a shared folder |
+| Shared templates | A copy in `process/`, recorded in `process/PROCESS-VERSION.txt` | The `process/` Git submodule at a release tag; a copy when kept in a shared folder |
+| Identifies a build by | Its build date; the guide shows "Workspace build" and the date | A release tag such as `v0.1.0`; when kept in a shared folder, the same kind of label set in `guide.json` |
+| Products record | `core_built` and `core_location` | `core_release`; when kept in a shared folder, also `core_built` and `core_location` |
+| Stale products found by | File dates after `core_built` | Git changes since the release; file dates when kept in a shared folder |
+| Review | Downloaded guide comments, meeting notes, and document comments, in `review/` | The same, plus issues in a repository and signed-in comments when hosted |
 
-Both types share the content model: one bounded purpose, one canonical
+What makes a Topic Reference Standing is that it is attached to an InteropHub
+topic as a lasting reference with a named Author, not where its files are
+kept. Both types share the content model: one bounded purpose, one canonical
 source, one complete core document, and products traceable to it. The names
 describe permanence, not approval. Either type can hold draft or settled
 material, and the status shown on the page is set separately. Visibility is
@@ -53,6 +56,59 @@ in.
 Promotion from Workspace to Standing is a deliberate decision, not something
 that happens because a workspace has lasted. See
 [Promoting a Workspace Topic Reference](#promoting-a-workspace-topic-reference).
+
+### Where a Standing Topic Reference is kept
+
+Where a Standing Topic Reference is kept is a separate choice from its type
+and its visibility. A public one is kept in Git, because public topics are
+developed openly and published with GitHub Pages and releases. A private one
+is kept in Git, or in a shared workspace such as a synced Dropbox folder with
+no repository at all.
+
+| Type | Kept in | Visibility | Guide hosting |
+|---|---|---|---|
+| Workspace | Shared folder | Follows the folder's access | Built locally |
+| Standing | Git | Public | GitHub Pages |
+| Standing | Git | Private | Built locally, or InteropHub |
+| Standing | Shared folder | Private | InteropHub only |
+
+A public Standing Topic Reference is never kept in a shared folder.
+
+Keep a private one in a shared folder when its material sits beside sensitive
+working sources that must not travel further, its readers are a defined group
+reached through a private InteropHub topic, it serves a bounded project rather
+than an ongoing community standard, and its contributors already work in the
+folder and do not need branch-based review. A repository would be one more
+place the material exists, with its own access list, clones, hosting copy,
+and permanent history. Keep it in Git when several people edit at once and
+need history and review, when releases must be reproducible, or when it may
+become public.
+
+A Standing Topic Reference kept in a shared folder has everything a Workspace
+has, and also:
+
+- **Its topic.** `guide.json` names the topic in `interophubTopic`, sets
+  `"keptIn": "workspace"` and `location`, and uses `interophub` hosting and
+  comments with a document key.
+- **An Author** named in `README.md`.
+- **A version label without Git.** `version` in `guide.json`, such as
+  `v0.1.0`, is set by hand and raised before each upload. The guide shows it
+  with the build date. Each upload is labeled with that version and `latest`,
+  so the published history is kept in InteropHub even though the folder has
+  no source history.
+- **A source boundary.** Working material is listed by title, date, and status
+  in `sources/README.md` and is not copied into `content/`. Keep Topic
+  References in their own folder, apart from raw working material, so the
+  folder structure shows the boundary.
+- **Portable output.** The built guide is self-contained and has no local
+  paths or links to files outside the project.
+- **No repository, by design.** `README.md` says so, so a later maintainer
+  does not "fix" it by creating one.
+
+Dropbox version history allows recovery from a bad edit, and conflict copies
+show when two people edited one file at once; have one person edit a chapter
+at a time. Validation runs without Git and reports checks that need Git as not
+applicable, never as passed.
 
 ## What a Topic Reference is not
 
@@ -113,9 +169,9 @@ whose bounded purpose is one topic:
   complete core document.
 - The Topic Reference is that core document built as a
   [web guide](../templates/guide/README.md). A public one is published with
-  GitHub Pages; a private one is built locally; a Workspace one is built in
-  its folder. The web guide is the format; the Topic Reference is what it
-  presents.
+  GitHub Pages; a private one is built locally or hosted in InteropHub; a
+  Workspace one is built in its folder. The web guide is the format; the Topic
+  Reference is what it presents.
 - `CoreDocument.md` is the single-file reading copy on GitHub. Word and Quarto
   HTML builds are review copies.
 - The [primary infographic](#primary-infographic), the topic at a glance, is
@@ -241,16 +297,18 @@ public topic to a private one, is a setup mistake.
 
 | | Public | Private |
 |---|---|---|
-| Repository | Public | Private |
-| Web guide | Published with GitHub Pages at `/main/`, each release, and `/latest/` | Built locally, or hosted in InteropHub for signed-in topic readers |
-| Comments | Local mode, or signed-in comments through InteropHub | Local mode |
+| Repository | Public | Private, or none when kept in a shared folder |
+| Web guide | Published with GitHub Pages at `/main/`, each release, and `/latest/` | Built locally, or hosted in InteropHub for signed-in topic readers; hosted only in InteropHub when kept in a shared folder |
+| Comments | Local mode, or signed-in comments through InteropHub | Local mode, or signed-in comments when hosted in InteropHub |
 | Linked from the InteropHub topic | Yes, through the topic's Topic Reference registration | Not yet |
 | Licenses | CC BY 4.0 for content and Apache 2.0 for code | None; `INTERNAL-USE.md` restricts use to the organization |
 | Contribution files | `CONTRIBUTING.md` for an open community, and a code of conduct | `CONTRIBUTING.md` for internal participants |
-| `AGENTS.md` | Public-repository rules | Private-repository rules |
+| `AGENTS.md` | Public-repository rules | Private-repository rules, or rules for a project kept without a repository |
 
-Everything else, including the content structure, build, validation, release
-tags, review records, and products, is the same.
+Everything else, including the content structure, build, validation, review
+records, and products, is the same. A private project kept in a shared folder
+identifies its versions by the label in `guide.json` instead of tags; see
+[Where a Standing Topic Reference is kept](#where-a-standing-topic-reference-is-kept).
 
 ### Guide hosting
 
@@ -273,6 +331,11 @@ python process/tools/publish_guide_to_hub.py output/guide/index.html `
     --label v0.4.0 --label latest
 ```
 
+A project kept in a shared folder has no repository, secret, or workflow. Its
+Author uploads the built guide by hand from the topic in InteropHub, labeled
+with the `version` in `guide.json` and as `latest`, or runs the same command
+with a personal access token where the hub allows scripted upload.
+
 ## Releases and status
 
 - A release is a Git tag such as `v0.1.0`. In a public project, pushing the tag
@@ -289,6 +352,13 @@ python process/tools/publish_guide_to_hub.py output/guide/index.html `
   was built, and `core_location`, where the workspace is kept.
   `tools/check_products.py` reports a product for review when a core file was
   modified after that date. Releases begin when the workspace is promoted.
+- A private Standing Topic Reference kept in a shared folder has no tags. Its
+  version label is `version` in `guide.json`, such as `v0.1.0`, set by hand
+  and raised before each upload to InteropHub. Its guide shows that label and
+  the build date. Each product's manifest records the label as
+  `core_release`, with `core_built` and `core_location`, and
+  `tools/check_products.py` compares file dates as it does for a Workspace,
+  reporting the checks that need Git as not applicable.
 
 ## Feedback
 
@@ -327,7 +397,8 @@ and the work is meant to last.
    project also needs `--owner`, the owner of its private repository. The
    optional `--hosting interophub --hub "<hub base URL>"` makes a private guide
    hosted; otherwise it defaults to `--hosting local`. These options apply only
-   to private Standing projects. The
+   to private Standing projects. To keep a private project in a shared folder
+   instead of Git, see the next section. The
    directory name becomes the project ID and the repository name. Add
    `--with presentation` for a review deck. The script fills in the names,
    generates `CoreDocument.md`, and adds these templates as `process/` at the
@@ -346,6 +417,29 @@ and the work is meant to last.
 6. For a private project, create the private GitHub repository and push. Do
    not enable GitHub Pages. For hosted mode, add `INTEROPHUB_TOKEN`; for local
    mode there is no publishing workflow. Tag releases as usual.
+
+### Starting a private Standing Topic Reference kept in a shared folder
+
+1. Create the project with the skeleton, in its own folder apart from the
+   working material:
+
+   ```powershell
+   python tools/new_topic_reference.py "<shared folder>\<id>" --visibility private `
+       --kept-in workspace --hosting interophub --hub "<hub base URL>" `
+       --title "<Title>" --topic <number> --topic-name "<InteropHub topic name>" `
+       --location "<where the folder is kept>"
+   ```
+
+   It takes no `--owner` and creates no Git repository. It copies these
+   templates into `process/` as for a Workspace, and sets `keptIn`,
+   `location`, `version` (`v0.1.0`), and InteropHub hosting and comments in
+   `guide.json`, with the project ID as the document key.
+2. Name the Author in `README.md`, list the working material in
+   `sources/README.md`, resolve the `CONFIRM` notes, and write the sections.
+3. Run `build.ps1` and `validate.ps1`, and open `output/guide/index.html`.
+4. Upload the guide to the topic in InteropHub, labeled with the version and
+   as `latest`. Sign in on the hosted page, add a test comment, and withdraw
+   it.
 
 ### Starting a Workspace Topic Reference
 
@@ -377,11 +471,33 @@ and the work is meant to last.
 
 Promote a workspace when it has, or belongs to, an InteropHub topic and is to
 be kept as a lasting reference. Before promoting it, confirm the topic and its
-visibility, name the Author who will maintain it, and decide which working
-material may enter the repository.
+visibility, name the Author who will maintain it, and decide where it will be
+kept. A private one may stay in its shared folder and be promoted in place; a
+public one, or one that needs Git, moves into a repository.
+
+#### In place, for a private topic kept in a shared folder
+
+1. Confirm that the topic is private and that the folder holds only the Topic
+   Reference, apart from raw working material.
+2. In `guide.json`, remove `topicReferenceType`, keep `location`, and add
+   `"interophubTopic": <number>`, `"keptIn": "workspace"`,
+   `"version": "v0.1.0"`, `"hosting": "interophub"`, and
+   `"comments": {"mode": "interophub", "hub": "<hub base URL>", "document": "<id>"}`.
+   Set `license` to the internal-use notice.
+3. Compare `README.md`, `AGENTS.md`, `CONTRIBUTING.md`, the status lines in
+   `content/`, `products/`, and `review/README.md` with a project made by
+   `new_topic_reference.py --kept-in workspace` in a scratch folder, take its
+   wording, and add its `INTERNAL-USE.md`. Name the Author in `README.md`.
+4. Record `core_release`, `core_built`, and `core_location` in the manifests
+   of products kept from the workspace.
+5. Build, validate, and upload the guide to the topic in InteropHub, labeled
+   with the version and as `latest`.
+
+#### Into Git
 
 1. Create a Standing project with the skeleton, as above. Do not convert the
-   workspace folder in place.
+   workspace folder in place. A project kept in a shared folder that moves
+   into Git later follows the same steps.
 2. Copy the canonical content, `content/infographic.yml`, cited assets, and
    the review records that are still open, keeping heading IDs and review
    anchors so comments stay attached.
@@ -404,8 +520,10 @@ files with `templates/topic-reference/project/` and
 `templates/topic-reference/profiles/<visibility>/`, rebuild, review, and
 commit.
 
-A Workspace adopts a change by refreshing its copy with
+A Workspace, or a private Standing project kept in a shared folder (profile
+`private-workspace`), adopts a change by refreshing its copy with
 `python tools/workspace_process.py "<workspace folder>"` from a checkout of
 this repository, comparing its shared files with
 `templates/topic-reference/project/` and
-`templates/topic-reference/profiles/workspace/`, rebuilding, and reviewing.
+`templates/topic-reference/profiles/workspace/` or
+`templates/topic-reference/profiles/private-workspace/`, rebuilding, and reviewing.

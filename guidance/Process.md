@@ -74,7 +74,10 @@ status.
 
 A Workspace Topic Reference, kept in a shared folder without Git, has no
 releases. Its products record `core_built`, the date the core was built, and
-`core_location`, where the workspace is kept, instead of `core_release`.
+`core_location`, where the workspace is kept, instead of `core_release`. A
+private Standing Topic Reference kept in a shared folder has no tags either;
+its products record its hand-set version label as `core_release`, with
+`core_built` and `core_location`.
 
 The release record should identify:
 

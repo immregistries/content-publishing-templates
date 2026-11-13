@@ -460,12 +460,28 @@ def icon_shapes(name: str) -> str:
 
 # --- Release label ----------------------------------------------------------------
 
-def release_label(root: Path, version: str | None = None) -> str | None:
+def kept_in_workspace(config: dict) -> bool:
+    """A private Standing Topic Reference kept in a workspace, without Git.
+
+    Its version label is set by hand as "version" in guide.json.
+    """
+    return config.get("keptIn") == "workspace"
+
+
+def release_label(root: Path, version: str | None = None, config: dict | None = None) -> str | None:
     """The tag to draw: only when HEAD is exactly on a clean release tag.
 
     A version given by the caller is drawn only when it is that same tag, so a
     git describe string, a branch name, or a dirty tree never reaches the image.
+    A project kept in a workspace has no Git; its guide.json "version" is drawn
+    instead, when it is a release label such as v0.1.0.
     """
+    if config is not None and kept_in_workspace(config):
+        label = config.get("version")
+        if not isinstance(label, str) or not RELEASE_PATTERN.fullmatch(label):
+            return None
+        return label if version is None or version == label else None
+
     def git(*args: str) -> str | None:
         try:
             result = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True)
@@ -1145,6 +1161,6 @@ def build(root: Path, config: dict, release: str | None, built: str, spec_path: 
 
 __all__ = [
     "SPEC_PATH", "SpecError", "Report", "load_yaml", "load_spec", "check_spec", "layout",
-    "render_svg", "build", "link_targets", "release_label", "icon_names", "text_width", "wrap",
+    "render_svg", "build", "link_targets", "release_label", "kept_in_workspace", "icon_names", "text_width", "wrap",
     "WIDTH", "HEIGHT",
 ]

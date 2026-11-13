@@ -1,0 +1,3 @@
+> **Status:** Internal working draft. This is not a published standard, an HL7
+> ballot, or a final decision. **AIRA internal use only;** see
+> [INTERNAL-USE.md](INTERNAL-USE.md).

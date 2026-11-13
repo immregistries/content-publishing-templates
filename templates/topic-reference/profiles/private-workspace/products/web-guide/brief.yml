@@ -1,0 +1,54 @@
+id: web-guide
+status: draft
+core_release: null  # the version label in guide.json, such as v0.1.0
+core_built: null  # the date the core was built, such as 2026-11-13
+
+product:
+  type: web page
+  format: self-contained HTML, built in the workspace and uploaded to InteropHub
+  length: the complete core document
+  presentation_time: null
+  template: process/templates/guide (AIRA Web theme)
+
+audience:
+  name: People who may see InteropHub topic {{TOPIC}}
+  assumed_knowledge: []
+
+purpose: >-
+  Publish the Topic Reference to people who may see the topic: one readable
+  copy of where the topic currently stands, to refer to in discussions, with
+  signed-in comments during and between meetings.
+
+desired_outcome: >-
+  Readers can find any section quickly, see the document's status and version,
+  and leave signed-in comments that the Author adjudicates into content/.
+
+emphasize:
+  - The status and version
+  - A route back to InteropHub topic {{TOPIC}}
+
+exclude_or_deemphasize:
+  - Repository build and maintenance detail
+
+tone:
+  - Plain language
+
+allowed_sources:
+  - ../../content/
+
+required_elements:
+  - Status tag and version on the page
+  - Return link to InteropHub topic {{TOPIC}}
+  - Signed-in comments through InteropHub
+  - The internal-use notice in the page footer
+
+published_locations:
+  interophub: Access-controlled, labeled with the guide.json version and latest
+
+assumptions:
+  - Kept in a workspace without a repository; InteropHub is the only place it is published.
+  - Uploaded by hand until scripted upload is allowed.
+delivery_context: []
+requested_by: null
+requested_date: null
+needed_by: null

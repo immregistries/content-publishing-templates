@@ -100,7 +100,7 @@ def main() -> int:
     root = Path(args.root).resolve()
     config_path = root / args.config
     config = json.loads(config_path.read_text(encoding="utf-8-sig")) if config_path.is_file() else {}
-    release = infographic.release_label(root, args.version)
+    release = infographic.release_label(root, args.version, config)
 
     svg, report = infographic.build(root, config, release, date.today().isoformat(), args.spec)
     for warning in report.warnings:

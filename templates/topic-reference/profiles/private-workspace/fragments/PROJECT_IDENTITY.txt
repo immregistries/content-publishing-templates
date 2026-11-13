@@ -1,0 +1,7 @@
+- This is the Standing Topic Reference for InteropHub topic {{TOPIC}},
+  [{{TOPIC_NAME}}]({{TOPIC_URL}}): the current, versioned statement of the
+  topic's definitions, principles, diagrams, working decisions, and open
+  questions. It is kept in {{LOCATION}} and deliberately has no Git
+  repository; it is published only by uploading its built guide to InteropHub.
+  See "Standing Topic References kept in a workspace" in
+  `process/guidance/TopicReference.md`.

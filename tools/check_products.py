@@ -18,7 +18,10 @@ Missing sources always fail. Stale products are reported, and fail only with
 In a Workspace Topic Reference, which has no Git, each manifest records
 core_built, the date (or date and time) the core was built, and core_location,
 where the workspace is kept. A product needs review when a core file was
-modified after core_built, judged by file dates.
+modified after core_built, judged by file dates. A private Standing Topic
+Reference kept in a workspace works the same way, and its manifests also
+record core_release, the version label of the core. Checks that need Git are
+reported as not applicable, never as passed.
 """
 
 from __future__ import annotations
@@ -138,8 +141,9 @@ def check_by_date(manifest: Path, root: Path) -> bool:
     built_text = scalars.get("core_built")
     built = parse_built(built_text)
     location = scalars.get("core_location")
-    print(f"{manifest.parent.name} (core built {built_text or 'not recorded'}"
-          f"{', ' + location if location else ''})")
+    release = scalars.get("core_release")
+    print(f"{manifest.parent.name} ({'core release ' + release + ', ' if release else ''}"
+          f"core built {built_text or 'not recorded'}{', ' + location if location else ''})")
     if built is None:
         print("  NEEDS REVIEW: record core_built, the date the core was built, in the manifest.")
         return True
@@ -191,6 +195,7 @@ def main() -> int:
     if by_date:
         print("Not a Git repository: comparing core file dates with each product's core_built.")
         print("Removed core files cannot be detected this way.")
+        print("Not applicable without Git: changes since a release tag or commit, and removed core files.")
     for manifest in manifests:
         product = manifest.parent
         if by_date:

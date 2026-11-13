@@ -1,0 +1,4 @@
+"interophubTopic": {{TOPIC}},
+  "keptIn": "workspace",
+  "location": {{LOCATION_JSON}},
+  "version": "v0.1.0",

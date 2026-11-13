@@ -16,6 +16,9 @@ required; Quarto's bundled copy is used when pandoc is not on the PATH.
 
 A Workspace Topic Reference ("topicReferenceType": "workspace") has no Git
 version; the page shows its build date and the "location" where it is kept.
+A private Standing Topic Reference kept in a workspace ("keptIn": "workspace")
+has no Git either; the page shows the "version" label set in guide.json, such
+as v0.1.0, its build date, and its "location".
 
 When content/infographic.yml exists, the primary infographic is drawn from it
 and placed above the first section, each part linking
@@ -176,7 +179,7 @@ def infographic_figure(root: Path, spec: str, config: dict, version: str | None)
     """The primary infographic as an inline figure, or "" when the project has none."""
     if not (root / spec).is_file():
         return ""
-    release = infographic.release_label(root, version)
+    release = infographic.release_label(root, version, config)
     svg, report = infographic.build(root, config, release, date.today().isoformat(), spec,
                                     links=True, id_prefix=INFOGRAPHIC_ID)
     for warning in report.warnings:
@@ -201,6 +204,41 @@ def pandoc_command() -> list[str]:
 def is_workspace(config: dict) -> bool:
     """A Workspace Topic Reference: no Git or releases; it is identified by its build date."""
     return config.get("topicReferenceType") == "workspace"
+
+
+KEPT_IN = {"git", "workspace"}
+
+
+def kept_in_config(config: dict) -> str:
+    """Validate where a Standing project is kept: "git" (the default) or "workspace".
+
+    A project kept in a workspace has no repository, is private, is hosted only
+    in InteropHub, and names its version and location in guide.json.
+    """
+    kept_in = config.get("keptIn", "workspace" if is_workspace(config) else "git")
+    if kept_in not in KEPT_IN:
+        raise RuntimeError("guide.json keptIn must be 'git' or 'workspace'.")
+    if "keptIn" not in config or is_workspace(config):
+        return kept_in
+    if kept_in == "workspace":
+        problems = []
+        if config.get("repository"):
+            problems.append("it has no repository, so remove repository")
+        if config.get("hosting") != "interophub":
+            problems.append("hosting must be 'interophub'")
+        if not config.get("interophubTopic"):
+            problems.append("interophubTopic is required")
+        if not config.get("location"):
+            problems.append("location, where it is kept, is required")
+        version = config.get("version")
+        if not isinstance(version, str) or not infographic.RELEASE_PATTERN.fullmatch(version):
+            problems.append("version must be a label such as v0.1.0, set by hand for each upload")
+        if problems:
+            raise RuntimeError(
+                "guide.json keptIn is 'workspace', for a private Standing Topic Reference kept "
+                "without Git: " + "; ".join(problems) + "."
+            )
+    return kept_in
 
 
 def git_version(root: Path) -> str:
@@ -530,7 +568,7 @@ def page(
             f'<li><a href="{html.escape(repository)}/releases">Releases and downloads</a></li>'
         )
     workspace = is_workspace(config)
-    location = config.get("location") if workspace else None
+    location = config.get("location") if workspace or infographic.kept_in_workspace(config) else None
     if location:
         rail_links.append(f'<li class="aira-meta">Kept in {html.escape(str(location))}</li>')
     version_label = f"Workspace build {guide_data['built']}" if workspace else f"Version {version}"
@@ -665,10 +703,13 @@ def main() -> int:
         raise RuntimeError(f"No title in the front matter of {assembly}")
     subtitle = config.get("subtitle") or front_matter_value(front_matter, "subtitle")
 
+    kept_in_config(config)
     if args.version:
         version = args.version
     elif is_workspace(config):
         version = f"workspace-{date.today().isoformat()}"
+    elif infographic.kept_in_workspace(config):
+        version = config["version"]
     else:
         version = git_version(root)
     ref = args.ref or (version if re.match(r"^v\d", version) else "main")

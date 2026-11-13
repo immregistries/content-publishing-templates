@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.19.0
+
+- A private Standing Topic Reference can be kept in a shared folder, such as a
+  synced Dropbox folder, with no Git repository, and published only by
+  uploading its guide to InteropHub. Where a Standing Topic Reference is kept
+  is now separate from its type: a public one is kept in Git; a private one in
+  Git or in a shared folder.
+  - `new_topic_reference.py --kept-in workspace` creates one. It needs
+    `--visibility private --hosting interophub --hub` and `--location`, takes
+    no `--owner`, creates no Git repository, and copies the shared templates
+    into `process/` as for a Workspace. It uses the new `private-workspace`
+    profile, whose README says the project has no repository by design.
+  - `guide.json` records `"keptIn": "workspace"`, `location`, and a `version`
+    label such as `v0.1.0`, set by hand and raised before each upload.
+    `build_guide.py` shows that label and the build date, and fails when the
+    label is missing or the settings do not fit a private, InteropHub-hosted
+    project without a repository. The infographic draws the same label.
+  - `check_products.py` reports the checks that need Git as not applicable
+    and shows a product's `core_release` beside its `core_built`.
+- Guidance: `TopicReference.md` describes where a Standing Topic Reference is
+  kept, when to keep a private one in a shared folder, how to start one, and
+  how to promote a Workspace to one in place. Conventions, Process, and the
+  README no longer say that Standing means Git.
+- Existing projects need no change.
+
 ## v0.18.0
 
 - Review flags are redrawn in purple, which signals "look here" without

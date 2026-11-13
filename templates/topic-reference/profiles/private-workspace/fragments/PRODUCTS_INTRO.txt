@@ -1,0 +1,5 @@
+Each product is built from a version of the core document, named by the
+version label in `guide.json`. Every product has a brief before it is
+assembled and a manifest that records that label as `core_release`, the date
+the core was built as `core_built`, where the workspace is kept as
+`core_location`, and the source files it uses.

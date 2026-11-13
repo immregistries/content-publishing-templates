@@ -53,8 +53,9 @@ def project_text(root: Path) -> dict[str, str]:
 class ProfileFiles(unittest.TestCase):
     def test_profiles_define_the_same_placeholders(self):
         names = {p: sorted(f.name for f in (PROFILES / p / "fragments").iterdir())
-                 for p in ("public", "private", "workspace")}
+                 for p in ("public", "private", "private-workspace", "workspace")}
         self.assertEqual(names["public"], names["private"])
+        self.assertEqual(names["public"], names["private-workspace"])
         self.assertEqual(names["public"], names["workspace"])
 
 
@@ -128,6 +129,67 @@ class GenerateTopicReference(unittest.TestCase):
         self.assertEqual("interophub", guide["comments"]["mode"])
         self.assertEqual("sample-topic", guide["comments"]["document"])
 
+    def kept_in_workspace(self, target: Path, *extra: str) -> subprocess.CompletedProcess:
+        return create(target, "--visibility", "private", "--kept-in", "workspace", "--hosting", "interophub",
+                      "--hub", "https://example.test/hub", *extra)
+
+    def test_private_project_kept_in_a_workspace(self):
+        target = self.base / "sample-topic"
+        result = self.kept_in_workspace(target, "--location", "Team Dropbox/Sample/sample-topic")
+        self.assertEqual(0, result.returncode, result.stderr)
+        files = project_text(target)
+        self.assertFalse((target / ".git").exists())
+        for name in PUBLIC_ONLY + [".gitignore", ".github/workflows/validate.yml"]:
+            self.assertNotIn(name, files)
+        for name in PRIVATE_ONLY:
+            self.assertIn(name, files)
+        for name, text in files.items():
+            for phrase in PUBLIC_PHRASES + ["git submodule", "github.com/example-org"]:
+                self.assertNotIn(phrase, text, f"{name} contains {phrase!r}")
+        guide = json.loads(files["guide.json"])
+        self.assertEqual("workspace", guide["keptIn"])
+        self.assertEqual("v0.1.0", guide["version"])
+        self.assertEqual("Team Dropbox/Sample/sample-topic", guide["location"])
+        self.assertEqual(7, guide["interophubTopic"])
+        self.assertNotIn("repository", guide)
+        self.assertNotIn("topicReferenceType", guide)
+        self.assertEqual("interophub", guide["hosting"])
+        self.assertEqual("interophub", guide["comments"]["mode"])
+        self.assertIn("deliberately has no", files["README.md"])
+        self.assertIn("## Kept in a workspace, without a repository", files["AGENTS.md"])
+        self.assertIn("core_built", files["products/web-guide/brief.yml"])
+
+        built = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "build_guide.py"), "--root", str(target),
+             "--assembly", "SampleTopic.qmd"], capture_output=True, text=True)
+        self.assertEqual(0, built.returncode, built.stdout + built.stderr)
+        html = (target / "output" / "guide" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("Version v0.1.0", html)
+        self.assertIn("Kept in Team Dropbox/Sample/sample-topic", html)
+        self.assertIn("Return to InteropHub", html)
+        self.assertNotIn("Source on GitHub", html)
+
+        del guide["version"]
+        (target / "guide.json").write_text(json.dumps(guide), encoding="utf-8")
+        built = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "build_guide.py"), "--root", str(target),
+             "--assembly", "SampleTopic.qmd"], capture_output=True, text=True)
+        self.assertNotEqual(0, built.returncode)
+        self.assertIn("version must be a label", built.stderr)
+
+    def test_kept_in_workspace_is_only_for_private_hosted_projects(self):
+        location = ["--location", "Team Dropbox/Sample/sample-topic"]
+        cases = [
+            (create(self.base / "a", "--visibility", "public", "--kept-in", "workspace", *location), "--hosting"),
+            (create(self.base / "b", "--visibility", "private", "--kept-in", "workspace", *location), "interophub"),
+            (self.kept_in_workspace(self.base / "c", "--owner", "example-org", *location), "--owner"),
+            (self.kept_in_workspace(self.base / "d"), "--location"),
+            (create(self.base / "e", "--visibility", "private", "--owner", "example-org", *location), "--location"),
+        ]
+        for result, message in cases:
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn(message, result.stdout + result.stderr)
+
 
 
 def create_workspace(target: Path, *extra: str) -> subprocess.CompletedProcess:
@@ -198,6 +260,9 @@ class GenerateWorkspaceTopicReference(unittest.TestCase):
         result = create_workspace(self.base / "sample-idea", "--visibility", "private", "--no-git")
         self.assertNotEqual(0, result.returncode)
         self.assertIn("Standing", result.stderr)
+        result = create_workspace(self.base / "sample-idea", "--kept-in", "workspace", "--no-git")
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("--kept-in", result.stderr)
         result = subprocess.run(
             [sys.executable, str(TOOL), str(self.base / "sample-idea"), "--type", "workspace",
              "--title", "Sample Idea", "--no-git"], capture_output=True, text=True)
