@@ -39,7 +39,7 @@ Canonical source may include:
 - audience concerns and likely objections.
 
 Keep the canonical source concise: state each fact once and link to it, and
-keep the core document to about six top-level chapters. See
+keep the core document to six to seven chapters, not counting appendices. See
 [Conventions](Conventions.md#state-each-fact-once). Derived products may repeat
 and expand as their audience needs.
 

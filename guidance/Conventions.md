@@ -115,12 +115,58 @@ Add a summary here before adding it to the source.
 
 ### Keep chapters few
 
-A core document should normally have no more than six top-level chapters,
-including its appendices. The web guide lists each chapter in its top menu; a
-longer list is harder to navigate, and on narrow screens it scrolls. Merge
-short or closely related chapters, and use second-level headings for structure
-within a chapter. The guide build warns when the limit is exceeded. Exceed it
-only for a clear reason.
+A core document should normally have six to seven chapters, not counting
+appendices. The web guide lists each chapter in its top menu; a longer list is
+harder to navigate, and on narrow screens it scrolls. Merge short or closely
+related chapters, and use second-level headings for structure within a
+chapter. The guide build warns when the limit is exceeded. Exceed it only for a
+clear reason.
+
+An appendix is a top-level chapter whose heading begins "Appendix", such as
+`# Appendix: Working Decisions and Open Questions`. Appendices come after all
+other chapters, and the guide build warns when one does not. They do not count
+toward the limit because they take one place in the top menu: with two or more,
+the menu shows a single **Appendices** link, and the right rail lists the
+appendices while the reader is in one. A short label for an appendix, set in
+`navLabels` in `guide.json`, is used in the menu or in that list. Word and HTML
+copies list every appendix in their tables of contents.
+
+### Ideas
+
+An **idea** is a proposal or subject worth considering, recorded with its
+source, that has not yet been adopted. It differs from an open question, a
+point that needs an answer because sources disagree, and from a working
+decision, the current position. An idea that is accepted becomes text in a
+chapter, a working decision, or an open question.
+
+A project that collects ideas keeps them in one register,
+`content/80-ideas.md` ("Appendix: Ideas"), created with
+`new_topic_reference.py --with ideas`. It comes before the working decisions.
+Each row is a review area of its own (see [Review anchors](#review-anchors)):
+
+| Column | Contents |
+|---|---|
+| ID | `IDEA-001`, `IDEA-002`, and so on, never reused; the row's anchor is `idea-001` |
+| Date | When the idea was recorded, as `YYYY-MM-DD` |
+| Idea | The idea, stated neutrally |
+| Source | Where it came from, named by role and document, never by person |
+| Chapter | A link to the section it would affect |
+| Status | **Open** (not yet sorted), **Sorted** (written into the document; the row links to where it went, such as a section, `WD-n`, or `OQ-n`), or **Set aside** (not used; the row gives the reason) |
+
+- Rows are never deleted, so their comments stay attached. Once an idea is
+  sorted, the text it became is its only home; the row points there and does
+  not repeat it.
+- Do not put raw notes or personal data in the register.
+- An agent may add an idea with its source. Turning an idea into a
+  recommendation or a working decision is the Author's decision.
+- Keep ideas in the register, not in lists inside chapters. The Chapter column
+  does the sorting.
+- `check_content.py` checks the register's columns, IDs, statuses, sources, and
+  links, and reports the number of Open ideas.
+
+A chapter that is still collecting may have a `## Guiding questions` section,
+with an explicit heading ID, listing what the chapter should answer. Remove it
+when the chapter is drafted.
 
 ### Diagrams
 
@@ -214,6 +260,12 @@ then added to maintained source if accepted.
 
 - Draft source can be used for experimentation but not silently represented as
   approved.
+- A document's status is set in `guide.json`: `Draft`, `Review`, `Final`, or
+  `Published`. A document that so far only gathers ideas may use `Collecting
+  ideas`, with a status notice such as: "This document collects ideas, with
+  their sources. It does not yet contain recommendations, and nothing in it is
+  a decision by any organization." Change it to `Draft` when the first draft
+  begins.
 - Generated products remain drafts until a human approves them for a named use.
 - Approval is contextual: internal discussion approval is not public-release
   approval.
@@ -286,6 +338,8 @@ then added to maintained source if accepted.
   other is to **promote** it. A folder of notes and documents not yet organized
   as a Topic Reference is a **working folder**. The type names permanence, not
   approval or visibility; do not call a Standing one "formal" or "final".
+- **Idea:** a proposal or subject worth considering, recorded with its source,
+  that has not yet been adopted. See [Ideas](#ideas).
 - **Web guide:** the single-page HTML format built by `tools/build_guide.py`.
   A Topic Reference is presented as a web guide; other core documents may be
   too.

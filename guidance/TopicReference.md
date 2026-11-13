@@ -206,8 +206,8 @@ in this guidance and in each repository's `README.md` and `CONTRIBUTING.md`;
 do not restate it in `content/` or record it as working decisions.
 
 The Topic Reference is source, so it is concise: each fact is stated once and
-linked from elsewhere, and the document has no more than about six top-level
-chapters, including the appendix. See
+linked from elsewhere, and the document has six to seven chapters, not
+counting appendices. See
 [Conventions](Conventions.md#state-each-fact-once). Presentations and other
 derived products may repeat and expand.
 
@@ -229,7 +229,7 @@ Every primary infographic has the same parts, so readers know where to look:
   when the build is exactly on a clean tag;
 - the InteropHub topic number, with its address for a public topic; and
 - the notice from the guide footer, which for a private project is the
-  internal-use notice.
+  restricted-use notice.
 
 `arrangement` places the key ideas as a `sequence`, a `cycle`, or a `set`
 without changing the anatomy. A sequence of three or four ideas reads left to
@@ -295,14 +295,20 @@ its InteropHub topic. A Workspace project has no visibility setting; access
 follows the rules of the folder it is kept in. Linking a private topic to a publicly readable page, or a
 public topic to a private one, is a setup mistake.
 
+A private Topic Reference's readers are the people who may see its topic.
+They may be one organization's staff, or may include partner organizations
+given access to the topic. Its restricted-use notice, `INTERNAL-USE.md`, ties
+access to the topic rather than to an organization, so the same notice fits
+both, and `content/` holds only what every reader of the topic may see.
+
 | | Public | Private |
 |---|---|---|
 | Repository | Public | Private, or none when kept in a shared folder |
 | Web guide | Published with GitHub Pages at `/main/`, each release, and `/latest/` | Built locally, or hosted in InteropHub for signed-in topic readers; hosted only in InteropHub when kept in a shared folder |
 | Comments | Local mode, or signed-in comments through InteropHub | Local mode, or signed-in comments when hosted in InteropHub |
 | Linked from the InteropHub topic | Yes, through the topic's Topic Reference registration | Not yet |
-| Licenses | CC BY 4.0 for content and Apache 2.0 for code | None; `INTERNAL-USE.md` restricts use to the organization |
-| Contribution files | `CONTRIBUTING.md` for an open community, and a code of conduct | `CONTRIBUTING.md` for internal participants |
+| Licenses | CC BY 4.0 for content and Apache 2.0 for code | None; `INTERNAL-USE.md` restricts use to readers of the topic |
+| Contribution files | `CONTRIBUTING.md` for an open community, and a code of conduct | `CONTRIBUTING.md` for people who may see the topic |
 | `AGENTS.md` | Public-repository rules | Private-repository rules, or rules for a project kept without a repository |
 
 Everything else, including the content structure, build, validation, review
@@ -400,7 +406,8 @@ and the work is meant to last.
    to private Standing projects. To keep a private project in a shared folder
    instead of Git, see the next section. The
    directory name becomes the project ID and the repository name. Add
-   `--with presentation` for a review deck. The script fills in the names,
+   `--with presentation` for a review deck, and `--with ideas` for an ideas
+   register (see [Ideas](Conventions.md#ideas)). The script fills in the names,
    generates `CoreDocument.md`, and adds these templates as `process/` at the
    latest release tag. It does not commit or push.
 2. Resolve the `CONFIRM` notes, add the topic sections to `content/`, the
@@ -483,7 +490,8 @@ public one, or one that needs Git, moves into a repository.
    `"interophubTopic": <number>`, `"keptIn": "workspace"`,
    `"version": "v0.1.0"`, `"hosting": "interophub"`, and
    `"comments": {"mode": "interophub", "hub": "<hub base URL>", "document": "<id>"}`.
-   Set `license` to the internal-use notice.
+   Set `license` to the restricted-use notice,
+   `Restricted to readers of InteropHub topic <number>; not for further distribution`.
 3. Compare `README.md`, `AGENTS.md`, `CONTRIBUTING.md`, the status lines in
    `content/`, `products/`, and `review/README.md` with a project made by
    `new_topic_reference.py --kept-in workspace` in a scratch folder, take its

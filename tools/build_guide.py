@@ -70,9 +70,11 @@ SECTION_PATTERN = re.compile(
     r'<section id="([^"]+)" class="level2[^"]*"[^>]*>\s*<h2[^>]*>(.*?)</h2>', re.DOTALL
 )
 TAG_PATTERN = re.compile(r"<[^>]+>")
-SUGGESTED_MAX_CHAPTERS = 6
+SUGGESTED_MAX_CHAPTERS = 7
+APPENDIX_PATTERN = re.compile(r"Appendix\b", re.IGNORECASE)
 INTEROPHUB_TOPIC_URL = "https://informatics.immregistries.org/hub/es/topic/{topic}"
 STATUS_TAGS = {
+    "collecting ideas": "aira-tag--outline",
     "draft": "aira-tag--warning",
     "review": "aira-tag--info",
     "final": "aira-tag--success",
@@ -484,14 +486,92 @@ def annotate_commentable_blocks(body: str) -> str:
     return "".join(output)
 
 
-def section_nav(body: str, labels: dict[str, str]) -> str:
-    links = []
+def guide_sections(body: str, labels: dict[str, str]) -> list[dict]:
+    """The top-level sections in reading order, with their header label.
+
+    An appendix is a top-level section whose heading begins "Appendix". The
+    skeleton writes them that way, such as "Appendix: Working Decisions and
+    Open Questions".
+    """
+    sections = []
     for identifier, heading in SECTION_PATTERN.findall(body):
-        label = labels.get(identifier) or html.unescape(TAG_PATTERN.sub("", heading))
+        text = html.unescape(TAG_PATTERN.sub("", heading)).strip()
+        sections.append({
+            "id": identifier,
+            "label": labels.get(identifier) or text,
+            "appendix": bool(APPENDIX_PATTERN.match(text)),
+        })
+    return sections
+
+
+def appendices_out_of_place(sections: list[dict]) -> list[str]:
+    """Body chapters that come after an appendix. Appendices belong at the end."""
+    misplaced = []
+    seen_appendix = False
+    for section in sections:
+        if section["appendix"]:
+            seen_appendix = True
+        elif seen_appendix:
+            misplaced.append(section["label"])
+    return misplaced
+
+
+def section_nav(sections: list[dict]) -> str:
+    """Header links: one per body chapter, then one for all the appendices.
+
+    The header row has room for few links, so with two or more appendices it
+    shows a single "Appendices" link to the first one; the right rail lists
+    them all while the reader is in one. A single appendix keeps its own label.
+    """
+    links = []
+    appendices = [section for section in sections if section["appendix"]]
+    for section in sections:
+        if section["appendix"]:
+            continue
         links.append(
-            f'<a href="#{html.escape(identifier)}">{html.escape(label)}</a>'
+            f'<a href="#{html.escape(section["id"])}">{html.escape(section["label"])}</a>'
+        )
+    if len(appendices) == 1:
+        appendix = appendices[0]
+        links.append(
+            f'<a href="#{html.escape(appendix["id"])}">{html.escape(appendix["label"])}</a>'
+        )
+    elif appendices:
+        ids = " ".join(appendix["id"] for appendix in appendices)
+        links.append(
+            f'<a href="#{html.escape(appendices[0]["id"])}" '
+            f'data-guide-sections="{html.escape(ids)}">Appendices</a>'
         )
     return "\n        ".join(links)
+
+
+def chapter_warnings(sections: list[dict]) -> list[str]:
+    """Warnings on the number of chapters and where the appendices are."""
+    warnings = []
+    chapters = sum(1 for section in sections if not section["appendix"])
+    if chapters > SUGGESTED_MAX_CHAPTERS:
+        warnings.append(
+            f"the guide has {chapters} chapters, not counting appendices; the suggested "
+            f"range is six to {SUGGESTED_MAX_CHAPTERS}. Consider merging chapters. "
+            "See guidance/Conventions.md, 'Keep chapters few'."
+        )
+    misplaced = appendices_out_of_place(sections)
+    if misplaced:
+        warnings.append(
+            f"{', '.join(misplaced)} comes after an appendix. Put appendices after all "
+            "chapters. See guidance/Conventions.md, 'Keep chapters few'."
+        )
+    return warnings
+
+
+def appendix_list(sections: list[dict]) -> list[dict]:
+    """The appendices the right rail lists, when there are two or more."""
+    appendices = [
+        {"id": section["id"], "label": section["label"]}
+        for section in sections
+        if section["appendix"]
+    ]
+    return appendices if len(appendices) > 1 else []
 
 
 def logo_data_uri() -> str:
@@ -531,6 +611,7 @@ def page(
     nav: str,
     body: str,
     figure: str = "",
+    appendices: list[dict] | None = None,
 ) -> str:
     status = config.get("status", "Draft")
     status_class = STATUS_TAGS.get(status.lower(), "aira-tag--info")
@@ -544,6 +625,8 @@ def page(
         "version": version,
         "built": date.today().isoformat(),
     }
+    if appendices:
+        guide_data["appendices"] = appendices
     hosting_config(config)
     normalized_comments = comments_config(config)
     if normalized_comments is not None:
@@ -716,19 +799,15 @@ def main() -> int:
     paths = include_paths(root, assembly)
     markdown = prepared_markdown(root, paths, config.get("repository"), ref)
     body = body_html(markdown)
-    nav = section_nav(body, config.get("navLabels", {}))
-    chapters = len(SECTION_PATTERN.findall(body))
-    if chapters > SUGGESTED_MAX_CHAPTERS:
-        print(
-            f"Warning: the guide has {chapters} top-level chapters; the suggested "
-            f"maximum is {SUGGESTED_MAX_CHAPTERS}. Consider merging chapters. "
-            "See guidance/Conventions.md, 'Keep chapters few'."
-        )
+    sections = guide_sections(body, config.get("navLabels", {}))
+    nav = section_nav(sections)
+    for warning in chapter_warnings(sections):
+        print(f"Warning: {warning}")
 
     output = root / args.output
     output.parent.mkdir(parents=True, exist_ok=True)
     figure = infographic_figure(root, args.infographic, config, args.version)
-    document = page(title, subtitle, config, version, nav, body, figure)
+    document = page(title, subtitle, config, version, nav, body, figure, appendix_list(sections))
     duplicates = duplicate_ids(document)
     if duplicates:
         names = ", ".join(repr(name) for name in duplicates)

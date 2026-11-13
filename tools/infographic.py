@@ -108,6 +108,7 @@ COLORS = {
     "white": "#ffffff",
 }
 STATUS_COLORS = {
+    "collecting ideas": ("#c9e1c9", "#1c3c50"),
     "draft": ("#ecbc0a", "#1c3c50"),
     "review": ("#005ea8", "#ffffff"),
     "final": ("#0b6b3a", "#ffffff"),

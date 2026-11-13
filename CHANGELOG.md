@@ -1,5 +1,45 @@
 # Changelog
 
+## v0.20.0
+
+- **Chapters and appendices.** The suggested size of a core document is six to
+  seven chapters, not counting appendices. An appendix is a top-level chapter
+  whose heading begins "Appendix", and appendices come after all other
+  chapters.
+  - `build_guide.py` counts only the other chapters, warns above seven, and
+    warns when a chapter follows an appendix.
+  - With two or more appendices, the guide's top menu shows one
+    **Appendices** link instead of one per appendix. It is highlighted while
+    any appendix is in view, and the right rail then lists every appendix,
+    with the current one's subsections beneath it. A single appendix keeps its
+    own link. Word and HTML copies are unchanged.
+- **Ideas register.** `new_topic_reference.py --with ideas` adds
+  `content/80-ideas.md`, "Appendix: Ideas", before the working decisions: one
+  table of ideas, each with an ID (`IDEA-001`), date, source, target chapter,
+  and status (Open, Sorted, or Set aside), and each row a review area of its
+  own. `check_content.py` checks its columns, IDs, statuses, sources, and links,
+  and reports the number of Open ideas without failing. Conventions defines an
+  idea, the register's rules, and optional "Guiding questions" sections.
+- **"Collecting ideas" status.** `guide.json` may set `"status": "Collecting
+  ideas"` for a document that only gathers ideas so far; the guide and
+  infographic give it its own tag style. Conventions gives matching
+  status-notice wording.
+- **Restricted-use notice.** Both private profiles replace "AIRA internal use
+  only" with one notice that ties access to the InteropHub topic: "Restricted
+  to readers of InteropHub topic N". A private topic's readers may include
+  partner organizations, so the notice fits topics read only by AIRA staff and
+  topics shared with partners. `INTERNAL-USE.md` keeps its file name. The
+  guide footer and infographic notice (`license` in `guide.json`), the status
+  notices, `CONTRIBUTING.md`, the briefs, and the default subtitle change to
+  match. The `AGENTS.md` rules now say `content/` holds only what every reader
+  of the topic may see.
+- Existing projects keep their wording until they next refresh `process/`.
+  Private projects then adopt the new notice: replace `INTERNAL-USE.md`, set
+  `license` in `guide.json`, and update the status notices, `CONTRIBUTING.md`,
+  and the private-repository section of `AGENTS.md` from the skeleton. Projects
+  with an appendix between chapters, or a long chapter list, see the new
+  warnings.
+
 ## v0.19.0
 
 - A private Standing Topic Reference can be kept in a shared folder, such as a

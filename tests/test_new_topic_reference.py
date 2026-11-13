@@ -108,7 +108,12 @@ class GenerateTopicReference(unittest.TestCase):
                 self.assertNotIn(phrase, text, f"{name} contains {phrase!r}")
         self.assertIn("## Private repository", files["AGENTS.md"])
         self.assertIn("Do not enable GitHub Pages", files["AGENTS.md"])
-        self.assertIn("AIRA internal use only", files["README.md"])
+        self.assertIn("Restricted to readers of InteropHub topic", files["README.md"])
+        self.assertIn("Restricted to readers of InteropHub topic 7.", files["INTERNAL-USE.md"])
+        self.assertIn("Write in `content/` only what every reader of the topic may see", files["AGENTS.md"])
+        for name, text in files.items():
+            self.assertNotIn("internal use only", text.lower(), name)
+            self.assertNotIn("outside AIRA", text, name)
         self.assertIn('--include "INTERNAL-USE.md"', files["validate.ps1"])
         self.assertIn('--include "INTERNAL-USE.md"', files[".github/workflows/validate.yml"])
         guide = json.loads(files["guide.json"])
@@ -116,7 +121,8 @@ class GenerateTopicReference(unittest.TestCase):
         self.assertEqual(7, guide["interophubTopic"])
         self.assertEqual("local", guide["hosting"])
         self.assertEqual({"mode": "local"}, guide["comments"])
-        self.assertIn("internal use only", guide["license"])
+        self.assertEqual(
+            "Restricted to readers of InteropHub topic 7; not for further distribution", guide["license"])
 
     def test_private_hosted_project(self):
         target = self.base / "sample-topic"
@@ -128,6 +134,58 @@ class GenerateTopicReference(unittest.TestCase):
         self.assertEqual("interophub", guide["hosting"])
         self.assertEqual("interophub", guide["comments"]["mode"])
         self.assertEqual("sample-topic", guide["comments"]["document"])
+
+    def test_ideas_register(self):
+        target = self.base / "sample-topic"
+        result = create(target, "--visibility", "public", "--with", "ideas")
+        self.assertEqual(0, result.returncode, result.stderr)
+        files = project_text(target)
+        self.assertIn("content/80-ideas.md", files)
+        qmd = files["SampleTopic.qmd"]
+        self.assertLess(qmd.index("content/80-ideas.md"), qmd.index("content/90-working-decisions.md"))
+        readme = files["content/README.md"]
+        self.assertLess(readme.index("80-ideas.md"), readme.index("90-working-decisions.md"))
+        self.assertIn("# Appendix: Ideas", files["CoreDocument.md"])
+        self.assertEqual("Ideas", json.loads(files["guide.json"])["navLabels"]["ideas"])
+
+        def check() -> subprocess.CompletedProcess:
+            return subprocess.run(
+                [sys.executable, str(ROOT / "tools" / "check_content.py"), "--root", str(target)],
+                capture_output=True, text=True)
+
+        result = check()
+        self.assertEqual(0, result.returncode, result.stdout)
+        register = target / "content" / "80-ideas.md"
+        empty = register.read_text(encoding="utf-8")
+        register.write_text(empty + (
+            "| IDEA-001 | 2026-11-13 | Offer a summary table. | Partner planning notes | "
+            "[Related work](01-related-work.md#related-work) | Open |\n"
+            "| IDEA-002 | 2026-11-13 | Drop the survey. | Steering call summary | | "
+            "Sorted: [scope](00-status-and-scope.md#status-and-scope) |\n"
+            "| IDEA-003 | 2026-11-13 | Add a glossary. | Contractor draft | | Set aside: out of scope |\n"
+        ), encoding="utf-8")
+        result = check()
+        self.assertEqual(0, result.returncode, result.stdout)
+        self.assertIn("1 Open idea(s)", result.stdout)
+
+        register.write_text(empty + (
+            "| IDEA-001 | 2026-11-13 | One. | Notes | [Gone](01-related-work.md#no-such-section) | Open |\n"
+            "| IDEA-001 | 13 Nov | Two. |  |  | Sorted |\n"
+            "| IDEA-3 | 2026-11-13 | Three. | Notes |  | Maybe |\n"
+            "| IDEA-004 | 2026-11-13 | Four. | Notes |  | Set aside |\n"
+        ), encoding="utf-8")
+        result = check()
+        self.assertNotEqual(0, result.returncode)
+        for problem in ("links to #no-such-section", "IDEA-001 is also used", "Date must be",
+                        "needs its Source", "a Sorted idea links", "must look like IDEA-001",
+                        "Status must begin with", "gives the reason"):
+            self.assertIn(problem, result.stdout)
+
+        register.write_text(empty.replace("| Chapter | Status |", "| Status |").replace(
+            "|---|---|---|---|---|---|", "|---|---|---|---|---|"), encoding="utf-8")
+        result = check()
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("the register's columns must be", result.stdout)
 
     def kept_in_workspace(self, target: Path, *extra: str) -> subprocess.CompletedProcess:
         return create(target, "--visibility", "private", "--kept-in", "workspace", "--hosting", "interophub",
@@ -158,6 +216,9 @@ class GenerateTopicReference(unittest.TestCase):
         self.assertIn("deliberately has no", files["README.md"])
         self.assertIn("## Kept in a workspace, without a repository", files["AGENTS.md"])
         self.assertIn("core_built", files["products/web-guide/brief.yml"])
+        self.assertIn("Restricted to readers of InteropHub topic 7.", files["INTERNAL-USE.md"])
+        for name, text in files.items():
+            self.assertNotIn("internal use only", text.lower(), name)
 
         built = subprocess.run(
             [sys.executable, str(ROOT / "tools" / "build_guide.py"), "--root", str(target),
@@ -329,7 +390,7 @@ class PrimaryInfographic(unittest.TestCase):
         self.assertIn("topic_link: false", (target / "content" / "infographic.yml").read_text(encoding="utf-8"))
         html = (target / "output" / "guide" / "index.html").read_text(encoding="utf-8")
         figure = html[html.index('<figure class="guide-infographic"'):html.index("</figure>")]
-        self.assertIn("AIRA internal use only", figure)
+        self.assertIn("Restricted to readers of InteropHub topic 7", figure)
         self.assertNotIn("informatics.immregistries.org/hub/es/topic/7", figure)
 
     def test_unresolved_reference_fails_the_check(self):

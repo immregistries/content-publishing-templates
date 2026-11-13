@@ -25,8 +25,9 @@
 - Keep the source concise. State each fact, rule, code, and decision in one
   place and link to it from elsewhere. Do not restate tables in prose, add
   recaps, or repeat the open-questions table in a section.
-- Keep the document to about six top-level chapters, including the appendix.
-  Merge short or related chapters and use second-level headings within them.
+- Keep the document to six to seven chapters, not counting appendices. Merge
+  short or related chapters and use second-level headings within them.
+  Appendix headings begin "Appendix" and come after all other chapters.
 - These limits apply to `content/` only. Derived products may repeat and
   expand as their audience needs.
 
@@ -42,6 +43,11 @@
   affected text for human resolution.
 - When sources conflict, record an open question rather than choosing silently.
   Later sources are not automatically more authoritative.
+- If the project keeps an ideas register, `content/80-ideas.md`, add ideas
+  there with their source, named by role and document, never by person. State
+  each neutrally, and leave out raw notes and personal data. Do not turn an idea
+  into a recommendation or a working decision without the Author. Never delete
+  a row; sort it, or set it aside with the reason.
 
 ## Project boundaries
 

@@ -204,8 +204,8 @@ if ($LASTEXITCODE -ne 0) {
     throw "The private Topic Reference's guide build failed."
 }
 $privateGuide = Get-Content -LiteralPath (Join-Path $privateReference 'output/guide/index.html') -Raw
-if ($privateGuide -notmatch '<figure class="guide-infographic"' -or $privateGuide -notmatch 'AIRA internal use only') {
-    throw "The private Topic Reference's guide is missing its primary infographic or its internal-use notice."
+if ($privateGuide -notmatch '<figure class="guide-infographic"' -or $privateGuide -notmatch 'Restricted to readers of InteropHub topic') {
+    throw "The private Topic Reference's guide is missing its primary infographic or its restricted-use notice."
 }
 if (Test-Path (Join-Path $privateReference '.github/workflows/publish-guide.yml')) {
     throw "The private Topic Reference has a publishing workflow."

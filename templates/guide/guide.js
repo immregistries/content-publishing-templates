@@ -49,27 +49,78 @@
     return heading ? heading.textContent : "";
   }
 
-  function renderSubnav(section) {
-    subnav.textContent = "";
-    railTitle.textContent = section ? headingText(section) : "On this page";
+  // With two or more appendices, the header has one "Appendices" link that
+  // stands for all of them, and the rail lists them while one is in view.
+  var appendices = data.appendices || [];
+
+  function isAppendix(section) {
+    return !!section && appendices.some(function (appendix) {
+      return appendix.id === section.id;
+    });
+  }
+
+  // The sections a header link stands for: its target, or, for the
+  // Appendices link, every appendix.
+  function linkSections(link) {
+    var many = link.getAttribute("data-guide-sections");
+    if (many) {
+      return many.split(/\s+/).filter(Boolean);
+    }
+    var href = link.getAttribute("href") || "";
+    return href.charAt(0) === "#" ? [href.slice(1)] : [];
+  }
+
+  function subsectionItems(section, list) {
     var subsections = section
       ? section.querySelectorAll(":scope > section.level3")
       : [];
-    if (!subsections.length) {
-      var empty = document.createElement("li");
-      empty.className = "guide-subnav-empty";
-      empty.textContent = "No subsections";
-      subnav.appendChild(empty);
-      return;
-    }
     Array.prototype.forEach.call(subsections, function (sub) {
       var item = document.createElement("li");
       var link = document.createElement("a");
       link.href = "#" + sub.id;
       link.textContent = headingText(sub);
       item.appendChild(link);
+      list.appendChild(item);
+    });
+    return subsections.length;
+  }
+
+  function renderAppendices(section) {
+    railTitle.textContent = "Appendices";
+    appendices.forEach(function (appendix) {
+      var item = document.createElement("li");
+      var link = document.createElement("a");
+      link.className = "guide-subnav-appendix";
+      link.href = "#" + appendix.id;
+      link.textContent = appendix.label;
+      item.appendChild(link);
+      if (appendix.id === section.id) {
+        link.setAttribute("aria-current", "page");
+        var nested = document.createElement("ul");
+        nested.className = "guide-subnav-nested";
+        if (subsectionItems(section, nested)) {
+          item.appendChild(nested);
+        }
+      }
       subnav.appendChild(item);
     });
+    markFlaggedNav();
+  }
+
+  function renderSubnav(section) {
+    subnav.textContent = "";
+    if (isAppendix(section)) {
+      renderAppendices(section);
+      return;
+    }
+    railTitle.textContent = section ? headingText(section) : "On this page";
+    if (!subsectionItems(section, subnav)) {
+      var empty = document.createElement("li");
+      empty.className = "guide-subnav-empty";
+      empty.textContent = "No subsections";
+      subnav.appendChild(empty);
+      return;
+    }
     markFlaggedNav();
   }
 
@@ -79,12 +130,10 @@
     sectionLinks
       .concat(Array.prototype.slice.call(subnav.querySelectorAll("a")))
       .forEach(function (link) {
-        var href = link.getAttribute("href") || "";
-        var target =
-          href.charAt(0) === "#" ? document.getElementById(href.slice(1)) : null;
-        var flagged = !!(
-          target && target.querySelector(".guide-review-flagged")
-        );
+        var flagged = linkSections(link).some(function (id) {
+          var target = document.getElementById(id);
+          return !!(target && target.querySelector(".guide-review-flagged"));
+        });
         link.classList.toggle("guide-nav-flagged", flagged);
         if (flagged) {
           link.title = flaggedNavTitle;
@@ -115,7 +164,7 @@
       currentSection = section;
       currentSubsection = null;
       sectionLinks.forEach(function (link) {
-        if (section && link.getAttribute("href") === "#" + section.id) {
+        if (section && linkSections(link).indexOf(section.id) !== -1) {
           link.setAttribute("aria-current", "page");
           revealInNav(link);
         } else {
@@ -140,7 +189,7 @@
     if (sub !== currentSubsection) {
       currentSubsection = sub;
       Array.prototype.forEach.call(
-        subnav.querySelectorAll("a"),
+        subnav.querySelectorAll("a:not(.guide-subnav-appendix)"),
         function (link) {
           if (sub && link.getAttribute("href") === "#" + sub.id) {
             link.setAttribute("aria-current", "true");

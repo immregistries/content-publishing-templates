@@ -9,6 +9,10 @@ Broken internal links, and unresolved template placeholders in content/, fail
 the check. CONFIRM notes and any --report-term uses in content/ are reported for
 human review but do not fail it.
 
+When content/80-ideas.md, the ideas register, exists, its columns, IDs,
+statuses, sources, and links are checked, and the number of Open ideas is
+reported.
+
 A Topic Reference (guide.json "documentType": "Topic Reference") must have a
 primary infographic specification, content/infographic.yml. When one exists,
 its fields, heading references, artwork, and layout fit are checked; starter
@@ -157,6 +161,100 @@ def content_targets(root: Path) -> dict[str, tuple[str, int]]:
     return targets
 
 
+IDEAS_PATH = "content/80-ideas.md"
+IDEAS_COLUMNS = ["ID", "Date", "Idea", "Source", "Chapter", "Status"]
+IDEA_ID_PATTERN = re.compile(r"IDEA-\d{3,}")
+IDEA_DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}")
+IDEA_STATUSES = ["Open", "Sorted", "Set aside"]
+CELL_LINK_PATTERN = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+
+
+def table_cells(line: str) -> list[str]:
+    """The cells of a pipe table row, allowing escaped pipes inside cells."""
+    row = line.strip()
+    if row.startswith("|"):
+        row = row[1:]
+    if row.endswith("|") and not row.endswith("\\|"):
+        row = row[:-1]
+    return [cell.strip() for cell in re.split(r"(?<!\\)\|", row)]
+
+
+def idea_status(cell: str) -> tuple[str | None, str]:
+    """The status word a Status cell begins with, and the text after it."""
+    text = re.sub(r"[*_]", "", cell).strip()
+    for status in IDEA_STATUSES:
+        if text.lower().startswith(status.lower()):
+            return status, text[len(status):].strip(" :;,.-–—")
+    return None, text
+
+
+def ideas_problems(root: Path) -> tuple[list[str], int | None]:
+    """Check the ideas register. Returns (failures, number of Open ideas)."""
+    path = root / IDEAS_PATH
+    if not path.is_file():
+        return [], None
+    lines = path.read_text(encoding="utf-8").splitlines()
+    failures: list[str] = []
+    header_index = next(
+        (index for index, line in enumerate(lines) if line.strip().startswith("|")), None
+    )
+    if header_index is None:
+        return [f"{IDEAS_PATH}: the ideas register has no table"], None
+    columns = table_cells(lines[header_index])
+    if columns != IDEAS_COLUMNS:
+        failures.append(
+            f"{IDEAS_PATH}:{header_index + 1}: the register's columns must be "
+            f"{' | '.join(IDEAS_COLUMNS)}"
+        )
+        return failures, None
+    targets = content_targets(root)
+    seen: dict[str, int] = {}
+    open_count = 0
+    for index in range(header_index + 2, len(lines)):
+        line = lines[index]
+        if not line.strip().startswith("|"):
+            break
+        where = f"{IDEAS_PATH}:{index + 1}"
+        cells = table_cells(line)
+        if len(cells) != len(IDEAS_COLUMNS):
+            failures.append(f"{where}: the row has {len(cells)} cells, not {len(IDEAS_COLUMNS)}")
+            continue
+        row = dict(zip(IDEAS_COLUMNS, cells))
+        identifier = row["ID"]
+        if not IDEA_ID_PATTERN.fullmatch(identifier):
+            failures.append(f"{where}: ID {identifier!r} must look like IDEA-001")
+        elif identifier in seen:
+            failures.append(f"{where}: ID {identifier} is also used on line {seen[identifier]}")
+        else:
+            seen[identifier] = index + 1
+        if not IDEA_DATE_PATTERN.fullmatch(row["Date"]):
+            failures.append(f"{where}: Date must be written as 2026-01-31")
+        if not row["Idea"]:
+            failures.append(f"{where}: the Idea is empty")
+        if not row["Source"]:
+            failures.append(f"{where}: every idea needs its Source")
+        status, rest = idea_status(row["Status"])
+        if status is None:
+            failures.append(
+                f"{where}: Status must begin with {', '.join(IDEA_STATUSES[:-1])}, or {IDEA_STATUSES[-1]}"
+            )
+        elif status == "Open":
+            open_count += 1
+        elif status == "Sorted" and not CELL_LINK_PATTERN.search(row["Status"]):
+            failures.append(f"{where}: a Sorted idea links to where it went, such as a section, WD-n, or OQ-n")
+        elif status == "Set aside" and not rest:
+            failures.append(f"{where}: a Set aside idea gives the reason")
+        for column in ("Chapter", "Status"):
+            for match in CELL_LINK_PATTERN.finditer(row[column]):
+                target = match.group(1)
+                if re.match(r"^[a-z]+:", target) or "#" not in target:
+                    continue
+                fragment = unquote(target.split("#", 1)[1])
+                if fragment and fragment not in targets:
+                    failures.append(f"{where}: {column} links to #{fragment}, which is not in content/")
+    return failures, open_count
+
+
 def infographic_problems(root: Path) -> tuple[list[str], list[str]]:
     """Check the primary infographic specification. Returns (failures, warnings)."""
     import infographic  # noqa: PLC0415 - infographic imports this module
@@ -274,6 +372,9 @@ def main() -> int:
                 f"at {heading_file}:{heading_line}"
             )
 
+    idea_failures, open_ideas = ideas_problems(root)
+    failures.extend(idea_failures)
+
     infographic_failures, infographic_warnings = infographic_problems(root)
     failures.extend(infographic_failures)
     for warning in infographic_warnings:
@@ -291,6 +392,8 @@ def main() -> int:
         print(f"{len(confirms)} CONFIRM item(s) awaiting human resolution:")
         for item in confirms:
             print(f"  {item}")
+    if open_ideas:
+        print(f"{open_ideas} Open idea(s) in {IDEAS_PATH} awaiting sorting.")
     for term, uses in term_uses.items():
         if uses:
             print(f"Uses of {term} in content/ (review for intent):")

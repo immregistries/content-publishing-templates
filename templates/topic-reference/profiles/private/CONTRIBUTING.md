@@ -1,8 +1,8 @@
 # Contributing
 
-{{TITLE}} is AIRA internal working material; see
+{{TITLE}} is restricted to readers of InteropHub topic {{TOPIC}}; see
 [INTERNAL-USE.md](INTERNAL-USE.md). Questions, objections, examples, and
-proposed wording from AIRA staff and authorized collaborators are welcome.
+proposed wording from anyone who may see the topic are welcome.
 
 ## Ways to take part
 
@@ -35,5 +35,5 @@ current position for discussion, and it can be revisited.
 - Do not include credentials, personal health information, or other personal
   information.
 
-Contributions become part of this repository's internal working material and
-are covered by [INTERNAL-USE.md](INTERNAL-USE.md).
+Contributions become part of this Topic Reference and are covered by
+[INTERNAL-USE.md](INTERNAL-USE.md).

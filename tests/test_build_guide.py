@@ -134,5 +134,60 @@ class RowAnchorTests(unittest.TestCase):
         self.assertNotIn("row-anchors", build_core_markdown.strip_anchors(ROW_TABLE))
 
 
+def sections_body(chapters: int, appendices: int) -> str:
+    parts = [
+        f'<section id="chapter-{n}" class="level2"><h2>Chapter {n}</h2></section>'
+        for n in range(1, chapters + 1)
+    ]
+    parts += [
+        f'<section id="appendix-{n}" class="level2"><h2>Appendix {n}: Extra</h2></section>'
+        for n in range(1, appendices + 1)
+    ]
+    return "\n".join(parts)
+
+
+class AppendixTests(unittest.TestCase):
+    def test_seven_chapters_and_two_appendices_take_eight_links_without_a_warning(self):
+        sections = build_guide.guide_sections(sections_body(7, 2), {"appendix-1": "Ideas"})
+        nav = build_guide.section_nav(sections)
+        self.assertEqual(nav.count("<a "), 8)
+        self.assertIn('<a href="#appendix-1" data-guide-sections="appendix-1 appendix-2">Appendices</a>', nav)
+        self.assertEqual(build_guide.chapter_warnings(sections), [])
+        self.assertEqual(
+            build_guide.appendix_list(sections),
+            [{"id": "appendix-1", "label": "Ideas"}, {"id": "appendix-2", "label": "Appendix 2: Extra"}],
+        )
+
+    def test_a_single_appendix_keeps_its_own_link(self):
+        sections = build_guide.guide_sections(sections_body(3, 1), {"appendix-1": "Decisions"})
+        nav = build_guide.section_nav(sections)
+        self.assertIn('<a href="#appendix-1">Decisions</a>', nav)
+        self.assertNotIn("Appendices", nav)
+        self.assertEqual(build_guide.appendix_list(sections), [])
+
+    def test_eight_chapters_warn(self):
+        warnings = build_guide.chapter_warnings(build_guide.guide_sections(sections_body(8, 2), {}))
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("8 chapters, not counting appendices", warnings[0])
+
+    def test_a_chapter_after_an_appendix_warns(self):
+        body = sections_body(2, 1) + '\n<section id="late" class="level2"><h2>Late</h2></section>'
+        warnings = build_guide.chapter_warnings(build_guide.guide_sections(body, {}))
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("Late comes after an appendix", warnings[0])
+
+    def test_appendices_are_listed_in_the_guide_data(self):
+        sections = build_guide.guide_sections(sections_body(2, 2), {})
+        document = build_guide.page(
+            "Title", None, {}, "v1.0.0", build_guide.section_nav(sections), sections_body(2, 2), "",
+            build_guide.appendix_list(sections),
+        )
+        self.assertIn('"appendices": [{"id": "appendix-1"', document)
+
+    def test_collecting_ideas_has_its_own_tag(self):
+        document = build_guide.page("Title", None, {"status": "Collecting ideas"}, "v1.0.0", "", "", "")
+        self.assertIn('aira-tag--outline guide-status-tag">COLLECTING IDEAS', document)
+
+
 if __name__ == "__main__":
     unittest.main()

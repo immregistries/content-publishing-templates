@@ -1,8 +1,9 @@
 # Contributing
 
-{{TITLE}} is AIRA internal working material, kept in {{LOCATION}}; see
-[INTERNAL-USE.md](INTERNAL-USE.md). Questions, objections, examples, and
-proposed wording from AIRA staff and authorized collaborators are welcome.
+{{TITLE}} is kept in {{LOCATION}} and restricted to readers of InteropHub
+topic {{TOPIC}}; see [INTERNAL-USE.md](INTERNAL-USE.md). Questions,
+objections, examples, and proposed wording from anyone who may see the topic
+are welcome.
 
 ## Ways to take part
 
@@ -27,5 +28,5 @@ in `content/`, and records the outcome in `content/90-working-decisions.md`. A
 working decision is the current position for discussion, and it can be
 revisited.
 
-Contributions become part of this Topic Reference's internal working material
-and are covered by [INTERNAL-USE.md](INTERNAL-USE.md).
+Contributions become part of this Topic Reference and are covered by
+[INTERNAL-USE.md](INTERNAL-USE.md).

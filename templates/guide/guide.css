@@ -195,6 +195,19 @@ html {
   font-weight: 600;
 }
 
+.guide-subnav a.guide-subnav-appendix[aria-current="page"] {
+  border-left-color: var(--aira-green);
+  font-weight: 600;
+}
+
+.guide-subnav-nested {
+  margin: var(--aira-space-1) 0 0;
+  padding: 0 0 0 var(--aira-space-3);
+  list-style: none;
+  display: grid;
+  gap: var(--aira-space-1);
+}
+
 .guide-subnav .guide-subnav-empty {
   color: var(--aira-text-muted);
   padding-left: var(--aira-space-2);

@@ -18,7 +18,7 @@ purpose: >-
   Show the topic at a glance: its purpose, its three to six key ideas, and how
   they relate, so a reader knows the shape of the Topic Reference before
   reading it, and a copy of the image shared on its own still says what it is
-  and that it is for internal use.
+  and who may read it.
 
 desired_outcome: >-
   A reader can name what the topic is for and its key ideas, and finds the
@@ -45,13 +45,13 @@ required_elements:
   - Each relationship referring to the heading it summarizes
   - Status, version, and build date drawn on the image
   - The InteropHub topic number, without its address
-  - The internal-use notice, matching the guide footer
+  - The restricted-use notice, matching the guide footer
   - Short alt text in content/infographic.yml
 
 published_locations: {}
 
 assumptions:
-  - Not published. The image travels without the guide, so the internal-use
+  - Not published. The image travels without the guide, so the restricted-use
     notice is drawn on it.
   - The specification, content/infographic.yml, is canonical source and is
     reviewed like content/. Rendered files are generated.

@@ -41,8 +41,8 @@ python tools/new_topic_reference.py ..\my-topic --visibility public --title "My 
 
 `--visibility` must match the InteropHub topic. A private Topic Reference also
 needs `--owner`; it is built locally or hosted in InteropHub for people who
-may see the topic, and carries an internal-use notice instead of open
-licenses. A private one may instead be kept in a shared folder with no
+may see the topic, and carries a restricted-use notice, tied to its topic,
+instead of open licenses. A private one may instead be kept in a shared folder with no
 repository (`--kept-in workspace --hosting interophub`); see
 [Topic References](guidance/TopicReference.md#where-a-standing-topic-reference-is-kept).
 

@@ -14,7 +14,7 @@ audience:
   assumed_knowledge: []
 
 purpose: >-
-  Build the Topic Reference for internal review: one readable copy of where
+  Build the Topic Reference for review by readers of the topic: one readable copy of where
   the topic currently stands, to refer to in discussions, with a way to
   comment on it during and between meetings.
 
@@ -39,7 +39,7 @@ required_elements:
   - Status tag and version on the page
   - Return link to InteropHub topic {{TOPIC}}
   - Comments that stay in the reader's browser until downloaded
-  - The internal-use notice in the page footer
+  - The restricted-use notice in the page footer
 
 published_locations:
   interophub: When guide.json hosting is interophub, versioned access-controlled URLs

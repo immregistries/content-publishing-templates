@@ -40,7 +40,7 @@ required_elements:
   - Status tag and version on the page
   - Return link to InteropHub topic {{TOPIC}}
   - Signed-in comments through InteropHub
-  - The internal-use notice in the page footer
+  - The restricted-use notice in the page footer
 
 published_locations:
   interophub: Access-controlled, labeled with the guide.json version and latest

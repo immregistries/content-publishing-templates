@@ -22,8 +22,9 @@ Topic Reference is and what to do after the project is created.
 | `project/` | Every new project. `Project.qmd` is renamed for the project, and `_gitignore` and `_github/` become `.gitignore` and `.github/`. |
 | `profiles/public/` | Added for `--visibility public`: open licenses, code of conduct, community contribution guide, pull request template, GitHub Pages publishing workflow, and the published web-guide brief. |
 | `profiles/workspace/` | Added for `--type workspace`: a contribution guide and briefs for a Workspace Topic Reference kept in a shared folder. Its fragments replace links to an InteropHub topic and repository with the workspace's location. The `_github/` and `_gitignore` files are not copied, and `process/` is a copy made by `tools/workspace_process.py`. |
-| `profiles/private/` | Added for `--visibility private`: the internal-use notice, internal contribution guide, pull request template, and private web-guide brief. `--hosting local` (the default) omits publishing; `--hosting interophub` adds the hosted-guide workflow. |
+| `profiles/private/` | Added for `--visibility private`: the restricted-use notice, contribution guide for the topic's readers, pull request template, and private web-guide brief. `--hosting local` (the default) omits publishing; `--hosting interophub` adds the hosted-guide workflow. |
 | `profiles/<visibility>/fragments/` | Not copied. Each file is the value of the placeholder named after it, such as `REPOSITORY_RULES.txt` for `{{REPOSITORY_RULES}}`, for text that differs between public and private projects inside shared files. Both profiles must define the same fragments. |
+| `optional/ideas/` | Added with `--with ideas`: `content/80-ideas.md`, the ideas register, assembled before the working decisions and labeled "Ideas" in the guide menu. |
 | `optional/presentation/` | Added with `--with presentation`: scripts to set up and build a review deck with the shared PowerPoint template. The brief and slide source are copied from `templates/product/` and `templates/powerpoint/`. |
 
 Placeholders such as `{{TITLE}}` are replaced when a project is created.

@@ -6,8 +6,8 @@ is one of two types (see guidance/TopicReference.md):
 - A Standing Topic Reference is a lasting reference for an InteropHub topic,
   kept in Git with releases. --visibility is required and must match the
   topic. A public project is published with GitHub Pages under open licenses.
-  A private project has no GitHub Pages workflow or open licenses, carries an
-  internal-use notice, and needs --owner, the GitHub owner of its private
+  A private project has no GitHub Pages workflow or open licenses, carries a
+  restricted-use notice tying access to its topic, and needs --owner, the GitHub owner of its private
   repository. It defaults to --hosting local; --hosting interophub adds
   access-controlled publishing.
 
@@ -64,15 +64,15 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SKELETON = REPO_ROOT / "templates" / "topic-reference"
 TOKEN_PATTERN = re.compile(r"\{\{([A-Z_]+)\}\}")
 RENAMES = {"_gitignore": ".gitignore", "_github": ".github"}
-OPTIONS = ["presentation"]
+OPTIONS = ["presentation", "ideas"]
 TYPES = ["standing", "workspace"]
 VISIBILITIES = ["public", "private"]
 HOSTING = ["local", "interophub"]
 KEPT_IN = ["git", "workspace"]
 DEFAULT_SUBTITLES = {
     "public": "A Topic Reference for community discussion",
-    "private": "A Topic Reference for internal discussion",
-    "private-workspace": "A Topic Reference for internal discussion",
+    "private": "A Topic Reference for discussion among the topic's readers",
+    "private-workspace": "A Topic Reference for discussion among the topic's readers",
     "workspace": "A Workspace Topic Reference",
 }
 # Git and GitHub files a Workspace project, which has neither, does not get.
@@ -138,7 +138,8 @@ def arguments() -> argparse.Namespace:
         action="append",
         choices=OPTIONS,
         default=[],
-        help="Optional product to include. May be repeated.",
+        help="Optional part to include: presentation, a review deck; ideas, the ideas register "
+        "(content/80-ideas.md). May be repeated.",
     )
     parser.add_argument(
         "--no-git",
@@ -210,6 +211,32 @@ def add_presentation(target: Path, values: dict[str, str]) -> None:
         encoding="utf-8",
         newline="\n",
     )
+
+
+def add_ideas(target: Path, values: dict[str, str]) -> None:
+    """Add the ideas register, assembled just before the working decisions."""
+    copy_tree(SKELETON / "optional" / "ideas", target, values)
+    insert_before(
+        target / f"{values['ASSEMBLY']}.qmd",
+        "{{< include content/90-working-decisions.md >}}",
+        "{{< include content/80-ideas.md >}}\n\n",
+    )
+    insert_before(
+        target / "content" / "README.md",
+        "| [90-working-decisions.md]",
+        "| [80-ideas.md](80-ideas.md) | Appendix: ideas, each with its source, until sorted into the document |\n",
+    )
+    guide_path = target / "guide.json"
+    guide = json.loads(guide_path.read_text(encoding="utf-8"))
+    guide.setdefault("navLabels", {})["ideas"] = "Ideas"
+    guide_path.write_text(json.dumps(guide, indent=2) + "\n", encoding="utf-8", newline="\n")
+
+
+def insert_before(path: Path, marker: str, text: str) -> None:
+    content = path.read_text(encoding="utf-8")
+    if content.count(marker) != 1:
+        raise SystemExit(f"{path} does not have {marker!r} exactly once.")
+    path.write_text(content.replace(marker, text + marker), encoding="utf-8", newline="\n")
 
 
 def merge_into(staging: Path, target: Path) -> None:
@@ -354,6 +381,8 @@ def main() -> int:
             guide_path.write_text(json.dumps(guide, indent=2) + "\n", encoding="utf-8", newline="\n")
         if "presentation" in args.options:
             add_presentation(staging, values)
+        if "ideas" in args.options:
+            add_ideas(staging, values)
         target.mkdir(parents=True, exist_ok=True)
         merge_into(staging, target)
 

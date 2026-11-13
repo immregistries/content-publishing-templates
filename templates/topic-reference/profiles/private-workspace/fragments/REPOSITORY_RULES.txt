@@ -1,14 +1,18 @@
 ## Kept in a workspace, without a repository
 
-- This Topic Reference is private and for AIRA internal use only; see
-  `INTERNAL-USE.md`. Its InteropHub topic is private, and the Topic Reference
-  is shared only with people who may see that topic.
+- This Topic Reference is private. Its InteropHub topic is private, and the
+  Topic Reference is restricted to people who may see that topic, who may
+  include AIRA staff and partner organizations; see `INTERNAL-USE.md`.
 - It is kept in a shared workspace and deliberately has no Git repository. Do
   not create one, push it to GitHub, or publish it anywhere except its
   topic's private hosting in InteropHub.
 - Canonical source is the Markdown in `content/`. Notes, drafts, and documents
   in the working folders are working material: list them in
   `sources/README.md` and write reviewed prose in `content/`.
+- Write in `content/` only what every reader of the topic may see. When the
+  topic's readers include partners, AIRA's internal plans, funding strategy,
+  and information about one partner that others may not see stay in the
+  working folders, not here.
 - Do not copy material from this workspace to public places, including the
   shared templates under `process/`.
 - Do not place credentials, personal health information, contact lists, or

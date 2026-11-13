@@ -10,7 +10,7 @@ assembled in the order listed in [{{ASSEMBLY}}.qmd](../{{ASSEMBLY}}.qmd).
 | [90-working-decisions.md](90-working-decisions.md) | Appendix: working decisions and open questions |
 | [infographic.yml](infographic.yml) | The primary infographic: the topic at a glance, each part referring to the section it summarizes |
 
-Add topic sections between `01` and `90`, numbered in reading order, and list
-each one here and in the assembly file. Keep the document to about six
-top-level chapters, including the appendix, and state each fact in only one
-section.
+Add topic sections between `01` and `80`, numbered in reading order, and list
+each one here and in the assembly file. Keep the document to six to seven
+chapters, not counting appendices, and state each fact in only one section.
+Appendices are numbered `80` and up and their headings begin "Appendix".
