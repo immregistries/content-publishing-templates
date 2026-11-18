@@ -1,5 +1,149 @@
 # Changelog
 
+## v0.22.0
+
+Needs InteropHub 0.12.0 for comment modes, version settings, and
+`--check-token`. Against an older hub, guides behave as in v0.21.0,
+`--check-token` says the hub is too old to describe tokens, and version
+settings fail with the hub's error.
+
+- **Executive Summary and Scope.** A Topic Reference opens with a front
+  section above Chapter 1: the status banner, the Executive Summary, "What
+  changed", the infographic, and the Scope as cards. None of it is in the
+  section bar or counted as a chapter; the right rail lists it as
+  "Overview".
+  - `content/00-executive-summary.md` is the one section that may repeat the
+    chapters, for a reader who reads nothing else. The checks warn below 150
+    words and above 550, and fail above 650 (`SUMMARY_SHORT`,
+    `SUMMARY_LONG`).
+  - `content/00-scope.md` has `## In scope` and `## Out of scope`, both
+    required, optionally `## Not yet decided`, and no other headings. Each
+    Out of scope item links to where it is handled, or says "(not covered by
+    any current topic)" (`SCOPE_OUT_UNLINKED`).
+  - `content/00-status-and-scope.md` is retired. A project that still has it
+    fails the content check and the build, with the migration steps in the
+    message. There is no compatibility mode.
+  - Word follows the same order through a new Quarto filter,
+    `templates/word/topic-reference.lua`, which also makes the Scope a table
+    and puts the status notice in the reference document's new "Status
+    Notice" style. `insert_word_infographic.py` places the infographic
+    before the Scope heading.
+  - The manifest gains `hasExecutiveSummary`, `executiveSummaryWords`, and
+    `hasScope`.
+- **Change markers.** Mark what changed in a version in the source:
+  `<!-- changed v0.5.0: note -->`, with `feedback` after the version when
+  feedback is wanted, and `rows=A,B` for rows of a row-anchored table.
+  - Markers show in every output: a badge and bar in the guide (the
+    annotations panel's Changes tab, and the Review tab for feedback wanted),
+    an italic note in Word, and a quoted note in the reading copy. Each
+    output lists them under "What changed in vX", feedback wanted first.
+  - The version shown is the build's release label, otherwise `version` in
+    `guide.json`: the version being prepared. Older markers are hidden and
+    reported as stale (`STALE_CHANGE_MARKER`). The content check warns when a
+    release build's tag differs from `version` (`VERSION_MISMATCH`), and
+    when there are markers but no `version` (`VERSION_MISSING`).
+  - A malformed marker, a marker with nothing after it, or `rows=` naming a
+    missing row fails the content check and the build.
+  - The manifest counts `changeMarkers` and `feedbackMarkers`.
+  - New projects start with `"version": "v0.1.0"` in `guide.json`.
+- **Annotations panel.** Comments, review flags, and change markers move to
+  a left panel with **Comments**, **Review**, and **Changes** tabs, closed by
+  default. The active tab decides which markers show in the text, and the
+  right rail shows only navigation ("On this page").
+  - The panel is resizable (280 to 640 px; double-click or Home resets it)
+    and remembers its tab, width, and open state per document. `?lens=`
+    links open a tab.
+  - A count strip in the section bar opens the panel. Below 900 px it is a
+    bottom sheet.
+  - Comment filters: Open, All, and Mine. Review flags can be listed with
+    cleared ones, and edited and cleared from their cards.
+- **Version comment modes.** The guide sends its address (`pageUrl`) with
+  each comment, reply, flag, and read, so InteropHub knows which version it
+  was written on, and follows that version's comment mode.
+  - **Release:** readers see comments for this version and earlier; authors
+    see all, with others marked "From another version".
+  - **Closed:** no comments or comment controls; a refused comment keeps its
+    text as a draft.
+  - A mode changed while the page is open takes effect at the next refresh.
+- **Publishing and agent breadcrumbs.**
+  - `publish_guide_to_hub.py`:
+    - `--display` (`current`, `listed`, `unlisted`, `authors_only`,
+      `retired`) and `--comment-mode` (`open`, `release`, `closed`) set the
+      first `--label`'s settings after an upload or `--manifest-only`.
+    - `--settings-only` sets them on a published label without sending a
+      guide.
+    - `--check-token` reports the account, scopes, expiry, and whether the
+      token can publish this guide, and exits 1 when it can't.
+    - Uploads warn when the token expires within 14 days.
+    - Errors print InteropHub's help link and a plain explanation, including
+      `comments_closed`, `insufficient_scope` (with the scope), and
+      `forbidden` (must be a topic editor).
+    - An HTML answer is reported as a firewall, with what to report.
+    - The label pattern now matches InteropHub's.
+  - The project `AGENTS.md` gains "Publishing to InteropHub", per profile:
+    - where the token lives, and that an agent never prints, commits, or
+      asks for it;
+    - the first call;
+    - the publishing commands;
+    - the steps only the author can take, in words to pass on;
+    - the help page.
+
+    It also names the Executive Summary exception and how to write change
+    markers.
+  - `new_topic_reference.py` sets the hub for every Standing profile.
+  - The guidance gains "Becoming an author", "Version display and comment
+    modes", "Executive Summary and Scope", and "Change markers", and drops
+    the example lines that put a token in a shell variable.
+- `tests/mock_hub.py` follows InteropHub 0.12.0: labels, comment modes,
+  `GET /api/token`, and `help` on errors, and can stand in for a firewall or
+  an older hub. The fixture has real change markers and a front section.
+- To adopt, for each Topic Reference:
+  1. Move `process/` to v0.22.0.
+  2. **`guide.json`:**
+     - add `"version"`: the version being prepared, such as `v0.5.0`;
+     - remove `status-and-scope` from `navLabels`.
+  3. **Create `content/00-executive-summary.md`:**
+     - `# Executive Summary`;
+     - a `::: {.status-notice}` … `:::` block holding the old status text,
+       without its `> ` quote marks;
+     - the old "In brief", expanded to 150–550 words.
+  4. **Create `content/00-scope.md`:**
+     - `# Scope` and the old purpose in one sentence;
+     - `## In scope`, the old "What this project covers";
+     - `## Out of scope`, each item linked to where it is handled;
+     - optionally `## Not yet decided`, each item linked to its open
+       question or working decision.
+  5. **Retire the old file:**
+     - Move anything else in `content/00-status-and-scope.md` into a
+       chapter, keeping its heading IDs and anchors, then delete it.
+     - In the assembly `.qmd`, include the two new files first.
+     - Update `content/README.md`.
+     - Fix links to the old file and its headings, including refs in
+       `content/infographic.yml` and, with the presentation option,
+       `slides.json` sources.
+  6. **`_quarto.yml`:** under `format: docx:`, add
+     `filters: [process/templates/word/topic-reference.lua]`.
+  7. **`build.ps1`:** before `quarto render`, add
+     `$changeVersion = & $python.Source .\process\tools\change_markers.py --current-version`,
+     and render with `-M "change-version:$changeVersion"`, as in the
+     skeleton.
+  8. **`AGENTS.md`:**
+     - Copy "Publishing to InteropHub" from the profile's
+       `templates/topic-reference/profiles/<profile>/fragments/AGENTS_PUBLISHING.txt`,
+       replacing `{{HUB_URL}}`, `{{TOPIC_NAME}}`, and `{{TOPIC_URL}}`.
+     - Copy the Executive Summary and change-marker lines under "Writing
+       the source" from the skeleton's `AGENTS.md`.
+  9. Remove any `$env:INTEROPHUB_TOKEN = "<…>"` lines copied into the
+     project's own documents.
+  10. Rebuild the reading copy, run `validate.ps1` and `build.ps1`, publish,
+      and run `publish_guide_to_hub.py --check-token`.
+
+  When releasing, set `version` to the tag before tagging. Right after,
+  raise it to the next version and delete the markers the content check
+  reports as stale.
+
+**Upgrade impact:** content
+
 ## v0.21.0
 
 - **The process knows its own version.** `VERSION` holds the current release
