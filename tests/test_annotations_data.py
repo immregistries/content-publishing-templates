@@ -1,5 +1,5 @@
-"""The data the annotations panel relies on: the mock hub's "mine" and cleared
-flags, and the sample change-marker element (sample_change_markers.py)."""
+"""The data the annotations panel relies on: the mock hub's "mine", cleared
+flags, and version labels."""
 
 import json
 import re
@@ -10,7 +10,6 @@ import urllib.parse
 import urllib.request
 
 import mock_hub
-import sample_change_markers
 
 
 ORIGIN = "http://127.0.0.1:8765"
@@ -157,37 +156,6 @@ class MockHubLabelsTest(unittest.TestCase):
         status, result = self.call(path + "main", "author", "PATCH", {"display": "CURRENT", "commentMode": "Release"})
         self.assertEqual((200, "current", "release", "v0.2.0", "listed"),
                          (status, result["display"], result["commentMode"], result["demoted"]["label"], result["demoted"]["display"]))
-
-
-class SampleChangeMarkersTest(unittest.TestCase):
-    GUIDE = (
-        '<html><body><script>// a script element with the ID guide-change-markers, '
-        'quoted: <script type="application/json" id="guide-change-markers"> as text\n</script>'
-        '<script type="application/json" id="guide-data">{"id": "x", "title": "T", "version": "v1.2.0"}</script>'
-        '</body></html>'
-    )
-
-    def test_inject_is_idempotent_and_leaves_scripts_alone(self):
-        markers = sample_change_markers.fixture_markers("v1.2.0")
-        once = sample_change_markers.inject(self.GUIDE, markers)
-        twice = sample_change_markers.inject(once, markers)
-        self.assertEqual(once, twice)
-        self.assertIn("as text\n</script>", twice)
-        found = re.findall(r'<script type="application/json" id="guide-change-markers">(.*?)</script>', twice)
-        self.assertEqual([json.loads(text) for text in found if text.startswith("[")], [markers])
-        self.assertLess(twice.index("guide-change-markers\">["), twice.index('id="guide-data"'))
-
-    def test_markers_follow_the_contract(self):
-        version = sample_change_markers.guide_version(self.GUIDE)
-        self.assertEqual(version, "v1.2.0")
-        for marker in sample_change_markers.fixture_markers(version):
-            self.assertLessEqual(set(marker), {"anchor", "blockIndex", "version", "level", "note"})
-            self.assertIn(marker["level"], ("changed", "feedback"))
-            self.assertTrue(0 < len(marker["note"]) <= 300)
-
-    def test_closing_tags_in_notes_are_escaped(self):
-        result = sample_change_markers.inject(self.GUIDE, [{"anchor": "a", "version": "v1", "level": "changed", "note": "see </script> here"}])
-        self.assertNotIn("see </script>", result)
 
 
 if __name__ == "__main__":

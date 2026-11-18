@@ -26,8 +26,14 @@ if ($LASTEXITCODE -ne 0) {
     throw "Building the primary infographic failed with exit code $LASTEXITCODE."
 }
 
+# Change markers for the current version are shown; older ones are not.
+$changeVersion = & $python.Source .\process\tools\change_markers.py --current-version
+if ($LASTEXITCODE -ne 0) {
+    throw "Finding the current version for change markers failed with exit code $LASTEXITCODE."
+}
+
 $quarto = Get-Command quarto -ErrorAction Stop
-& $quarto.Source render
+& $quarto.Source render -M "change-version:$changeVersion"
 if ($LASTEXITCODE -ne 0) {
     throw "Quarto build failed with exit code $LASTEXITCODE."
 }

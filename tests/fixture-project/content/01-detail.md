@@ -1,6 +1,11 @@
+<!-- changed v0.2.0: The detail section gained a review table with row anchors. -->
+
 # Detail
 
 <!-- anchor: review-item -->
+
+<!-- changed v0.2.0 feedback: New review process. Tell us whether these steps
+match your program's practice. -->
 
 A second section, with an open item for review.
 
@@ -13,6 +18,8 @@ flowchart LR
 <!-- CONFIRM: Fixture CONFIRM note reported by check_content.py. -->
 
 <!-- row-anchors -->
+<!-- changed v0.2.0 rows=FX-1: Status wording updated after the October call. -->
+<!-- changed v0.2.0 feedback rows=FX-2: New row. Is a second review area needed here? -->
 
 | ID | Item | Status |
 |---|---|---|

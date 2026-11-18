@@ -13,6 +13,9 @@ format:
   docx:
     toc: true
     reference-doc: process/templates/word/aira-reference-document.docx
+    # Change markers, the status notice, What changed, and the Scope table.
+    filters:
+      - process/templates/word/topic-reference.lua
   html:
     toc: true
     embed-resources: true

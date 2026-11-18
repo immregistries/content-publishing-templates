@@ -12,12 +12,12 @@ arrangement: set
 title: "{{TOPIC_NAME}}"
 purpose:
   text: "CONFIRM: State in one sentence what this topic is for."
-  ref: purpose
+  ref: scope
 ideas:
   - id: covers
     label: "CONFIRM: First key idea"
     text: "CONFIRM: Condense the section it names in a sentence."
-    ref: what-this-project-covers
+    ref: in-scope
   - id: related
     label: "CONFIRM: Second key idea"
     text: "CONFIRM: Condense the section it names in a sentence."

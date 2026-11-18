@@ -2,8 +2,9 @@
 
 Serves a guide built in InteropHub comment mode (--root) against the in-memory
 mock hub, seeded with comments, replies, a comment that cannot be placed, and
-review flags (mock_hub.seed_demo), and with sample change markers
-(sample_change_markers.py). It checks, as an author and as a reader:
+review flags (mock_hub.seed_demo). The fixture's change markers and front
+section (Executive Summary, What changed, Scope) come from its source. It
+checks, as an author and as a reader:
 
 - the panel: closed by default with margin ticks, opening each tab from the
   strip, the lens deciding which markers the text shows, ?lens=, remembering
@@ -39,7 +40,6 @@ import urllib.parse
 import urllib.request
 
 import mock_hub
-import sample_change_markers
 
 
 class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -179,18 +179,13 @@ def main():
     parser.add_argument("--quick", action="store_true", help="Skip the 65-second refresh check (for development only).")
     args = parser.parse_args()
     guide = os.path.join(args.root, "output", "guide", "index.html")
-    with open(guide, encoding="utf-8") as handle: document = handle.read()
-    markers = sample_change_markers.fixture_markers(sample_change_markers.guide_version(document))
-    with open(guide, "w", encoding="utf-8", newline="\n") as handle: handle.write(sample_change_markers.inject(document, markers))
     # The same guide as two more versions (mock_hub.seed_demo): output/release/
     # is v0.2.0 in Release mode and output/closed/ is v0.1.0 in Closed mode.
     for version in ("release", "closed"):
         folder = os.path.join(args.root, "output", version); os.makedirs(folder, exist_ok=True)
         shutil.copyfile(guide, os.path.join(folder, "index.html"))
     if args.local_guide:
-        with open(args.local_guide, encoding="utf-8") as handle: local = handle.read()
-        with open(os.path.join(args.root, "output", "guide", "local.html"), "w", encoding="utf-8", newline="\n") as handle:
-            handle.write(sample_change_markers.inject(local, markers))
+        shutil.copyfile(args.local_guide, os.path.join(args.root, "output", "guide", "local.html"))
 
     static = QuietServer(("127.0.0.1", 8765), lambda *values, **kw: Quiet(*values, directory=args.root, **kw))
     hub = mock_hub.serve(8766, ["http://127.0.0.1:8765"])
@@ -262,13 +257,27 @@ def main():
               "The right rail still holds comments or review flags.")
         screenshot(author, "wide-1-closed-author")
 
+        # ---- The front section (Executive Summary, What changed, Scope) ----
+        check(author, "!Array.from(document.querySelectorAll('.aira-context-nav a')).some(a => ['#executive-summary', '#scope', '#guide-what-changed'].includes(a.getAttribute('href'))) && document.querySelectorAll('.aira-context-nav a').length === 1",
+              "The front section has entries in the section bar.")
+        check(author, "document.getElementById('guide-rail-title').textContent === 'Overview' && Array.from(document.querySelectorAll('#guide-subnav a')).map(a => a.textContent).join('|') === 'Executive Summary|What changed|Scope'",
+              "The right rail did not list the front section while the reader was in it.",
+              "document.getElementById('guide-rail-title').textContent")
+        check(author, "var b=document.querySelector('.guide-status-banner'), s=document.getElementById('executive-summary'); b && b.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING && document.querySelector('.guide-title-link').getAttribute('href') === '#document-start'",
+              "The status banner is not above the Executive Summary, or the title does not link to the top.")
+        check(author, "var i=document.querySelector('.guide-scope-card--in').getBoundingClientRect(), o=document.querySelector('.guide-scope-card--out').getBoundingClientRect(), u=document.querySelector('.guide-scope-card--undecided').getBoundingClientRect(); Math.abs(i.top - o.top) < 2 && o.left > i.right && u.top >= Math.max(i.bottom, o.bottom) && u.width > i.width * 1.8",
+              "In scope and Out of scope are not side by side with Not yet decided beneath.")
+        check(author, "Array.from(document.querySelectorAll('#guide-what-changed .guide-what-changed__item')).map(n => n.querySelector('.guide-what-changed__level').textContent).join(',') === 'Feedback wanted,Feedback wanted,Changed,Changed,Changed' && document.querySelector('#guide-what-changed h2').textContent === 'What changed in v0.2.0'",
+              "The What changed list is missing, mistitled, or not feedback first.")
+        screenshot(author, "front-1-scope", scroll="document.getElementById('scope').scrollIntoView(); true")
+
         # ---- Each tab from the strip, and the lens it sets ----
         evaluate(author, "strip('comments').click(); true")
         check(author, "!document.getElementById('guide-annotations').hidden && lensIs('comments') && strip('comments').getAttribute('aria-expanded') === 'true' && document.activeElement.id === 'guide-tab-comments' && document.getElementById('guide-tab-comments').getAttribute('aria-selected') === 'true'",
               "The Comments strip button did not open the panel on its tab with focus on the tab.")
         check(author, "shown('.guide-comment-count') && !shown('.guide-flag-marker') && !shown('.guide-change-marker')",
               "The Comments lens did not show only comment counts.")
-        check(author, "document.querySelector('.guide-annotation-group--unplaced') && document.querySelector('.guide-annotation-group--unplaced').textContent.includes('contradicts chapter 3') && Array.from(document.querySelectorAll('.guide-annotation-group__title')).map(n => n.textContent).join('|').startsWith('Summary')",
+        check(author, "document.querySelector('.guide-annotation-group--unplaced') && document.querySelector('.guide-annotation-group--unplaced').textContent.includes('contradicts chapter 3') && Array.from(document.querySelectorAll('.guide-annotation-group__title')).map(n => n.textContent).join('|').startsWith('Executive Summary')",
               "Comments were not listed by section, then Not placed.")
         screenshot(author, "wide-2-comments-author")
         press(author, "Escape", "Escape", 27)
@@ -285,7 +294,7 @@ def main():
         check(author, "lensIs('changes') && document.activeElement.id === 'guide-tab-changes'", "Arrow keys did not move between tabs.")
         check(author, "shown('.guide-change-marker') && document.querySelectorAll('.guide-change-marker').length === 5 && !shown('.guide-flag-marker') && document.querySelectorAll('#guide-list-changes .guide-change-card').length === 5",
               "The Changes lens did not show every change marker and only those.")
-        check(author, "document.querySelector('section#summary').classList.contains('guide-changed') && document.querySelectorAll('[data-anchor=\"fixture-introduction\"].guide-changed').length === 1 && document.querySelector('tr#fx-2').classList.contains('guide-changed--feedback')",
+        check(author, "document.querySelector('section#detail').classList.contains('guide-changed') && document.querySelectorAll('[data-anchor=\"fixture-introduction\"].guide-changed').length === 1 && document.querySelector('tr#fx-2').classList.contains('guide-changed--feedback')",
               "Change markers did not cover their section, single block, and row.")
         screenshot(author, "wide-4-changes", scroll="document.getElementById('detail').scrollIntoView(); true")
         evaluate(author, "Array.from(document.querySelectorAll('#guide-list-changes .guide-where')).find(b => b.textContent.includes('FX-2')).click(); true")
@@ -467,6 +476,8 @@ def main():
         check(reader, "var r=document.getElementById('guide-annotations').getBoundingClientRect(); r.left === 0 && Math.round(r.width) === document.documentElement.clientWidth && Math.abs(r.bottom - innerHeight) < 2 && r.top > innerHeight * 0.2 && document.getElementById('guide-main').getBoundingClientRect().left === 0",
               "Below 900 px the panel did not become a bottom sheet over an unshifted page.",
               "JSON.stringify([document.getElementById('guide-annotations').getBoundingClientRect(), innerWidth, innerHeight, document.getElementById('guide-main').getBoundingClientRect().left])")
+        check(reader, "var i=document.querySelector('.guide-scope-card--in').getBoundingClientRect(), o=document.querySelector('.guide-scope-card--out').getBoundingClientRect(); o.top >= i.bottom",
+              "On a narrow screen the Scope cards did not stack.")
         check(reader, "getComputedStyle(document.getElementById('guide-annotations-resize')).display === 'none'",
               "The bottom sheet showed a resize handle.")
         screenshot(reader, "narrow-2-review", NARROW, "document.getElementById('detail').scrollIntoView(); true")
@@ -573,7 +584,7 @@ def main():
             evaluate(visitor, "document.querySelector('[data-guide-filter=mine]').click(); true")
             check(visitor, "T('Local panel comment') !== undefined", "Mine did not match the local commenter's name.")
             screenshot(visitor, "wide-9-local-comments")
-        print("Annotations panel (tabs, lenses, ?lens=, memory, resizing, comment modes, Esc, bottom sheet, filters, author and reader views, local mode) and guide comments (refresh-safe drafts, blocked-request drafts, review flags, rows) check passed.")
+        print("Front section (banner, summary, What changed, scope cards, rail) and annotations panel (tabs, lenses, ?lens=, memory, resizing, comment modes, Esc, bottom sheet, filters, author and reader views, local mode) and guide comments (refresh-safe drafts, blocked-request drafts, review flags, rows) check passed.")
     finally:
         for process in processes: process.terminate()
         for process in processes:

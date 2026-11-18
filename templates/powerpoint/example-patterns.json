@@ -8,7 +8,7 @@
       "subtitle": "Presenter name · Date",
       "content": [],
       "speaker_notes": "Opening remarks.",
-      "sources": ["content/00-summary.md"]
+      "sources": ["content/00-executive-summary.md"]
     },
     {
       "pattern": "agenda",
@@ -20,14 +20,14 @@
         {"heading": "What a pilot would look like", "detail": "Scope, steps, and timing"}
       ],
       "speaker_notes": "Walk through the agenda.",
-      "sources": ["content/00-summary.md"]
+      "sources": ["content/00-executive-summary.md"]
     },
     {
       "pattern": "statement",
       "eyebrow": "The point",
       "text": "Write it once, check it once, and publish it everywhere it needs to go.",
       "speaker_notes": "State the whole argument in one sentence before explaining it.",
-      "sources": ["content/00-summary.md"]
+      "sources": ["content/00-executive-summary.md"]
     },
     {
       "pattern": "takeaway",
@@ -113,7 +113,7 @@
         {"lead": "Consistent.", "text": "Styling is applied by the template, not by hand."}
       ],
       "speaker_notes": "Summarize the benefits.",
-      "sources": ["content/00-summary.md"]
+      "sources": ["content/00-executive-summary.md"]
     },
     {
       "pattern": "table",
@@ -158,7 +158,7 @@
       "attribution": "Attribution Name",
       "role": "Role, Organization",
       "speaker_notes": "Use a real, approved quotation.",
-      "sources": ["content/00-summary.md"]
+      "sources": ["content/00-executive-summary.md"]
     },
     {
       "pattern": "timeline",
@@ -171,14 +171,14 @@
         {"when": "Month 6", "text": "Decide on wider adoption"}
       ],
       "speaker_notes": "Propose a concrete, bounded pilot.",
-      "sources": ["content/00-summary.md"]
+      "sources": ["content/00-executive-summary.md"]
     },
     {
       "pattern": "closing",
       "title": "Questions and discussion",
       "subtitle": "Presenter name · name@example.org",
       "speaker_notes": "Invite questions.",
-      "sources": ["content/00-summary.md"]
+      "sources": ["content/00-executive-summary.md"]
     }
   ]
 }

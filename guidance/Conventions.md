@@ -85,7 +85,9 @@ places link to it.
 
 - Do not restate a table in prose, or prose in a table.
 - Do not add summaries or recaps of material stated elsewhere in the source,
-  such as an "open points" list that repeats the open-questions table.
+  such as an "open points" list that repeats the open-questions table. The one
+  exception is a Topic Reference's Executive Summary, which may repeat the
+  chapters for a reader who reads nothing else.
 - Give a decision or open question one entry with an ID, and refer to that ID
   from the text it affects.
 - When two passages say the same thing, choose the one home that fits best and

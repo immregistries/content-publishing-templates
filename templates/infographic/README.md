@@ -39,7 +39,7 @@ and keep the file name. An idea in `content/infographic.yml` names an icon by
 its file name without `.svg`; the content check rejects names not here.
 
 Available icons: archive, book-open, building-2, calendar, circle-check,
-circle-help, clipboard-check, compass, database, file-text, flag, git-branch,
+circle-help, circle-x, clipboard-check, compass, database, file-text, flag, git-branch,
 globe, graduation-cap, handshake, layers, layout-grid, lightbulb, link,
 list-checks, map, megaphone, message-square-text, messages-square, network,
 package, pen-line, presentation, puzzle, recycle, repeat, rocket, scale,

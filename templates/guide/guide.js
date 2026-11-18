@@ -107,8 +107,39 @@
     markFlaggedNav();
   }
 
+  // The front section (Executive Summary, What changed, Scope) has no
+  // section-bar entry; while the reader is in it, the rail lists its parts.
+  var front = data.front || [];
+
+  function isFront(section) {
+    return !!section && front.some(function (part) {
+      return part.id === section.id;
+    });
+  }
+
+  function renderFront(section) {
+    railTitle.textContent = "Overview";
+    front.forEach(function (part) {
+      var item = document.createElement("li");
+      var link = document.createElement("a");
+      link.className = "guide-subnav-front";
+      link.href = "#" + part.id;
+      link.textContent = part.label;
+      if (part.id === section.id) {
+        link.setAttribute("aria-current", "page");
+      }
+      item.appendChild(link);
+      subnav.appendChild(item);
+    });
+    markFlaggedNav();
+  }
+
   function renderSubnav(section) {
     subnav.textContent = "";
+    if (isFront(section)) {
+      renderFront(section);
+      return;
+    }
     if (isAppendix(section)) {
       renderAppendices(section);
       return;
@@ -189,7 +220,7 @@
     if (sub !== currentSubsection) {
       currentSubsection = sub;
       Array.prototype.forEach.call(
-        subnav.querySelectorAll("a:not(.guide-subnav-appendix)"),
+        subnav.querySelectorAll("a:not(.guide-subnav-appendix):not(.guide-subnav-front)"),
         function (link) {
           if (sub && link.getAttribute("href") === "#" + sub.id) {
             link.setAttribute("aria-current", "true");

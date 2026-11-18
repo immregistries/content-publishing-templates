@@ -79,6 +79,11 @@ private Standing Topic Reference kept in a shared folder has no tags either;
 its products record its hand-set version label as `core_release`, with
 `core_built` and `core_location`.
 
+Before a Topic Reference release, refresh its Executive Summary
+(`content/00-executive-summary.md`) and mark what changed with change markers;
+see [Executive Summary and Scope](TopicReference.md#executive-summary-and-scope)
+and [Change markers](TopicReference.md#change-markers).
+
 The release record should identify:
 
 - the canonical-source revision;

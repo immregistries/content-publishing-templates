@@ -1530,3 +1530,158 @@ body.guide-rail-below .guide-rail {
 .guide-annotations .guide-comment__tools button {
   white-space: nowrap;
 }
+
+/* Front section: the status banner, Executive Summary, What changed, the
+   primary infographic, and the Scope, above Chapter 1 and out of the section
+   bar. */
+.guide-title-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.guide-title-link:hover {
+  text-decoration: underline;
+}
+
+.guide-content .guide-status-banner {
+  position: relative;
+  margin: 0 0 var(--aira-space-6);
+  padding: var(--aira-space-3) var(--aira-space-4);
+  border: 1px solid var(--aira-border);
+  border-left: 5px solid var(--aira-navy);
+  border-radius: var(--aira-radius-panel);
+  background: var(--aira-surface-muted);
+  font-size: 0.95rem;
+}
+
+.guide-content .guide-status-banner > :last-child {
+  margin-bottom: 0;
+}
+
+.guide-content .guide-what-changed__list {
+  display: grid;
+  gap: var(--aira-space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.guide-content .guide-what-changed__item {
+  margin: 0;
+  padding: var(--aira-space-2) var(--aira-space-3);
+  border-left: 3px solid var(--guide-change);
+  background: var(--guide-change-surface);
+}
+
+.guide-content .guide-what-changed__item:has(.guide-what-changed__level--feedback) {
+  border-left: 5px solid var(--guide-flag);
+  background: var(--guide-flag-surface);
+}
+
+.guide-what-changed__level {
+  display: inline-block;
+  margin-right: var(--aira-space-1);
+  padding: 0 0.5rem;
+  border: 1px solid var(--guide-change);
+  border-radius: 999px;
+  color: var(--guide-change);
+  font-size: 0.75rem;
+  font-weight: 700;
+  vertical-align: 0.1em;
+}
+
+.guide-what-changed__level--feedback {
+  border-color: var(--guide-flag);
+  background: var(--guide-flag);
+  color: #fff;
+}
+
+/* Scope: In scope and Out of scope side by side, Not yet decided beneath. */
+.guide-content section#scope {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--aira-space-4);
+  align-items: start;
+}
+
+.guide-content section#scope > :not(.guide-scope-card) {
+  grid-column: 1 / -1;
+}
+
+.guide-content .guide-scope-card {
+  margin: 0 0 var(--aira-space-4);
+  padding: var(--aira-space-3) var(--aira-space-4);
+  border: 1px solid var(--aira-border);
+  border-top: 4px solid var(--aira-text-muted);
+  border-radius: var(--aira-radius-panel);
+  background: var(--aira-surface);
+}
+
+.guide-content .guide-scope-card--in {
+  border-top-color: var(--aira-green);
+}
+
+.guide-content .guide-scope-card--out {
+  border-top-color: #b42318;
+}
+
+.guide-content .guide-scope-card--undecided {
+  grid-column: 1 / -1;
+  border-top-color: var(--aira-blue, #2f6f9f);
+}
+
+.guide-content .guide-scope-card h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--aira-space-2);
+  margin-top: 0;
+}
+
+.guide-scope-icon {
+  width: 1.3rem;
+  height: 1.3rem;
+  flex: none;
+}
+
+.guide-scope-card--in .guide-scope-icon {
+  color: var(--aira-green-accessible);
+}
+
+.guide-scope-card--out .guide-scope-icon {
+  color: #b42318;
+}
+
+.guide-scope-card--undecided .guide-scope-icon {
+  color: var(--aira-blue, #2f6f9f);
+}
+
+.guide-content .guide-scope-card ul {
+  margin-bottom: 0;
+}
+
+@media (max-width: 48rem) {
+  .guide-content section#scope {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Panel tabs: a two-digit count stays on the tab's line. */
+.guide-annotations__tabs [role="tab"] {
+  white-space: nowrap;
+  padding-inline: 0.15rem;
+}
+
+.guide-annotations__tabs {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.guide-tab-count {
+  margin-left: 0.1rem;
+  padding: 0 0.3rem;
+}
+
+@media print {
+  .guide-content .guide-what-changed .aira-meta {
+    display: none;
+  }
+}

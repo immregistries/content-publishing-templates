@@ -21,10 +21,24 @@ has no Git either; the page shows the "version" label set in guide.json, such
 as v0.1.0, its build date, and its "location".
 
 When content/infographic.yml exists, the primary infographic is drawn from it
-and placed above the first section, each part linking
-to the section it summarizes. It is drawn here rather than copied from
+and placed in the front section, after the Executive Summary and What changed
+and before the Scope (above the first section when there is no Executive
+Summary), each part linking to the section it summarizes. It is drawn here rather than copied from
 output/, so the guide builds without a browser; build_infographic.py draws the
 same figure for the PNG, PDF, and Word document.
+
+A Topic Reference's front section, content/00-executive-summary.md and
+content/00-scope.md (see front_section.py), opens the guide: the status
+notice as a banner, the Executive Summary, "What changed" in this version,
+the infographic, and the Scope's lists as cards. None of it is in the section
+bar or counted as a chapter. A summary over 650 words, a malformed Scope, or
+the retired content/00-status-and-scope.md fails the build.
+
+Change markers (<!-- changed v0.5.0: ... -->, see change_markers.py) are
+resolved to the review area and block they cover and written into the page
+as the guide-change-markers element, for guide.js to draw; markers older than
+the current version are left out. A marker that cannot be placed fails the
+build.
 
 Each guide carries a build manifest in its <head>, a JSON script element with
 the ID "guide-build-manifest": the shared templates' version and release
@@ -62,6 +76,8 @@ from build_core_markdown import (  # noqa: E402
     plain_mermaid_fences,
     row_anchor_name,
 )
+import change_markers  # noqa: E402
+import front_section  # noqa: E402
 import infographic  # noqa: E402
 import process_release  # noqa: E402
 
@@ -186,7 +202,7 @@ def arguments() -> argparse.Namespace:
     parser.add_argument(
         "--infographic",
         default=infographic.SPEC_PATH,
-        help="Primary infographic specification, drawn above the first section when it exists.",
+        help="Primary infographic specification, drawn in the front section when it exists.",
     )
     return parser.parse_args()
 
@@ -318,15 +334,67 @@ IMAGE_TYPES = {
 }
 
 
+CHANGE_SLOT_CLASS = "guide-change-slot"
+CHANGE_SLOT_PATTERN = re.compile(
+    r'<div class="' + CHANGE_SLOT_CLASS + r'" data-change="(\d+)"(?: data-anchor="([^"]*)")?>\s*</div>\n?'
+)
+ROW_DIRECTIVE_THEN_SLOTS = re.compile(
+    r'(<div class="' + ROW_ANCHORS_MARKER + r'"></div>\s*)'
+    r'((?:<div class="' + CHANGE_SLOT_CLASS + r'" data-change="\d+"></div>\s*)+)'
+)
+
+
+def replace_change_markers(text: str, relative: str, markers: list) -> str:
+    """Put a placeholder where each change marker is, to find what it covers.
+
+    The marker is checked here; the placeholder is resolved to its review area
+    and block in the built HTML (resolve_change_markers) and then removed.
+    Raises RuntimeError for a marker that cannot be placed.
+    """
+    found, problems = change_markers.parse(text)
+    if problems:
+        raise RuntimeError(
+            "Change markers cannot be placed:\n  "
+            + "\n  ".join(f"{relative}:{line}: {problem}" for line, problem in problems)
+        )
+    if not found:
+        return text
+    by_start = {marker.line - 1: marker for marker in found}
+    lines = text.splitlines(keepends=True)
+    output: list[str] = []
+    index = 0
+    while index < len(lines):
+        marker = by_start.get(index)
+        if marker is None:
+            output.append(lines[index])
+            index += 1
+            continue
+        marker.source = relative
+        output.append(f'\n<div class="{CHANGE_SLOT_CLASS}" data-change="{len(markers)}"></div>\n\n')
+        markers.append(marker)
+        index = marker.end_line
+    return "".join(output)
+
+
 def prepared_markdown(
-    root: Path, paths: list[Path], repository: str | None, ref: str
+    root: Path, paths: list[Path], repository: str | None, ref: str,
+    markers: list | None = None,
 ) -> str:
-    """Give each included file a stable section ID and make its links work."""
+    """Give each included file a stable section ID and make its links work.
+
+    Each change marker becomes a placeholder and is added to markers.
+    """
     anchors = {path.resolve(): section_id(path) for path in paths}
+    markers = [] if markers is None else markers
     parts = []
     for path in paths:
         text = path.read_text(encoding="utf-8").strip()
+        relative = Path(os.path.relpath(path, root)).as_posix()
+        text = replace_change_markers(text, relative, markers)
         text = plain_mermaid_fences(replace_anchors(text))
+        # A marker on a row-anchored table follows the row-anchors line; put
+        # its placeholder first so the line still comes just before the table.
+        text = ROW_DIRECTIVE_THEN_SLOTS.sub(r"\2\1", text)
         text = HEADING_PATTERN.sub(
             lambda match: f"# {match.group(1)} {{#{anchors[path.resolve()]}}}",
             text,
@@ -385,7 +453,7 @@ def body_html(markdown: str) -> str:
     body = MERMAID_BLOCK_PATTERN.sub(
         r'<div class="guide-diagram"><pre class="mermaid">\1</pre></div>', body
     )
-    return annotate_commentable_blocks(apply_row_anchors(body))
+    return annotate_commentable_blocks(front_layout(apply_row_anchors(body)))
 
 
 def apply_row_anchors(body: str) -> str:
@@ -466,6 +534,11 @@ def annotate_commentable_blocks(body: str) -> str:
                 area_before_rows = None
             continue
 
+        if CHANGE_SLOT_CLASS in classes:
+            # A change marker's placeholder records the area it is in.
+            output.append(token[:-1] + f' data-anchor="{html.escape(area, quote=True)}">')
+            continue
+
         identifier = ID_PATTERN.search(token)
         if tag == "section" and identifier:
             area = html.unescape(identifier.group(1))
@@ -503,15 +576,230 @@ def annotate_commentable_blocks(body: str) -> str:
     return "".join(output)
 
 
+SECTION_OPEN_PATTERN = re.compile(r'<section id="([^"]+)" class="(level\d)[^"]*"[^>]*>\s*<h\d[^>]*>(.*?)</h\d>', re.DOTALL)
+BLOCK_ATTRIBUTES_PATTERN = re.compile(r'data-anchor="([^"]*)" data-block-index="(\d+)"')
+
+
+def resolve_change_markers(body: str, markers: list) -> tuple[str, list[dict]]:
+    """Find what each change marker covers in the built HTML, and remove the placeholders.
+
+    Returns the body and one entry per covered area, in document order:
+    {"anchor", "blockIndex"?, "version", "level", "note", "section", "marker"}.
+    A marker before a heading covers that section; before a row-anchored
+    table, the rows it names; before a commentable block, that block; before
+    anything else (a code block or an image), the review area it is in.
+    """
+    entries: list[dict] = []
+    tokens = list(re.finditer(r"<[^>]+>|[^<]+", body))
+    stack: list[tuple[str, str]] = []  # open sections: (id, heading text)
+    headings = {match.start(): (match.group(1), html.unescape(TAG_PATTERN.sub("", match.group(3))).strip())
+                for match in SECTION_OPEN_PATTERN.finditer(body)}
+    for position, token_match in enumerate(tokens):
+        token = token_match.group(0)
+        if token.startswith("<section"):
+            stack.append(headings.get(token_match.start(), ("", "")))
+            continue
+        if token.startswith("</section"):
+            if stack:
+                stack.pop()
+            continue
+        slot = CHANGE_SLOT_PATTERN.match(token + "</div>") if CHANGE_SLOT_CLASS in token and token.startswith("<div") else None
+        if not slot:
+            continue
+        marker = markers[int(slot.group(1))]
+        area = html.unescape(slot.group(2) or DOCUMENT_START_ANCHOR)
+        where = f"{getattr(marker, 'source', 'content')}:{marker.line}"
+        # The next element that is not a closing tag, a placeholder, or an anchor.
+        following = None
+        for later in tokens[position + 1:]:
+            text = later.group(0)
+            if not text.startswith("<") or text.startswith("</") or text.startswith("<!--"):
+                continue
+            if CHANGE_SLOT_CLASS in text or 'class="guide-anchor"' in text:
+                continue
+            following = later
+            break
+        if following is None:
+            raise RuntimeError(f"{where}: the change marker is followed by nothing it can cover.")
+        tag = following.group(0)
+        base = {"version": marker.version, "level": marker.level, "note": marker.note, "marker": marker}
+        section_match = re.match(r'<section id="([^"]+)"', tag)
+        if section_match:
+            if marker.covers != "heading":
+                raise RuntimeError(f"{where}: the change marker covers a block, but a heading follows it.")
+            anchor = html.unescape(section_match.group(1))
+            title = headings.get(following.start(), (anchor, anchor))[1]
+            entries.append(dict(base, anchor=anchor, section=title))
+            continue
+        section = stack[-1][1] if stack else ""
+        if marker.covers == "row-table":
+            if "guide-row-table" not in tag:
+                raise RuntimeError(f"{where}: rows= needs the row-anchored table to follow the marker.")
+            end = body.find("</table>", following.start())
+            table = body[following.start():end]
+            for name, label in zip(marker.rows, marker.row_labels):
+                if f'<tr id="{name}"' not in table:
+                    raise RuntimeError(f"{where}: rows= names {label}, not a row of the table that follows.")
+                entries.append(dict(base, anchor=name, section=section))
+            continue
+        block = BLOCK_ATTRIBUTES_PATTERN.search(tag)
+        if block:
+            entries.append(dict(base, anchor=html.unescape(block.group(1)),
+                                blockIndex=int(block.group(2)), section=section))
+        else:
+            entries.append(dict(base, anchor=area, section=section))
+    return CHANGE_SLOT_PATTERN.sub("", body), entries
+
+
+def change_marker_script(entries: list[dict]) -> str:
+    """The guide-change-markers element guide.js draws (README, "Change markers")."""
+    if not entries:
+        return ""
+    data = [
+        {key: entry[key] for key in ("anchor", "blockIndex", "version", "level", "note") if key in entry}
+        for entry in entries
+    ]
+    text = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+    return f'<script type="application/json" id="guide-change-markers">{text}</script>\n'
+
+
+WHAT_CHANGED_ID = "guide-what-changed"
+
+
+def what_changed_html(entries: list[dict]) -> str:
+    """The front section's "What changed" list: feedback wanted first, each linking to its spot."""
+    if not entries:
+        return ""
+    versions = sorted({entry["version"] for entry in entries}, key=change_markers.version_key)
+    title = f"What changed in {versions[0]}" if len(versions) == 1 else "What changed"
+    ordered = ([entry for entry in entries if entry["level"] == "feedback"]
+               + [entry for entry in entries if entry["level"] != "feedback"])
+    items = []
+    for entry in ordered:
+        feedback = entry["level"] == "feedback"
+        level = ('<span class="guide-what-changed__level guide-what-changed__level--feedback">Feedback wanted</span>'
+                 if feedback else '<span class="guide-what-changed__level">Changed</span>')
+        where = html.escape(entry["section"] or entry["anchor"])
+        items.append(
+            f'<li class="guide-what-changed__item">{level} '
+            f'<a href="#{html.escape(entry["anchor"], quote=True)}">{where}</a>: '
+            f'{html.escape(entry["note"])}</li>'
+        )
+    return (
+        f'<section id="{WHAT_CHANGED_ID}" class="level2 guide-front guide-what-changed">\n'
+        f"<h2>{html.escape(title)}</h2>\n"
+        '<p class="aira-meta">These changes are also marked in the text. '
+        '<a href="?lens=changes">Show them in the text</a>.</p>\n'
+        f'<ul class="guide-what-changed__list">\n' + "\n".join(items) + "\n</ul>\n</section>\n"
+    )
+
+
+def section_bounds(body: str, identifier: str) -> tuple[int, int] | None:
+    """Where the section with this ID starts and ends in the body, by balanced tags."""
+    start = body.find(f'<section id="{identifier}"')
+    if start < 0:
+        return None
+    depth = 0
+    for match in re.finditer(r"<section\b|</section>", body[start:]):
+        depth += 1 if match.group(0) == "<section" else -1
+        if depth == 0:
+            return start, start + match.end()
+    return start, len(body)
+
+
+def balanced_div(body: str, start: int) -> int:
+    """The end of the div that opens at start."""
+    depth = 0
+    for match in re.finditer(r"<div\b|</div>", body[start:]):
+        depth += 1 if match.group(0) == "<div" else -1
+        if depth == 0:
+            return start + match.end()
+    return len(body)
+
+
+SCOPE_CARDS = {
+    "in scope": ("in", "circle-check"),
+    "out of scope": ("out", "circle-x"),
+    "not yet decided": ("undecided", "circle-help"),
+}
+ICON_DIR = Path(__file__).resolve().parent.parent / "templates" / "infographic" / "icons"
+
+
+def scope_icon(name: str) -> str:
+    svg = (ICON_DIR / f"{name}.svg").read_text(encoding="utf-8").strip()
+    return svg.replace("<svg ", '<svg class="guide-scope-icon" aria-hidden="true" focusable="false" ', 1)
+
+
+def front_layout(body: str) -> str:
+    """Lay out the front section: the status banner above the Executive Summary,
+    and the Scope's lists as cards. Both sections are marked as front matter."""
+    for identifier in front_section.FRONT_IDS:
+        body = re.sub(
+            rf'<section id="{identifier}" class="(level2[^"]*)"',
+            rf'<section id="{identifier}" class="\1 guide-front"',
+            body, count=1,
+        )
+    summary = section_bounds(body, front_section.SUMMARY_ID)
+    if summary:
+        notice = body.find('<div class="status-notice">', summary[0], summary[1])
+        if notice >= 0:
+            end = balanced_div(body, notice)
+            banner = body[notice:end].replace(
+                '<div class="status-notice">', '<div class="status-notice guide-status-banner" role="note">', 1)
+            body = body[:notice] + body[end:]
+            body = body[:summary[0]] + banner + "\n" + body[summary[0]:]
+    scope = section_bounds(body, front_section.SCOPE_ID)
+    if scope:
+        part = body[scope[0]:scope[1]]
+
+        def card(match: re.Match[str]) -> str:
+            name = html.unescape(TAG_PATTERN.sub("", match.group(4))).strip().lower()
+            if name not in SCOPE_CARDS:
+                return match.group(0)
+            kind, icon = SCOPE_CARDS[name]
+            return (f'<section id="{match.group(1)}" class="{match.group(2)} guide-scope-card '
+                    f'guide-scope-card--{kind}"{match.group(3)}>'
+                    f"<h3>{scope_icon(icon)}{match.group(4)}</h3>")
+
+        part = re.sub(
+            r'<section id="([^"]+)" class="(level3[^"]*)"([^>]*)>\s*<h3[^>]*>(.*?)</h3>',
+            card, part, flags=re.DOTALL)
+        body = body[:scope[0]] + part + body[scope[1]:]
+    return body
+
+
+def place_front(body: str, what_changed: str, figure: str) -> str:
+    """Put the What changed list and the infographic after the Executive Summary,
+    or at the top when there is none."""
+    addition = what_changed + figure
+    if not addition:
+        return body
+    summary = section_bounds(body, front_section.SUMMARY_ID)
+    position = summary[1] if summary else 0
+    return body[:position] + "\n" + addition + body[position:]
+
+
+def front_list(body: str) -> list[dict]:
+    """The front sections the right rail lists while the reader is in one."""
+    labels = {front_section.SUMMARY_ID: "Executive Summary", WHAT_CHANGED_ID: "What changed",
+              front_section.SCOPE_ID: "Scope"}
+    found = [(body.find(f'<section id="{identifier}"'), identifier) for identifier in labels]
+    return [{"id": identifier, "label": labels[identifier]} for position, identifier in sorted(found) if position >= 0]
+
+
 def guide_sections(body: str, labels: dict[str, str]) -> list[dict]:
     """The top-level sections in reading order, with their header label.
 
     An appendix is a top-level section whose heading begins "Appendix". The
     skeleton writes them that way, such as "Appendix: Working Decisions and
-    Open Questions".
+    Open Questions". The front section is not listed: it has no section-bar
+    entry and is not counted as a chapter.
     """
     sections = []
     for identifier, heading in SECTION_PATTERN.findall(body):
+        # The front section (Executive Summary, What changed, Scope) is not a chapter.
+        if identifier in front_section.FRONT_IDS or identifier == WHAT_CHANGED_ID:
+            continue
         text = html.unescape(TAG_PATTERN.sub("", heading)).strip()
         sections.append({
             "id": identifier,
@@ -709,6 +997,8 @@ def check_warnings(report) -> list[dict]:
         ))
     for message in report.infographic_warnings:
         warnings.append(coded_warning("INFOGRAPHIC_WARNING", message, infographic.SPEC_PATH))
+    for warning in getattr(report, "coded_warnings", []):
+        warnings.append(coded_warning(warning["code"], warning["message"], warning.get("file")))
     return warnings
 
 
@@ -720,8 +1010,14 @@ def build_manifest(
     sections: list[dict],
     has_infographic: bool,
     assembly: str | None = None,
+    front: front_section.FrontReport | None = None,
+    markers: list[dict] | None = None,
 ) -> dict:
-    """The guide's build manifest, schema 1. See the module docstring."""
+    """The guide's build manifest, schema 1. See the module docstring.
+
+    markers are the change markers shown in this build (resolve_change_markers);
+    a marker on several table rows counts once.
+    """
     import check_content  # noqa: PLC0415 - check_content imports this module
 
     kept_in = kept_in_config(config)
@@ -746,7 +1042,7 @@ def build_manifest(
     if pandoc:
         build["pandoc"] = pandoc
 
-    report = check_content.run_checks(root)
+    report = check_content.run_checks(root, version=version)
     checks: dict = {"confirmOpen": len(report.confirms)}
     if report.open_ideas is not None:
         checks["openIdeas"] = report.open_ideas
@@ -765,14 +1061,29 @@ def build_manifest(
         "processReleases": process_release.read_registry(),
         "document": document,
         "build": build,
-        "structure": {
-            "chapters": sum(1 for section in sections if not section["appendix"]),
-            "appendices": sum(1 for section in sections if section["appendix"]),
-            "hasInfographic": has_infographic,
-        },
+        "structure": structure(sections, has_infographic, front or report.front, markers or []),
         "checks": checks,
     })
     return manifest
+
+
+def structure(sections: list[dict], has_infographic: bool,
+              front: front_section.FrontReport | None, markers: list[dict]) -> dict:
+    """The manifest's structure: chapters, the front section, and change markers."""
+    result = {
+        "chapters": sum(1 for section in sections if not section["appendix"]),
+        "appendices": sum(1 for section in sections if section["appendix"]),
+        "hasInfographic": has_infographic,
+    }
+    if front is not None:
+        result["hasExecutiveSummary"] = front.has_summary
+        if front.summary_words is not None:
+            result["executiveSummaryWords"] = front.summary_words
+        result["hasScope"] = front.has_scope
+    distinct = {id(entry["marker"]): entry["marker"] for entry in markers}.values()
+    result["changeMarkers"] = len(distinct)
+    result["feedbackMarkers"] = sum(1 for marker in distinct if marker.feedback)
+    return result
 
 
 def manifest_script(manifest: dict) -> str:
@@ -793,6 +1104,8 @@ def page(
     figure: str = "",
     appendices: list[dict] | None = None,
     manifest: dict | None = None,
+    front: list[dict] | None = None,
+    change_markers_script: str = "",
 ) -> str:
     status = config.get("status", "Draft")
     status_class = STATUS_TAGS.get(status.lower(), "aira-tag--info")
@@ -808,6 +1121,8 @@ def page(
     }
     if appendices:
         guide_data["appendices"] = appendices
+    if front:
+        guide_data["front"] = front
     hosting_config(config)
     normalized_comments = comments_config(config)
     if normalized_comments is not None:
@@ -936,7 +1251,7 @@ def page(
         <div class="aira-topic-header__top">
           <div>
             {document_type_html}
-            <h1 class="aira-topic-title">{html.escape(title)}</h1>
+            <h1 class="aira-topic-title"><a class="guide-title-link" href="#{DOCUMENT_START_ANCHOR}">{html.escape(title)}</a></h1>
             {subtitle_html}
           </div>
           <div class="aira-topic-actions guide-status">
@@ -969,7 +1284,7 @@ def page(
     <p>{html.escape(title)} &middot; {html.escape(version_label[0].lower() + version_label[1:])} &middot; generated {guide_data["built"]}{" &middot; " + html.escape(license_note) if license_note else ""}</p>
   </footer>
 </div>
-<script type="application/json" id="guide-data">{json.dumps(guide_data)}</script>
+{change_markers_script}<script type="application/json" id="guide-data">{json.dumps(guide_data)}</script>
 {diagram_scripts(body)}<script>
 {(TEMPLATE_DIR / "guide.js").read_text(encoding="utf-8")}
 </script>
@@ -1015,8 +1330,19 @@ def main() -> int:
         version = git_version(root)
     ref = args.ref or (version if re.match(r"^v\d", version) else "main")
     paths = include_paths(root, assembly)
-    markdown = prepared_markdown(root, paths, config.get("repository"), ref)
+    front = front_section.check(root, config.get("documentType") == "Topic Reference")
+    if front.errors:
+        raise RuntimeError(
+            "The front section has problems:" + "".join("\n  " + finding.text() for finding in front.errors)
+        )
+    for finding in front.warnings:
+        print(f"Warning: {finding.text()}")
+    markers: list = []
+    markdown = prepared_markdown(root, paths, config.get("repository"), ref, markers)
     body = body_html(markdown)
+    body, entries = resolve_change_markers(body, markers)
+    current = change_markers.current_version(root, version, config)
+    shown = [entry for entry in entries if change_markers.is_shown(entry["marker"], current)]
     sections = guide_sections(body, config.get("navLabels", {}))
     nav = section_nav(sections)
     assembly_name: str | None = Path(os.path.relpath(assembly, root)).as_posix()
@@ -1028,8 +1354,11 @@ def main() -> int:
     output = root / args.output
     output.parent.mkdir(parents=True, exist_ok=True)
     figure = infographic_figure(root, args.infographic, config, args.version)
-    manifest = build_manifest(root, config, title, version, sections, bool(figure), assembly_name)
-    document = page(title, subtitle, config, version, nav, body, figure, appendix_list(sections), manifest)
+    body = place_front(body, what_changed_html(shown), figure)
+    manifest = build_manifest(root, config, title, version, sections, bool(figure), assembly_name,
+                              front, shown)
+    document = page(title, subtitle, config, version, nav, body, "", appendix_list(sections), manifest,
+                    front_list(body), change_marker_script(shown))
     duplicates = duplicate_ids(document)
     if duplicates:
         names = ", ".join(repr(name) for name in duplicates)

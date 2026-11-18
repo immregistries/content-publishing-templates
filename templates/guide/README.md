@@ -14,6 +14,11 @@ project's core document, styled to match InteropHub:
   follow the reader's scroll, and links to the topic and source;
 - an [annotations panel](#annotations-panel) on the left, closed by default,
   with Comments, Review, and Changes tabs;
+- for a Topic Reference, a front section above Chapter 1: the status notice
+  as a banner, the Executive Summary, "What changed" in this version (from the
+  [change markers](#change-markers)), the primary infographic, and the Scope
+  as cards. It has no section-bar entry; while the reader is in it, the right
+  rail lists its parts, and the title links back to the top;
 - comments that readers add beside any paragraph, list item, quote, table, or
   diagram;
 - [Mermaid diagrams](../../guidance/Conventions.md#diagrams), drawn in the page;
@@ -148,8 +153,10 @@ A marker whose anchor is not in the page is listed under "Not placed" in the
 panel and is not drawn in the text; the build should treat it as an error.
 Malformed entries are skipped with a console warning.
 
-Until the build parses markers from the source, `tests/sample_change_markers.py`
-adds sample markers to a built guide so the panel can be tried.
+The markers are written in the source as `<!-- changed v0.5.0[ feedback][
+rows=A,B]: note -->` (see `tools/change_markers.py` and the Topic Reference
+guidance). `build_guide.py` resolves each to its area and block from where it
+sits, keeps those for the current version, and fails on one it cannot place.
 
 ## Comments
 

@@ -4,8 +4,10 @@ Run after quarto render and build_infographic.py, from the project root:
 
     python process/tools/insert_word_infographic.py output/Project.docx
 
-The PNG (output/infographic.png by default) goes before the first Heading 1,
-after the title and table of contents, at the full text width, with the
+The PNG (output/infographic.png by default) goes before the Scope heading, so
+it follows the Executive Summary and What changed, as in the web guide. A
+document without a Scope gets it before its first Heading 1, after the title
+and table of contents. It is placed at the full text width, with the
 specification's alt text and a short caption. The document's own text is the
 figure's long description. Running it again replaces the figure.
 """
@@ -47,6 +49,20 @@ FIGURE_PATTERN = re.compile(
     r'<w:bookmarkEnd w:id="\d+"/></w:p>', re.DOTALL
 )
 HEADING_PATTERN = re.compile(r'<w:p\b[^>]*>(?:(?!</w:p>).)*?<w:pStyle w:val="Heading1"\s*/>', re.DOTALL)
+
+
+SCOPE_BOOKMARK = 'w:name="scope"'
+
+
+def scope_heading(document: str, heading: re.Match[str]) -> bool:
+    """Whether a Heading 1 paragraph is the Scope's.
+
+    Pandoc bookmarks a heading with its section ID, inside the paragraph or,
+    as Quarto writes it, just before it.
+    """
+    end = document.find("</w:p>", heading.start())
+    previous = document.rfind("</w:p>", 0, heading.start())
+    return SCOPE_BOOKMARK in document[max(previous, 0):end]
 
 
 def arguments() -> argparse.Namespace:
@@ -121,17 +137,26 @@ def main() -> int:
         if additions:
             document = document.replace(root_tag, root_tag[:-1] + additions + ">", 1)
         document = FIGURE_PATTERN.sub("", document)
-        heading = HEADING_PATTERN.search(document)
+        headings = list(HEADING_PATTERN.finditer(document))
+        heading = next((match for match in headings if scope_heading(document, match)), None)
+        heading = heading or (headings[0] if headings else None)
         if not heading:
             print(f"{path} has no Heading 1 to place the infographic before.")
             return 1
+        position = heading.start()
+        # Keep the figure out of the Scope's bookmark, so links to it land on the heading.
+        previous = document.rfind("</w:p>", 0, position)
+        bookmark = re.compile(r'<w:bookmarkStart w:id="\d+" ' + SCOPE_BOOKMARK + r"\s*/>")
+        found = bookmark.search(document, max(previous, 0), position)
+        if found:
+            position = found.start()
         width = text_width_emu(document)
         height = round(width * pixel_height / pixel_width)
         used = [int(value) for value in re.findall(r'<wp:docPr id="(\d+)"', document)]
         used_bookmarks = [int(value) for value in re.findall(r'<w:bookmarkStart w:id="(\d+)"', document)]
         ids = (max(used_bookmarks, default=0) + 1, max(used, default=0) + 1)
-        document = (document[:heading.start()] + figure_xml(alt, title, width, height, ids)
-                    + document[heading.start():])
+        document = (document[:position] + figure_xml(alt, title, width, height, ids)
+                    + document[position:])
         if RELATIONSHIP_ID not in rels:
             rels = rels.replace(
                 "</Relationships>",

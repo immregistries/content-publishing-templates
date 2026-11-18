@@ -182,11 +182,12 @@ whose bounded purpose is one topic:
 
 ## What every Topic Reference contains
 
-- **Status and scope** (`content/00-status-and-scope.md`): a short summary,
-  purpose, and what the project covers and does not cover.
+- **An Executive Summary** (`content/00-executive-summary.md`) and **a Scope**
+  (`content/00-scope.md`): the front section, above Chapter 1. See
+  [Executive Summary and Scope](#executive-summary-and-scope).
 - **Related work** (`content/01-related-work.md`): related InteropHub topics and
   other efforts, linked rather than repeated. When it is short, make it a
-  section of Status and Scope instead of its own chapter.
+  section of another chapter instead of its own.
 - **Topic sections** in reading order: definitions, principles, diagrams,
   examples, and whatever else the topic needs.
 - **Working decisions and open questions** (`content/90-working-decisions.md`):
@@ -211,12 +212,113 @@ counting appendices. See
 [Conventions](Conventions.md#state-each-fact-once). Presentations and other
 derived products may repeat and expand.
 
+## Executive Summary and Scope
+
+Every Topic Reference opens with a front section, above Chapter 1. In the web
+guide it reads, in order: the status banner, the Executive Summary, "What
+changed" in this version (when there are [change markers](#change-markers)),
+the primary infographic, and the Scope. None of these has an entry in the
+section bar, and none counts as a chapter. In Word the order is the same, and
+the Scope is a table.
+
+**Executive Summary** (`content/00-executive-summary.md`, section ID
+`executive-summary`):
+
+```markdown
+# Executive Summary
+
+::: {.status-notice}
+**Status:** Working draft for community discussion. ...
+:::
+
+The topic for a reader who reads nothing else.
+```
+
+- It is for a reader who reads nothing else: what the topic is, why it
+  matters, what the document establishes, and what is still open. A short
+  list is allowed.
+- It is the one section that may repeat the chapters. Refresh it at every
+  release.
+- It differs from the InteropHub topic overview, which is shorter.
+- About one printed page. The build warns above 550 words and fails above
+  650. It warns below 150, because a summary that short repeats the topic
+  overview. Headings, the status notice, and HTML comments are not counted.
+- The status notice is shown as a banner under the title, and in Word as a
+  shaded paragraph.
+
+**Scope** (`content/00-scope.md`, section ID `scope`):
+
+```markdown
+# Scope
+
+One sentence of purpose.
+
+## In scope
+
+- ...
+
+## Out of scope
+
+- Consent rules, covered by [Consent](https://example.org/topic/12).
+- Billing (not covered by any current topic).
+
+## Not yet decided
+
+- Whether ..., see [OQ-4](90-working-decisions.md#oq-4).
+```
+
+- **In scope** and **Out of scope** are required and each needs at least one
+  item. **Not yet decided** is optional. No other headings.
+- Each out-of-scope item says where the topic is handled, with a link to the
+  related topic or document, or "(not covered by any current topic)". The
+  check warns otherwise.
+- Each not-yet-decided item links to its open question or working decision
+  when one exists.
+- The guide shows In scope and Out of scope as cards side by side, with Not
+  yet decided beneath.
+
+`content/00-status-and-scope.md`, which these replace, is an error. To move an
+existing project, see the steps in the error message or the changelog.
+
+## Change markers
+
+Mark what changed in this version, so readers can find it:
+
+```markdown
+<!-- changed v0.5.0: Consent now follows the state rule; former rule 3 removed. -->
+<!-- changed v0.5.0 feedback: New exception for school-based clinics. -->
+<!-- changed v0.5.0 rows=OQ-13,OQ-14: Reworded after the October call. -->
+```
+
+- **Before a block** (a paragraph, list, table, figure, or diagram), a marker
+  covers that block. **Before a heading,** it covers the section, down to the
+  next heading at the same or a higher level. **Before a table with row
+  anchors,** it names the rows it covers with `rows=` and sits after the
+  `<!-- row-anchors -->` line.
+- `feedback` asks readers for feedback on the change. A plain marker is for
+  information.
+- The note is required: plain text, at most 300 characters, saying what
+  changed, not only that something did. It may run over several lines.
+- The version is a release label such as `v0.5.0`. Markers for the version
+  being built, or a later one, are shown; older ones are hidden and reported
+  as stale (`STALE_CHANGE_MARKER`). On `main`, the version being built counts
+  as the newest release tag plus one, so markers for the coming release show.
+  A project kept in a shared folder uses `version` in `guide.json`. Delete the
+  old markers when starting the next version.
+- The guide shows a badge and a bar on each marked area (in the annotations
+  panel's Changes tab, and feedback-wanted ones in the Review tab) and lists
+  them all under "What changed in v0.5.0" in the front section, feedback
+  wanted first. Word shows an italic note above each marked block, and the
+  reading copy a quoted one.
+- A malformed marker, a marker with nothing after it, and `rows=` naming a row
+  that does not exist fail the content check and the build.
+
 ## Primary infographic
 
 Every Topic Reference has one infographic that lays out the topic at a glance.
 It is a primary output, like the web guide and the Word document: `build.ps1`
-draws it on every build, the guide shows it above the first section, and the
-Word document shows it before the first chapter. A copy of the image shared on
+draws it on every build, and the guide and the Word document show it in the
+front section, after the Executive Summary and before the Scope. A copy of the image shared on
 its own still says what it is.
 
 ### Anatomy
@@ -380,6 +482,8 @@ or the text of `CONFIRM` notes.
 
 ## Releases and status
 
+- Before each release, refresh the Executive Summary, add change markers for
+  what changed, and delete the markers of the previous version.
 - A release is a Git tag such as `v0.1.0`. In a public project, pushing the tag
   publishes the page at that version, `/v0.1.0/`, and at `/latest/`, and
   pushing to `main` publishes a preview at `/main/`. A private project's

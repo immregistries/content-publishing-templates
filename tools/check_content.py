@@ -17,6 +17,15 @@ A Topic Reference (guide.json "documentType": "Topic Reference") must have a
 primary infographic specification, content/infographic.yml. When one exists,
 its fields, heading references, artwork, and layout fit are checked; starter
 text left in it is reported but does not fail.
+
+A Topic Reference opens with an Executive Summary and a Scope (see
+front_section.py): a missing file, the retired content/00-status-and-scope.md,
+a summary over 650 words, or a malformed Scope fails; a summary over 550 or
+under 150 words, or an out-of-scope item with no link, is a warning.
+
+Change markers (see change_markers.py) that are malformed, follow no block, or
+name rows that do not exist fail. Markers older than the current version are
+reported as stale (STALE_CHANGE_MARKER) but do not fail.
 """
 
 from __future__ import annotations
@@ -36,6 +45,8 @@ from build_core_markdown import (  # noqa: E402
     row_anchors,
 )
 from build_guide import hosting_config  # noqa: E402
+import change_markers  # noqa: E402
+import front_section  # noqa: E402
 
 
 LINK_PATTERN = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+|<[^>]+>)\)|!\[[^\]]*\]\(([^)\s]+|<[^>]+>)\)")
@@ -288,14 +299,23 @@ class ContentReport:
     # None when the project has no ideas register.
     open_ideas: int | None = None
     term_uses: dict[str, dict[str, int]] = field(default_factory=dict)
+    # Warnings with stable codes: {"code", "message", "file"}.
+    coded_warnings: list[dict] = field(default_factory=list)
+    front: front_section.FrontReport | None = None
+    # (file, marker) for every change marker in content/, shown or not.
+    change_markers: list[tuple[str, change_markers.Marker]] = field(default_factory=list)
+    current_version: str | None = None
 
 
 def run_checks(root: Path, include: list[str] | None = None,
-               report_terms: list[str] | None = None) -> ContentReport:
+               report_terms: list[str] | None = None,
+               version: str | None = None) -> ContentReport:
     """Run every content check on the project at root and return the findings.
 
-    The command line prints this report; build_guide.py records it in the
-    guide's build manifest.
+    version is the build's version label, which decides which change markers
+    are current; by default the project's newest release tag plus one. The
+    command line prints this report; build_guide.py records it in the guide's
+    build manifest.
     """
     report = ContentReport()
     terms = {term: re.compile(rf"\b{re.escape(term)}\b") for term in report_terms or []}
@@ -355,6 +375,10 @@ def run_checks(root: Path, include: list[str] | None = None,
             names, problems = row_anchors(text)
             for line_number, problem in problems:
                 failures.append(f"{relative}:{line_number}: {problem}")
+            markers, marker_problems = change_markers.parse(text)
+            for line_number, problem in marker_problems:
+                failures.append(f"{relative}:{line_number}: {problem}")
+            report.change_markers.extend((relative, marker) for marker in markers)
             for name, line_number in names:
                 if name in anchors:
                     first_file, first_line = anchors[name]
@@ -395,6 +419,7 @@ def run_checks(root: Path, include: list[str] | None = None,
     infographic_failures, report.infographic_warnings = infographic_problems(root)
     failures.extend(infographic_failures)
 
+    config: dict = {}
     config_path = root / "guide.json"
     if config_path.is_file():
         try:
@@ -402,6 +427,18 @@ def run_checks(root: Path, include: list[str] | None = None,
             hosting_config(config)
         except (json.JSONDecodeError, RuntimeError) as error:
             failures.append(f"guide.json: {error}")
+
+    report.front = front_section.check(root, config.get("documentType") == "Topic Reference")
+    for finding in report.front.findings:
+        if finding.error:
+            failures.append(finding.text())
+        else:
+            report.coded_warnings.append(
+                {"code": finding.code, "message": finding.message, "file": finding.file})
+
+    report.current_version = change_markers.current_version(root, version, config)
+    report.coded_warnings.extend(
+        change_markers.stale_warnings(report.change_markers, report.current_version))
 
     return report
 
@@ -427,6 +464,10 @@ def main() -> int:
             print(f"Uses of {term} in content/ (review for intent):")
             for relative, count in uses.items():
                 print(f"  {relative}: {count}")
+    if report.coded_warnings:
+        print(f"{len(report.coded_warnings)} warning(s):")
+        for warning in report.coded_warnings:
+            print(f"  [{warning['code']}] {warning['file']}: {warning['message']}")
 
     if failures:
         print(f"{len(failures)} problem(s) found:")

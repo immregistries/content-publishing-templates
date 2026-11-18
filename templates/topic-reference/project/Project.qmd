@@ -5,7 +5,9 @@ date: last-modified
 date-format: "MMMM YYYY"
 ---
 
-{{< include content/00-status-and-scope.md >}}
+{{< include content/00-executive-summary.md >}}
+
+{{< include content/00-scope.md >}}
 
 {{< include content/01-related-work.md >}}
 

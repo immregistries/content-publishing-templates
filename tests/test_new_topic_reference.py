@@ -175,7 +175,7 @@ class GenerateTopicReference(unittest.TestCase):
             "| IDEA-001 | 2026-11-13 | Offer a summary table. | Partner planning notes | "
             "[Related work](01-related-work.md#related-work) | Open |\n"
             "| IDEA-002 | 2026-11-13 | Drop the survey. | Steering call summary | | "
-            "Sorted: [scope](00-status-and-scope.md#status-and-scope) |\n"
+            "Sorted: [scope](00-scope.md#scope) |\n"
             "| IDEA-003 | 2026-11-13 | Add a glossary. | Contractor draft | | Set aside: out of scope |\n"
         ), encoding="utf-8")
         result = check()
@@ -382,7 +382,7 @@ class PrimaryInfographic(unittest.TestCase):
         self.assertEqual(0, guide.returncode, guide.stdout + guide.stderr)
         html = (target / "output" / "guide" / "index.html").read_text(encoding="utf-8")
         self.assertIn('<figure class="guide-infographic" id="guide-infographic">', html)
-        self.assertIn('href="#what-this-project-covers"', html)
+        self.assertIn('href="#in-scope"', html)
 
         if find_browser():
             build = subprocess.run(

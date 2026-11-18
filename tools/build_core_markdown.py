@@ -8,6 +8,12 @@ Run from the content project's root, naming its Quarto assembly file:
 The title and subtitle come from the assembly file's YAML front matter, and the
 sections come from its include directives, in order. Mermaid diagram fences are
 written in the form GitHub draws.
+
+Change markers for the current version are written as quoted notes, such as
+"> **Changed in v0.5.0:** ...", and listed under "What changed in v0.5.0"
+after the Executive Summary; older markers are left out. The current version
+follows change_markers.current_version(): --version when it is a release label,
+otherwise the project's newest release tag plus one.
 """
 
 from __future__ import annotations
@@ -27,6 +33,7 @@ ANCHOR_PATTERN = re.compile(
 )
 ROW_ANCHORS_PATTERN = re.compile(r"^\s*<!-- row-anchors -->\s*$")
 ROW_ANCHORS_LIKE_PATTERN = re.compile(r"^\s*<!--\s*row-anchors?\b", re.IGNORECASE)
+CHANGE_MARKER_START_PATTERN = re.compile(r"^\s*<!--\s*changed\b", re.IGNORECASE)
 ANCHOR_NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 RESERVED_ANCHOR_PREFIXES = ("comment-", "guide-")
 FENCE_PATTERN = re.compile(r"^\s*(`{3,}|~{3,})")
@@ -54,6 +61,11 @@ def arguments() -> argparse.Namespace:
         "--check",
         action="store_true",
         help="Fail if the reading copy does not match the canonical source.",
+    )
+    parser.add_argument(
+        "--version",
+        default=None,
+        help="Version label of the build, which decides the change markers shown.",
     )
     return parser.parse_args()
 
@@ -179,7 +191,13 @@ def row_anchors(text: str) -> tuple[list[tuple[str, int]], list[tuple[int, str]]
             continue
         directive = index + 1
         index += 1
-        while index < len(lines) and not lines[index].strip():
+        # Change markers for the table's rows sit between the line and the table.
+        while index < len(lines) and (
+            not lines[index].strip() or CHANGE_MARKER_START_PATTERN.match(lines[index])
+        ):
+            if CHANGE_MARKER_START_PATTERN.match(lines[index]):
+                while index < len(lines) and "-->" not in lines[index]:
+                    index += 1
             index += 1
         table = []
         while index < len(lines) and lines[index].lstrip().startswith("|"):
@@ -262,12 +280,87 @@ def plain_mermaid_fences(text: str) -> str:
     return "".join(output)
 
 
-def generated_text(root: Path, assembly: Path, output: Path) -> str:
+HEADING_LINE_PATTERN = re.compile(r"^#{1,6}\s+(.+?)\s*$")
+EXPLICIT_HEADING_ID_PATTERN = re.compile(r"\s*\{#[^}]*\}\s*$")
+
+
+def github_slug(heading: str) -> str:
+    """The fragment GitHub gives a heading in a Markdown file."""
+    text = EXPLICIT_HEADING_ID_PATTERN.sub("", heading)
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"[`*_~]", "", text)
+    text = re.sub(r"[^\w\s-]", "", text.lower())
+    return re.sub(r"\s", "-", text.strip())
+
+
+def marker_sections(text: str, markers: list) -> list[tuple[str, object]]:
+    """Each change marker with the heading of the section it covers or is in."""
+    headings = [
+        (index, EXPLICIT_HEADING_ID_PATTERN.sub("", match.group(1)))
+        for index, line in enumerate(text.splitlines())
+        if (match := HEADING_LINE_PATTERN.match(line))
+    ]
+    found = []
+    for marker in markers:
+        if marker.covers == "heading":
+            heading = next((title for index, title in headings if index >= marker.end_line), "")
+        else:
+            heading = next((title for index, title in reversed(headings) if index < marker.line - 1), "")
+        found.append((heading, marker))
+    return found
+
+
+def what_changed(entries: list[tuple[str, object]]) -> str:
+    """The "What changed" list: section, note, and level, feedback wanted first."""
+    if not entries:
+        return ""
+    versions = sorted({marker.version for _, marker in entries})
+    title = f"What changed in {versions[0]}" if len(versions) == 1 else "What changed"
+    ordered = ([entry for entry in entries if entry[1].feedback]
+               + [entry for entry in entries if not entry[1].feedback])
+    lines = [f"# {title}", ""]
+    for heading, marker in ordered:
+        level = " *(feedback wanted)*" if marker.feedback else ""
+        lines.append(f"- [{heading}](#{github_slug(heading)}): {marker.note}{level}")
+    return "\n".join(lines)
+
+
+STATUS_NOTICE_PATTERN = re.compile(
+    r"^:::+\s*\{\.status-notice\}\s*\n(.*?)\n:::+\s*$", re.DOTALL | re.MULTILINE
+)
+
+
+def quoted_status_notice(text: str) -> str:
+    """GitHub does not draw pandoc's fenced divs, so the status notice becomes a quote."""
+    def quote(match: re.Match[str]) -> str:
+        return "\n".join(("> " + line).rstrip() for line in match.group(1).strip().splitlines())
+
+    return STATUS_NOTICE_PATTERN.sub(quote, text)
+
+
+def generated_text(root: Path, assembly: Path, output: Path, version: str | None = None) -> str:
+    import json  # noqa: PLC0415
+    import change_markers  # noqa: PLC0415 - change_markers imports this module
+
+    config_path = root / "guide.json"
+    config = json.loads(config_path.read_text(encoding="utf-8-sig")) if config_path.is_file() else {}
+    current = change_markers.current_version(root, version, config)
     sections = []
+    shown = []
+    after_summary = 0
     for path in include_paths(root, assembly):
         section = path.read_text(encoding="utf-8").strip()
-        section = plain_mermaid_fences(strip_anchors(section))
+        markers, _ = change_markers.parse(section)
+        shown += [entry for entry in marker_sections(section, markers)
+                  if change_markers.is_shown(entry[1], current)]
+        section = change_markers.replace_for_reading_copy(section, current)
+        section = plain_mermaid_fences(strip_anchors(quoted_status_notice(section)))
         sections.append(relocated_links(section, path, output))
+        if re.sub(r"^\d+-", "", path.stem) == "executive-summary":
+            after_summary = len(sections)
+    listing = what_changed(shown)
+    if listing:
+        sections.insert(after_summary, listing)
     return header(assembly) + "\n\n---\n\n".join(sections) + "\n"
 
 
@@ -276,7 +369,7 @@ def main() -> int:
     root = Path(args.root).resolve()
     assembly = root / args.assembly
     output = root / args.output
-    expected = generated_text(root, assembly, output)
+    expected = generated_text(root, assembly, output, args.version)
     command = (
         f"python process/tools/build_core_markdown.py --assembly {args.assembly}"
     )

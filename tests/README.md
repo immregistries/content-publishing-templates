@@ -26,8 +26,8 @@ uploaded guide, or why it could not be read. Tests read them from
 `browser_check.py` drives headless Chrome or Edge against a guide built in
 InteropHub comment mode and the mock service. Before it starts, it seeds the
 service with comments, replies, a comment that cannot be placed, and review
-flags (`mock_hub.seed_demo`), and adds sample change markers to the guide
-(`sample_change_markers.py`). `--local-guide` also checks a guide built in
+flags (`mock_hub.seed_demo`). The change markers and the front section come
+from the fixture's own source. `--local-guide` also checks a guide built in
 local-comments mode, `--screenshots DIR` saves each tab at wide and narrow
 widths, and `--quick` skips the 65-second refresh wait while developing.
 
@@ -35,7 +35,6 @@ To try the panel by hand against the fixture, after `validate.ps1` has made
 `output/fixture-remote`, its InteropHub-mode copy:
 
 ```powershell
-python tests/sample_change_markers.py output/fixture-remote/output/guide/index.html
 python tests/mock_hub.py --port 8766 --allow-origin http://127.0.0.1:8765 --seed-demo
 python -m http.server 8765 --bind 127.0.0.1 --directory output/fixture-remote
 ```

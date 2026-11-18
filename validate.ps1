@@ -59,6 +59,18 @@ if ($guideText -notmatch '<div id="document-start" class="guide-anchor"' -or
     $guideText -notmatch 'data-anchor="fixture-introduction" data-block-index="2"') {
     throw "Fixture guide is missing anchor elements or comment block metadata."
 }
+# The fixture's change markers are written into the page, and its front
+# section (status banner, Executive Summary, What changed, Scope) opens it
+# without section-bar entries.
+$markersMatch = [regex]::Match($guideText, '<script type="application/json" id="guide-change-markers">(.*?)</script>')
+if (-not $markersMatch.Success -or ($markersMatch.Groups[1].Value | ConvertFrom-Json).Count -ne 5 -or
+    $guideText -notmatch '<div class="status-notice guide-status-banner"' -or
+    $guideText -notmatch '<section id="guide-what-changed"' -or
+    $guideText -notmatch 'guide-scope-card--out' -or
+    $guideText -match '<nav class="aira-context-nav"[^>]*>\s*<a href="#executive-summary"' -or
+    $guideText -match 'guide-change-slot') {
+    throw "Fixture guide is missing its change markers or front section."
+}
 $readingCopyText = Get-Content -LiteralPath (Join-Path $fixture 'CoreDocument.md') -Raw
 if ($readingCopyText -notmatch '<!-- anchor: fixture-introduction -->') {
     throw "Fixture reading copy did not preserve the fenced anchor example."

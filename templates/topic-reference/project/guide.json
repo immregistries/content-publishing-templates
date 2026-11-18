@@ -5,7 +5,6 @@
   {{GUIDE_IDENTITY}}
   "license": "{{LICENSE_NOTE}}",
   "navLabels": {
-    "status-and-scope": "Scope",
     "related-work": "Related Work",
     "working-decisions": "Decisions"
   }

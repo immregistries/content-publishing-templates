@@ -268,9 +268,16 @@ class ManifestTests(unittest.TestCase):
         self.assertRegex(build["builtAt"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
         self.assertLessEqual({"builtAt", "python"}, set(build))
         self.assertLessEqual(set(build), {"builtAt", "sourceCommit", "sourceDirty", "python", "pandoc"})
-        # This release knows chapters, appendices, and the infographic, and leaves
-        # out what it cannot know rather than reporting it as false.
-        self.assertEqual({"chapters": 2, "appendices": 0, "hasInfographic": False}, manifest["structure"])
+        # The front section (Executive Summary and Scope) is not a chapter. Built
+        # as v1.2.3, the fixture's v0.2.0 change markers are stale, so none is shown.
+        self.assertEqual({
+            "chapters": 1, "appendices": 0, "hasInfographic": False,
+            "hasExecutiveSummary": True, "executiveSummaryWords": 168, "hasScope": True,
+            "changeMarkers": 0, "feedbackMarkers": 0,
+        }, manifest["structure"])
+        stale = [warning for warning in manifest["checks"]["warnings"] if warning["code"] == "STALE_CHANGE_MARKER"]
+        self.assertEqual(5, len(stale))
+        self.assertEqual({"content/00-executive-summary.md", "content/01-detail.md"}, {warning["file"] for warning in stale})
         self.assertEqual(1, manifest["checks"]["confirmOpen"])
         self.assertNotIn("openIdeas", manifest["checks"])
 
