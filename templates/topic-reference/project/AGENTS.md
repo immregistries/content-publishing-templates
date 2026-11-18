@@ -32,10 +32,10 @@
   `process/guidance/TopicReference.md`.
 - When the Author asks to mark a change for readers, put
   `<!-- changed vX.Y.Z: note -->` (add `feedback` after the version when
-  feedback is wanted) on its own line before the block, for the version
-  being prepared. Delete markers the content check reports as stale when the
-  next version starts. See "Change markers" in
-  `process/guidance/TopicReference.md`.
+  feedback is wanted) on its own line before the block, using `version` in
+  `guide.json`, the version being prepared. Delete markers the content check
+  reports as stale after the Author raises `version` for the next release.
+  See "Change markers" in `process/guidance/TopicReference.md`.
 - Keep the document to six to seven chapters, not counting appendices. Merge
   short or related chapters and use second-level headings within them.
   Appendix headings begin "Appendix" and come after all other chapters.

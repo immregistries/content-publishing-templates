@@ -1,6 +1,7 @@
 {
   "id": "example-core-document",
   "status": "Draft",
+  "version": "v0.2.0",
   "interophubTopic": 7,
   "repository": "https://github.com/immregistries/content-publishing-templates",
   "license": "Content CC BY 4.0"

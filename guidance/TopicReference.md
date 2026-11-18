@@ -301,10 +301,11 @@ Mark what changed in this version, so readers can find it:
   changed, not only that something did. It may run over several lines.
 - The version is a release label such as `v0.5.0`. Markers for the version
   being built, or a later one, are shown; older ones are hidden and reported
-  as stale (`STALE_CHANGE_MARKER`). On `main`, the version being built counts
-  as the newest release tag plus one, so markers for the coming release show.
-  A project kept in a shared folder uses `version` in `guide.json`. Delete the
-  old markers when starting the next version.
+  as stale (`STALE_CHANGE_MARKER`). Except in a release build, the version
+  being built is `version` in `guide.json`: the version being prepared. It
+  depends only on committed files, never on Git tags, so every copy of a
+  commit builds the same way. Without it, every marker shows
+  (`VERSION_MISSING`).
 - The guide shows a badge and a bar on each marked area (in the annotations
   panel's Changes tab, and feedback-wanted ones in the Review tab) and lists
   them all under "What changed in v0.5.0" in the front section, feedback
@@ -585,8 +586,12 @@ published.
 
 ## Releases and status
 
-- Before each release, refresh the Executive Summary, add change markers for
-  what changed, and delete the markers of the previous version.
+- `version` in `guide.json` names the version being prepared, such as
+  `v0.5.0`. Before each release, refresh the Executive Summary, add change
+  markers for what changed, and check that `version` matches the tag about to
+  be made; a release build with a different tag warns (`VERSION_MISMATCH`).
+- Right after tagging, raise `version` to the next version and delete the
+  markers the content check now reports as stale.
 - A release is a Git tag such as `v0.1.0`. In a public project, pushing the tag
   publishes the page at that version, `/v0.1.0/`, and at `/latest/`, and
   pushing to `main` publishes a preview at `/main/`. A private project's

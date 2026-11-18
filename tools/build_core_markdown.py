@@ -13,7 +13,7 @@ Change markers for the current version are written as quoted notes, such as
 "> **Changed in v0.5.0:** ...", and listed under "What changed in v0.5.0"
 after the Executive Summary; older markers are left out. The current version
 follows change_markers.current_version(): --version when it is a release label,
-otherwise the project's newest release tag plus one.
+otherwise the "version" in guide.json, the version being prepared.
 """
 
 from __future__ import annotations
@@ -344,7 +344,7 @@ def generated_text(root: Path, assembly: Path, output: Path, version: str | None
 
     config_path = root / "guide.json"
     config = json.loads(config_path.read_text(encoding="utf-8-sig")) if config_path.is_file() else {}
-    current = change_markers.current_version(root, version, config)
+    current = change_markers.current_version(version, config)
     sections = []
     shown = []
     after_summary = 0

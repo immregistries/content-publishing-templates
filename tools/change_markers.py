@@ -17,10 +17,11 @@ covers:
 most 300 characters of plain text, and says what changed. The version is a
 release label such as v0.5.0.
 
-Which markers show depends on the current version: markers for the current
-version or a later one are shown, and older ones are stale. See
-current_version(). The build tools show the markers in every output; the
-content check warns about stale ones (STALE_CHANGE_MARKER).
+Which markers show depends on the current version, normally guide.json
+"version" (the version being prepared): markers for the current version or a
+later one are shown, and older ones are stale. See current_version(). The
+build tools show the markers in every output; the content check warns about
+stale ones (STALE_CHANGE_MARKER).
 
 Run from the content project's root to print the current version, as the
 project's build passes it to the Word build:
@@ -33,7 +34,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -95,64 +95,34 @@ def version_key(version: str) -> tuple[int, ...]:
     return tuple(parts + [0] * (4 - len(parts)))
 
 
-def next_version(version: str) -> str:
-    """The version after a release: the last of three numbers plus one (v0.3.0 -> v0.3.1).
-
-    The smallest step, so a marker written for any coming release still shows.
-    """
-    parts = [int(part) for part in version[1:].split(".")]
-    parts = (parts + [0, 0, 0])[:max(3, len(parts))]
-    parts[-1] += 1
-    return "v" + ".".join(str(part) for part in parts)
-
-
-def _git(root: Path, *args: str) -> str | None:
-    try:
-        result = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True)
-    except OSError:
-        return None
-    return result.stdout.strip() if result.returncode == 0 else None
-
-
-def own_repository(root: Path) -> bool:
-    """Whether root is the top of its own Git repository, as a content project is."""
-    top = _git(root, "rev-parse", "--show-toplevel")
-    if not top:
-        return False
-    try:
-        return Path(top).resolve() == root.resolve()
-    except OSError:
-        return False
-
-
-def newest_release_tag(root: Path) -> str | None:
-    tags = [tag for tag in (_git(root, "tag", "--list", "v*") or "").split() if RELEASE_PATTERN.fullmatch(tag)]
-    return max(tags, key=version_key) if tags else None
-
-
-def current_version(root: Path, version: str | None = None, config: dict | None = None) -> str | None:
+def current_version(version: str | None = None, config: dict | None = None) -> str | None:
     """The version whose markers are shown, or None to show every marker.
 
     - A release label given to the build (--version v0.5.0) is the current version.
-    - A project kept in a workspace uses its guide.json "version".
-    - Otherwise, in the project's own Git repository: the release tag HEAD is
-      on, or else the newest release tag plus one, so markers written for the
-      coming release show on main. A project with no release yet shows every
-      marker.
+    - Otherwise, guide.json "version": the version being prepared. Authors raise
+      it when they start the next version, so the markers of the last release
+      become stale. It depends only on committed files, never on Git tags, so
+      every checkout of a commit builds the same reading copy.
+    - With neither, every marker is shown.
     """
     if version and RELEASE_PATTERN.fullmatch(version):
         return version
-    config = config or {}
-    if config.get("keptIn") == "workspace" or config.get("topicReferenceType") == "workspace":
-        label = config.get("version")
-        return label if isinstance(label, str) and RELEASE_PATTERN.fullmatch(label) else None
-    if not own_repository(root):
-        return None
-    exact = _git(root, "describe", "--tags", "--exact-match", "HEAD")
-    if exact and RELEASE_PATTERN.fullmatch(exact):
-        return exact
-    newest = newest_release_tag(root)
-    return next_version(newest) if newest else None
+    return configured_version(config or {})
+
+
+def configured_version(config: dict) -> str | None:
+    """guide.json "version", when it is a release label such as v0.5.0."""
+    label = config.get("version")
+    return label if isinstance(label, str) and RELEASE_PATTERN.fullmatch(label) else None
+
+
+def version_mismatch(version: str | None, config: dict) -> str | None:
+    """A warning when a release build's label differs from guide.json "version"."""
+    configured = configured_version(config)
+    if version and RELEASE_PATTERN.fullmatch(version) and configured and configured != version:
+        return (f"the build is labelled {version}, but guide.json version is {configured}. "
+                f"Set version to {version} before tagging the release, and raise it after.")
+    return None
 
 
 def is_shown(marker: Marker, current: str | None) -> bool:
@@ -366,7 +336,7 @@ def main() -> int:
     root = Path(args.root).resolve()
     config_path = root / args.config
     config = json.loads(config_path.read_text(encoding="utf-8-sig")) if config_path.is_file() else {}
-    current = current_version(root, args.version, config)
+    current = current_version(args.version, config)
     print(current or "")
     return 0
 

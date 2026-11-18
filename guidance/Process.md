@@ -82,7 +82,9 @@ its products record its hand-set version label as `core_release`, with
 Before a Topic Reference release, refresh its Executive Summary
 (`content/00-executive-summary.md`) and mark what changed with change markers;
 see [Executive Summary and Scope](TopicReference.md#executive-summary-and-scope)
-and [Change markers](TopicReference.md#change-markers).
+and [Change markers](TopicReference.md#change-markers). Its `guide.json`
+`version` names the version being prepared: set it to the tag before
+tagging, and raise it to the next version right after.
 
 The release record should identify:
 

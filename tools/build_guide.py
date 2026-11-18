@@ -1341,7 +1341,10 @@ def main() -> int:
     markdown = prepared_markdown(root, paths, config.get("repository"), ref, markers)
     body = body_html(markdown)
     body, entries = resolve_change_markers(body, markers)
-    current = change_markers.current_version(root, version, config)
+    current = change_markers.current_version(version, config)
+    mismatch = change_markers.version_mismatch(version, config)
+    if mismatch:
+        print(f"Warning: [VERSION_MISMATCH] {mismatch}")
     shown = [entry for entry in entries if change_markers.is_shown(entry["marker"], current)]
     sections = guide_sections(body, config.get("navLabels", {}))
     nav = section_nav(sections)

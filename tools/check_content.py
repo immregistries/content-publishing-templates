@@ -313,7 +313,7 @@ def run_checks(root: Path, include: list[str] | None = None,
     """Run every content check on the project at root and return the findings.
 
     version is the build's version label, which decides which change markers
-    are current; by default the project's newest release tag plus one. The
+    are current; by default guide.json "version", the version being prepared. The
     command line prints this report; build_guide.py records it in the guide's
     build manifest.
     """
@@ -436,7 +436,17 @@ def run_checks(root: Path, include: list[str] | None = None,
             report.coded_warnings.append(
                 {"code": finding.code, "message": finding.message, "file": finding.file})
 
-    report.current_version = change_markers.current_version(root, version, config)
+    report.current_version = change_markers.current_version(version, config)
+    mismatch = change_markers.version_mismatch(version, config)
+    if mismatch:
+        report.coded_warnings.append({"code": "VERSION_MISMATCH", "message": mismatch, "file": "guide.json"})
+    if report.change_markers and report.current_version is None:
+        report.coded_warnings.append({
+            "code": "VERSION_MISSING",
+            "message": "change markers are present but guide.json has no version, so every marker "
+                       "shows. Set version to the version being prepared, such as v0.5.0.",
+            "file": "guide.json",
+        })
     report.coded_warnings.extend(
         change_markers.stale_warnings(report.change_markers, report.current_version))
 

@@ -66,39 +66,23 @@ class ParseMarkers(unittest.TestCase):
 
 
 class CurrentVersion(unittest.TestCase):
-    def test_versions_compare_and_step(self):
-        self.assertEqual("v0.3.1", change_markers.next_version("v0.3.0"))
-        self.assertEqual("v1.0.1", change_markers.next_version("v1"))
+    def test_versions_compare(self):
         self.assertGreater(change_markers.version_key("v0.10.0"), change_markers.version_key("v0.9.9"))
 
     def test_rules(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            self.assertEqual("v0.5.0", change_markers.current_version(root, "v0.5.0", {}))
-            self.assertIsNone(change_markers.current_version(root, "main", {}))
-            workspace = {"keptIn": "workspace", "version": "v0.4.0"}
-            self.assertEqual("v0.4.0", change_markers.current_version(root, "main", workspace))
-            self.assertIsNone(change_markers.current_version(root, None, {"topicReferenceType": "workspace"}))
+        configured = {"version": "v0.4.0"}
+        self.assertEqual("v0.5.0", change_markers.current_version("v0.5.0", configured))
+        self.assertEqual("v0.4.0", change_markers.current_version("main (abc1234)", configured))
+        self.assertEqual("v0.4.0", change_markers.current_version(None, configured))
+        self.assertIsNone(change_markers.current_version("main", {}))
+        self.assertIsNone(change_markers.current_version(None, {"version": "draft"}))
 
-    @unittest.skipUnless(shutil.which("git"), "git is not installed")
-    def test_newest_tag_plus_one_and_a_release_commit(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-
-            def git(*args):
-                subprocess.run(["git", "-c", "user.email=t@example.invalid", "-c", "user.name=T", *args],
-                               cwd=root, check=True, capture_output=True)
-
-            git("init", "-q")
-            (root / "a.txt").write_text("a")
-            git("add", "a.txt"); git("commit", "-qm", "first"); git("tag", "v0.3.0")
-            self.assertEqual("v0.3.0", change_markers.current_version(root, "v0.3.0-0-gabc", {}))
-            (root / "a.txt").write_text("b")
-            git("commit", "-qam", "second")
-            self.assertEqual("v0.3.1", change_markers.current_version(root, "main", {}))
-            # A folder inside a repository is not a project of its own.
-            (root / "sub").mkdir()
-            self.assertIsNone(change_markers.current_version(root / "sub", "main", {}))
+    def test_mismatch_only_for_two_differing_release_labels(self):
+        configured = {"version": "v0.4.0"}
+        self.assertIn("v0.4.0", change_markers.version_mismatch("v0.5.0", configured))
+        self.assertIsNone(change_markers.version_mismatch("v0.4.0", configured))
+        self.assertIsNone(change_markers.version_mismatch("main", configured))
+        self.assertIsNone(change_markers.version_mismatch("v0.5.0", {}))
 
 
 class ReadingCopy(unittest.TestCase):
