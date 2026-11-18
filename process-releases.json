@@ -1,4 +1,5 @@
 [
+  {"version": "v0.22.1", "date": "2026-11-18", "upgradeImpact": "rebuild", "summary": "The reading copy keeps the blank line after the status notice."},
   {"version": "v0.22.0", "date": "2026-11-18", "upgradeImpact": "content", "summary": "An Executive Summary and Scope front section, change markers, an annotations panel, version comment modes, and publishing breadcrumbs for authors' agents."},
   {"version": "v0.21.0", "date": "2026-11-18", "upgradeImpact": "config", "summary": "Guides carry a build manifest, and publishing saves it in InteropHub for the guide status page."},
   {"version": "v0.20.0", "date": "2026-11-13", "upgradeImpact": "content", "summary": "Appendices and chapter-count warnings, an ideas register, a Collecting ideas status, and a topic-based restricted-use notice for private projects."},

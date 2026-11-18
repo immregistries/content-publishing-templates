@@ -326,7 +326,7 @@ def what_changed(entries: list[tuple[str, object]]) -> str:
 
 
 STATUS_NOTICE_PATTERN = re.compile(
-    r"^:::+\s*\{\.status-notice\}\s*\n(.*?)\n:::+\s*$", re.DOTALL | re.MULTILINE
+    r"^:::+[ \t]*\{\.status-notice\}[ \t]*\n(.*?)\n:::+[ \t]*$", re.DOTALL | re.MULTILINE
 )
 
 

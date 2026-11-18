@@ -92,6 +92,11 @@ class ReadingCopy(unittest.TestCase):
         result = change_markers.replace_for_reading_copy(text, "v0.5.0")
         self.assertEqual("Intro.\n\n> **Changed in v0.5.0, feedback wanted:** New rule.\n\nThe rule.\n\nAfter.\n", result)
 
+    def test_the_quoted_notice_keeps_the_blank_line_after_it(self):
+        text = "# Executive Summary\n\n::: {.status-notice}\nFirst.\n\nSecond.\n:::\n\nSummary.\n"
+        self.assertEqual("# Executive Summary\n\n> First.\n>\n> Second.\n\nSummary.\n",
+                         build_core_markdown.quoted_status_notice(text))
+
     def test_the_fixture_reading_copy_lists_what_changed_and_quotes_the_notice(self):
         text = (FIXTURE / "CoreDocument.md").read_text(encoding="utf-8")
         self.assertIn("> **Status:** Test fixture", text)

@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.22.1
+
+- **Fix:** in the reading copy (`CoreDocument.md`), the quoted status notice
+  no longer swallows the blank line after it. GitHub had drawn the first
+  paragraph of the Executive Summary inside the quote.
+- To adopt: move `process/` to v0.22.1 and regenerate the reading copy with
+  `build_core_markdown.py`.
+
+**Upgrade impact:** rebuild
+
 ## v0.22.0
 
 Needs InteropHub 0.12.0 for comment modes, version settings, and
