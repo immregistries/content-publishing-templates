@@ -42,6 +42,11 @@ if ($LASTEXITCODE -ne 0) {
     throw "Fixture reading copy is out of date."
 }
 
+& $python.Source (Join-Path $tools 'check_content.py') --root $PSScriptRoot --include 'guidance/*.md' --include 'templates/*/*.md'
+if ($LASTEXITCODE -ne 0) {
+    throw "Guidance and template content checks failed."
+}
+
 & $python.Source (Join-Path $tools 'check_content.py') --root $fixture
 if ($LASTEXITCODE -ne 0) {
     throw "Fixture content checks failed."

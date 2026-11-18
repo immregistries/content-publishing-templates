@@ -264,7 +264,7 @@ One sentence of purpose.
 
 ## Not yet decided
 
-- Whether ..., see [OQ-4](90-working-decisions.md#oq-4).
+- Whether ..., see [OQ-4](https://example.org/topic/12/working-decisions#oq-4).
 ```
 
 - **In scope** and **Out of scope** are required and each needs at least one
