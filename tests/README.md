@@ -21,6 +21,16 @@ to `/api/guide/{document}/versions/{label}` records the manifest read from the
 uploaded guide, or why it could not be read. Tests read them from
 `server.state.builds`.
 
+As InteropHub does, every error carries `help`, a link to its entry on the
+hub's help page for authors (`/help/topic-reference-authors#troubleshooting-<error>`),
+and `insufficient_scope` names `requiredScope`. `GET /api/token` describes the
+calling token: its user, kind, label, scopes, expiry, and the registered guides
+an author may publish. A token record may set `scopes`, `label`, and
+`expiresAt`; an expired one is refused. Two switches stand in for what sits in
+front of a hub: `server.state.firewall = True` answers every `/api/` request
+with an HTML page, and `server.state.token_endpoint = False` answers
+`/api/token` with an HTML 404, as a hub older than InteropHub 0.12.0 does.
+
 ## Annotations panel
 
 `browser_check.py` drives headless Chrome or Edge against a guide built in

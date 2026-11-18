@@ -102,9 +102,14 @@ python process/tools/insert_word_infographic.py output/Project.docx
 python process/tools/build_guide.py --assembly Project.qmd --version v0.1.0
 
 # Upload a hosted guide to InteropHub, or save only its build manifest there
-# for a guide hosted elsewhere. Needs INTEROPHUB_TOKEN.
+# for a guide hosted elsewhere. Needs INTEROPHUB_TOKEN. --check-token reports
+# who the token acts as and whether it can publish this guide; --display and
+# --comment-mode choose how InteropHub shows a release, and --settings-only
+# sets them for a release already published.
+python process/tools/publish_guide_to_hub.py --check-token
 python process/tools/publish_guide_to_hub.py output/guide/index.html --label v0.1.0 --label latest
 python process/tools/publish_guide_to_hub.py output/guide/index.html --manifest-only --label v0.1.0
+python process/tools/publish_guide_to_hub.py --settings-only --label v0.1.0 --display current --comment-mode release
 
 # Turn comment files downloaded from the guide into a review record.
 python process/tools/import_guide_comments.py comments.json

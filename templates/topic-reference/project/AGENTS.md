@@ -70,3 +70,7 @@ projects, and any rules specific to this subject. -->
 - Successful generation is a mechanical check, not editorial approval.
 - Do not commit, push, tag, publish, or update InteropHub without explicit
   instruction.
+
+## Publishing to InteropHub
+
+{{AGENTS_PUBLISHING}}

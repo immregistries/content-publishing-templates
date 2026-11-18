@@ -428,21 +428,26 @@ signed-in readers who can view its topic; it requires InteropHub comments plus
 `comments.hub` and `comments.document`. Hosted guides need no change to
 `guide.js`: they use the same comment API and sign-in flow.
 
-For hosted publishing, create a personal access token with `topics:write` on
-the hub account page and save it as the repository secret `INTEROPHUB_TOKEN`.
-The private workflow uploads `main` on a push to main, and uploads both the tag
-and `latest` for a `vX.Y.Z` tag. To publish manually:
+Hosted publishing needs the author's personal access token, as the
+`INTEROPHUB_TOKEN` repository secret for the workflow and the environment
+variable of the same name for publishing by hand; see
+[Becoming an author](#becoming-an-author). The private workflow uploads `main`
+on a push to main, and uploads both the tag and `latest` for a `vX.Y.Z` tag.
+To publish by hand:
 
 ```powershell
-$env:INTEROPHUB_TOKEN = "<personal access token>"
+python process/tools/publish_guide_to_hub.py --check-token
 python process/tools/publish_guide_to_hub.py output/guide/index.html `
     --label v0.4.0 --label latest
 ```
 
+Add `--display` and `--comment-mode` to choose how InteropHub shows the
+release; see [Version display and comment modes](#version-display-and-comment-modes).
+
 A project kept in a shared folder has no repository, secret, or workflow. Its
 Author uploads the built guide by hand from the topic in InteropHub, labeled
 with the `version` in `guide.json` and as `latest`, or runs the same command
-with a personal access token where the hub allows scripted upload.
+with `INTEROPHUB_TOKEN` set where the hub allows scripted upload.
 
 ### Saving the build manifest
 
@@ -466,7 +471,6 @@ manifest.**
 - A guide built locally and shared by hand saves it when it is released:
 
   ```powershell
-  $env:INTEROPHUB_TOKEN = "<personal access token>"
   python process/tools/publish_guide_to_hub.py output/guide/index.html `
       --manifest-only --label v0.4.0 --hub <hub address>
   ```
@@ -479,6 +483,105 @@ Readers can see the manifest, so it holds only what any reader of the guide
 may see. It names files by their path in the project and never holds a
 machine path, the `location` of a project kept in a shared folder, a token,
 or the text of `CONFIRM` notes.
+
+## Becoming an author
+
+Publishing a Standing Topic Reference, and managing its comments in
+InteropHub, is done by its authors. An author is anyone InteropHub lets edit
+the topic: a global admin, an admin of the topic's space, or an active
+champion or support subscriber of the topic. To become one, ask the topic's
+champions or the space admin, from the topic page. A Workspace Topic
+Reference is not published to InteropHub, so it needs no author account or
+token until it is promoted.
+
+Each author publishes with a personal access token of their own:
+
+1. On the InteropHub account page, under Access tokens, create a token with
+   the Author preset (`comments` and `topics:write`) and a lifetime of 30, 90,
+   or 365 days. InteropHub shows it once.
+2. Set it as `INTEROPHUB_TOKEN`: an environment variable on your own machine,
+   and, for a project with a publishing workflow, the repository secret of
+   the same name (`gh secret set INTEROPHUB_TOKEN` in the repository). The
+   help page shows the PowerShell and bash lines.
+3. Create a new token before the old one expires. The publishing tool warns
+   when 14 days or fewer are left.
+
+Never paste a token into a chat with an AI agent, an issue, a guide, or a
+commit. An agent reads it from the environment and never needs to see it.
+
+The project's `AGENTS.md` has a "Publishing to InteropHub" section, written
+for an AI agent: what it may do itself, the publishing commands for the
+project's hosting, and the exact words to ask the author for the steps only a
+person can take. The agent's first call checks the token:
+
+```powershell
+python process/tools/publish_guide_to_hub.py --check-token --hub <hub address>
+```
+
+It prints the account, the token's scopes and expiry, and whether the guide's
+document key is among the guides the account can publish, and never the
+token. When the token is missing, expired, or lacks a scope, or the account
+does not edit the topic, the agent stops and asks the author. Every error the
+tool reports carries a link to its entry on InteropHub's help page. A response
+that is a web page instead of InteropHub's JSON means something in front of
+the hub, such as a firewall, stopped the request; the tool says what to
+report.
+
+The help page for authors and their agents is
+`<hub address>/help/topic-reference-authors`, for example
+<https://informatics.immregistries.org/hub/help/topic-reference-authors>.
+
+## Version display and comment modes
+
+Each version label of a guide in InteropHub (`latest`, `main`, or a version
+such as `v0.4.0`) has a display state and a comment mode. Topic editors set
+them on the topic's guide settings page, or with `publish_guide_to_hub.py`.
+
+| Display | On the topic page, for readers | A hosted guide, opened by a reader |
+|---|---|---|
+| `current` | The main link, "Read the guide" | Opens |
+| `listed` | Under "Other versions" | Opens |
+| `unlisted` (the default) | Not shown | Opens with the link |
+| `authors_only` | Not shown | Refused |
+| `retired` | Not shown | Says the version is retired, linking to the Current one |
+
+At most one label of a guide is Current; making a label Current turns the
+previous one Listed. New labels start Unlisted, and nothing becomes Current
+on its own. Topic editors see every label. Display is a curtain, not a wall:
+a public guide stays readable on GitHub Pages whatever its display state.
+
+| Comment mode | What readers see on that version | New comments there |
+|---|---|---|
+| `open` (the default) | Every comment on the guide | Allowed |
+| `release` | Comments written on this version, or before it was published | Allowed |
+| `closed` | None | Refused |
+
+Comments stay one conversation per guide; a mode only filters what one
+version shows. Authors see every comment except on a Closed version, with
+those outside a Release version's scope marked. A rolling label such as
+`main` is normally Open. The guide template's
+[Versions and comment modes](../templates/guide/README.md#versions-and-comment-modes)
+describes what the guide shows in each mode.
+
+Set both when publishing, for the first `--label`. `--manifest-only` takes
+the same options:
+
+```powershell
+python process/tools/publish_guide_to_hub.py output/guide/index.html `
+    --label v0.4.0 --label latest --display current --comment-mode release
+```
+
+For a version already published, such as one a public project's workflow
+published, `--settings-only` sets them without sending a guide:
+
+```powershell
+python process/tools/publish_guide_to_hub.py --settings-only --hub <hub address> `
+    --label v0.4.0 --display current --comment-mode release
+```
+
+Changing them needs a token with `topics:write` and an account that edits
+the topic. InteropHub must already know the label, so set them after it is
+published.
 
 ## Releases and status
 
@@ -563,10 +666,12 @@ and the work is meant to last.
    from the `gh-pages` branch. Tag the first release, then link the release's
    `/latest/` address from the InteropHub topic. The workflow fails until the
    secret is set, because a guide is not published until InteropHub has its
-   [build manifest](#saving-the-build-manifest).
+   [build manifest](#saving-the-build-manifest). The token is the author's
+   own; see [Becoming an author](#becoming-an-author).
 6. For a private project, create the private GitHub repository and push. Do
-   not enable GitHub Pages. For hosted mode, add `INTEROPHUB_TOKEN`; for local
-   mode there is no publishing workflow, so save the build manifest with
+   not enable GitHub Pages. For hosted mode, add `INTEROPHUB_TOKEN` (see
+   [Becoming an author](#becoming-an-author)); for local mode there is no
+   publishing workflow, so save the build manifest with
    `publish_guide_to_hub.py --manifest-only` when you release. Tag releases as
    usual.
 

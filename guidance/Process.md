@@ -216,6 +216,15 @@ records the release of these templates it was built with and the warnings from
 its build. A guide has not been published until its manifest is saved. See
 [Saving the build manifest](TopicReference.md#saving-the-build-manifest).
 
+Publishing to InteropHub uses the author's own personal access token in
+`INTEROPHUB_TOKEN`. Check it first with `publish_guide_to_hub.py
+--check-token`, which reports the account, its scopes and expiry, and whether
+it can publish this guide; see
+[Becoming an author](TopicReference.md#becoming-an-author). Then choose how
+InteropHub shows the release, such as making it the Current version with
+comments limited to it, with `--display` and `--comment-mode`; see
+[Version display and comment modes](TopicReference.md#version-display-and-comment-modes).
+
 If an emergency correction is made in PowerPoint, Word, or another output file,
 the correction is not authoritative. It must be reconciled into canonical
 Markdown or clearly identified delivery context before the next build.

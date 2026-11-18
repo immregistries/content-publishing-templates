@@ -206,5 +206,71 @@ class MockHubTest(unittest.TestCase):
         self.assertIsInstance(created["uploadedBy"], str)
 
 
+class MockTokenEndpointTest(unittest.TestCase):
+    """GET /api/token and the help field follow InteropHub's contract (2, 2.1, 3.7)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.server = mock_hub.serve(0)
+        threading.Thread(target=cls.server.serve_forever, daemon=True).start()
+        cls.base = "http://127.0.0.1:%d" % cls.server.server_port
+        tokens = cls.server.state.tokens
+        tokens["ihp_author"] = {"user": {"userId": 3, "displayName": "Pat Author", "organization": "Example"},
+                                "isAuthor": True, "label": "laptop agent"}
+        tokens["ihp_reader"] = {"user": {"userId": 4, "displayName": "Lee Reader"}, "isAuthor": False,
+                                "scopes": ["topics:read", "comments"]}
+        tokens["ihg_guide"] = {"user": {"userId": 4, "displayName": "Lee Reader"}, "isAuthor": False}
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown(); cls.server.server_close()
+
+    def call(self, method="GET", token=None, path="/api/token"):
+        headers = {"Authorization": "Bearer " + token} if token else {}
+        request = urllib.request.Request(self.base + path, headers=headers, method=method,
+                                         data=b"{}" if method in ("POST", "PATCH") else None)
+        try:
+            with urllib.request.urlopen(request) as response:
+                return response.status, dict(response.headers), json.loads(response.read())
+        except urllib.error.HTTPError as error:
+            with error:
+                return error.code, dict(error.headers), json.loads(error.read())
+
+    def test_a_personal_token_describes_itself(self):
+        status, headers, body = self.call(token="ihp_author")
+        self.assertEqual((200, "no-store"), (status, headers["Cache-Control"]))
+        self.assertEqual({"user", "kind", "label", "scopes", "expiresAt", "expiresInDays", "guides", "help"}, set(body))
+        self.assertEqual({"userId": 3, "displayName": "Pat Author"}, body["user"])
+        self.assertEqual(("personal", "laptop agent", ["comments", "topics:write"], 90),
+                         (body["kind"], body["label"], body["scopes"], body["expiresInDays"]))
+        self.assertEqual(["document", "external-document"], [guide["documentKey"] for guide in body["guides"]])
+        self.assertEqual(["HUB", "EXTERNAL"], [guide["hosting"] for guide in body["guides"]])
+        self.assertTrue(all(guide["active"] and guide["canPublish"] for guide in body["guides"]))
+        self.assertEqual(self.base + "/help/topic-reference-authors#if-you-are-an-agent", body["help"])
+        self.assertNotIn("ihp_author", json.dumps(body))
+
+    def test_a_reader_and_a_guide_token(self):
+        reader = self.call(token="ihp_reader")[2]
+        self.assertEqual(([], ["comments", "topics:read"]), (reader["guides"], reader["scopes"]))
+        guide = self.call(token="ihg_guide")[2]
+        self.assertEqual(("guide", ["comments"], 30), (guide["kind"], guide["scopes"], guide["expiresInDays"]))
+
+    def test_errors_carry_help(self):
+        for token in (None, "ihp_unknown"):
+            status, headers, body = self.call(token=token)
+            self.assertEqual((401, "invalid_token"), (status, body["error"]))
+            self.assertIn('error="invalid_token"', headers["WWW-Authenticate"])
+            self.assertEqual(self.base + "/help/topic-reference-authors#troubleshooting-invalid_token", body["help"])
+        status, headers, body = self.call("POST", "ihp_author")
+        self.assertEqual((405, "invalid_request", "GET"), (status, body["error"], headers["Allow"]))
+        self.assertTrue(body["help"].endswith("#troubleshooting-invalid_request"))
+        status, headers, body = self.call("PATCH", "ihp_reader", "/api/guide/document/labels/latest")
+        self.assertEqual((403, "insufficient_scope", "topics:write"), (status, body["error"], body["requiredScope"]))
+        self.assertIn('scope="topics:write"', headers["WWW-Authenticate"])
+        self.assertTrue(body["help"].endswith("#troubleshooting-insufficient_scope"))
+        status, _, body = self.call(token="ihp_author", path="/api/guide/document/nothing-here")
+        self.assertEqual((404, self.base + "/help/topic-reference-authors#troubleshooting-not_found"), (status, body["help"]))
+
+
 if __name__ == "__main__":
     unittest.main()

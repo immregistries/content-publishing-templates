@@ -1,0 +1,5 @@
+A Workspace Topic Reference is not published to InteropHub and has no
+InteropHub topic, so it needs no access token. Do not ask the author for one.
+Publishing begins when the workspace is promoted to a Standing Topic
+Reference; see "Promoting a Workspace Topic Reference" in
+`process/guidance/TopicReference.md`.

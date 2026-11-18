@@ -350,6 +350,76 @@ class GenerateWorkspaceTopicReference(unittest.TestCase):
         self.assertIn("--id", result.stderr)
 
 
+class PublishingInstructions(unittest.TestCase):
+    """AGENTS.md tells an agent what it may do in InteropHub and what to ask the author."""
+
+    HUB = "https://informatics.immregistries.org/hub"
+    TOPIC_URL = HUB + "/es/topic/7"
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.base = Path(self.temp.name)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def section(self, result, target):
+        self.assertEqual(0, result.returncode, result.stderr)
+        agents = (target / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertEqual(1, agents.count("## Publishing to InteropHub"))
+        return agents.split("## Publishing to InteropHub", 1)[1]
+
+    def assertAuthorSteps(self, section, hub, result):
+        for phrase in ("`INTEROPHUB_TOKEN`", "never ask the author to paste it", "--check-token",
+                       "Pass them on as written", "Author preset", f"({hub}/account, Access tokens)",
+                       f"({self.TOPIC_URL}) or its space admin", "--display", "--comment-mode", "--settings-only",
+                       "`current`", "`authors_only`", "`release`", "`closed`",
+                       f"{hub}/help/topic-reference-authors"):
+            self.assertIn(phrase, section)
+        self.assertIn(f"{hub}/help/topic-reference-authors", result.stdout)
+        self.assertIn("AGENTS.md", result.stdout)
+
+    def test_public(self):
+        target = self.base / "sample-topic"
+        result = create(target, "--visibility", "public", "--no-git")
+        section = self.section(result, target)
+        self.assertAuthorSteps(section, self.HUB, result)
+        self.assertIn(f"--check-token --hub {self.HUB}", section)
+        self.assertIn("gh secret set INTEROPHUB_TOKEN", section)
+        self.assertIn("`publish-guide.yml`", section)
+
+    def test_private_local_and_hosted(self):
+        local_target = self.base / "local-topic"
+        local = create(local_target, "--visibility", "private", "--owner", "example-org", "--no-git")
+        section = self.section(local, local_target)
+        self.assertAuthorSteps(section, self.HUB, local)
+        self.assertIn(f"--manifest-only --hub {self.HUB} --label v0.4.0", section)
+        hosted_target = self.base / "hosted-topic"
+        hosted = create(hosted_target, "--visibility", "private", "--owner", "example-org", "--no-git",
+                        "--hosting", "interophub", "--hub", "https://example.test/hub/")
+        section = self.section(hosted, hosted_target)
+        self.assertAuthorSteps(section, "https://example.test/hub", hosted)
+        self.assertIn("--label v0.4.0 --label latest", section)
+        self.assertIn("gh secret set INTEROPHUB_TOKEN", section)
+
+    def test_private_kept_in_a_workspace(self):
+        target = self.base / "kept-topic"
+        result = create(target, "--visibility", "private", "--kept-in", "workspace", "--hosting", "interophub",
+                        "--hub", "https://example.test/hub", "--location", "Team Dropbox/Sample/kept-topic", "--no-git")
+        section = self.section(result, target)
+        self.assertAuthorSteps(section, "https://example.test/hub", result)
+        self.assertIn("no repository, secret, or workflow", section)
+        self.assertNotIn("gh secret", section)
+
+    def test_workspace(self):
+        target = self.base / "Sample Idea"
+        result = create_workspace(target, "--id", "sample-idea", "--no-git")
+        section = self.section(result, target)
+        self.assertIn("needs no access token", section)
+        self.assertNotIn("--check-token", section)
+        self.assertNotIn("INTEROPHUB_TOKEN", result.stdout)
+
+
 class PrimaryInfographic(unittest.TestCase):
     """Both profiles create, check, and build a starter primary infographic."""
 
