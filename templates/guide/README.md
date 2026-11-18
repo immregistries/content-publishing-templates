@@ -13,7 +13,14 @@ project's core document, styled to match InteropHub:
   reader's scroll;
 - comments that readers add beside any paragraph, list item, quote, table, or
   diagram;
-- [Mermaid diagrams](../../guidance/Conventions.md#diagrams), drawn in the page.
+- [Mermaid diagrams](../../guidance/Conventions.md#diagrams), drawn in the page;
+- a build manifest in the page's `<head>`, a
+  `<script type="application/json" id="guide-build-manifest">` element that
+  records the release of these templates, the document's version and status,
+  how and when it was built, its structure, and the content check findings,
+  each warning with a stable code. InteropHub saves it when the guide is
+  published; see
+  [Saving the build manifest](../../guidance/TopicReference.md#saving-the-build-manifest).
 
 ## Comments
 

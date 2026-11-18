@@ -25,6 +25,14 @@ and placed above the first section, each part linking
 to the section it summarizes. It is drawn here rather than copied from
 output/, so the guide builds without a browser; build_infographic.py draws the
 same figure for the PNG, PDF, and Word document.
+
+Each guide carries a build manifest in its <head>, a JSON script element with
+the ID "guide-build-manifest": the shared templates' version and release
+registry, the document's identity and version, how it was built, its
+structure, and the findings of check_content.py, each warning with a stable
+code. InteropHub reads it to show the guide's status. Readers can see it, so
+it names files only by their path in the project and holds no machine paths,
+workspace location, or secrets.
 """
 
 from __future__ import annotations
@@ -34,11 +42,12 @@ import base64
 import html
 import json
 import os
+import platform
 import re
 import shutil
 import subprocess
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -54,6 +63,7 @@ from build_core_markdown import (  # noqa: E402
     row_anchor_name,
 )
 import infographic  # noqa: E402
+import process_release  # noqa: E402
 
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates" / "guide"
@@ -91,6 +101,13 @@ TABLE_OPEN_PATTERN = re.compile(r"<table((?:\s[^>]*)?)>")
 BODY_PATTERN = re.compile(r"(<tbody>)(.*?)(</tbody>)", re.DOTALL)
 ROW_PATTERN = re.compile(r"<tr\b([^>]*)>(.*?)</tr>", re.DOTALL)
 FIRST_CELL_PATTERN = re.compile(r"<t[dh]\b[^>]*>(.*?)</t[dh]>", re.DOTALL)
+MANIFEST_ID = "guide-build-manifest"
+MANIFEST_SCHEMA = 1
+MANIFEST_GENERATOR = "content-publishing-templates"
+# InteropHub ignores a manifest over 64 KB; these limits keep one well under it.
+MANIFEST_MAX_BYTES = 64 * 1024
+MANIFEST_MESSAGE_LIMIT = 300
+MANIFEST_WARNING_LIMIT = 100
 DOCUMENT_KEY_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 RESERVED_DOCUMENT_KEYS = {"comments", "review-flags", "token"}
 HOSTING_MODES = {"local", "github-pages", "interophub"}
@@ -545,23 +562,42 @@ def section_nav(sections: list[dict]) -> str:
     return "\n        ".join(links)
 
 
-def chapter_warnings(sections: list[dict]) -> list[str]:
-    """Warnings on the number of chapters and where the appendices are."""
+def coded_warning(code: str, message: str, file: str | None = None) -> dict:
+    """A build warning as the manifest records it, with its stable code."""
+    if len(message) > MANIFEST_MESSAGE_LIMIT:
+        message = message[: MANIFEST_MESSAGE_LIMIT - 3].rstrip() + "..."
+    result = {"code": code, "message": message}
+    if file:
+        result["file"] = file
+    return result
+
+
+def section_warnings(sections: list[dict], assembly: str | None = None) -> list[dict]:
+    """Coded warnings on the number of chapters and where the appendices are."""
     warnings = []
     chapters = sum(1 for section in sections if not section["appendix"])
     if chapters > SUGGESTED_MAX_CHAPTERS:
-        warnings.append(
+        warnings.append(coded_warning(
+            "CHAPTER_COUNT",
             f"the guide has {chapters} chapters, not counting appendices; the suggested "
             f"range is six to {SUGGESTED_MAX_CHAPTERS}. Consider merging chapters. "
-            "See guidance/Conventions.md, 'Keep chapters few'."
-        )
+            "See guidance/Conventions.md, 'Keep chapters few'.",
+            assembly,
+        ))
     misplaced = appendices_out_of_place(sections)
     if misplaced:
-        warnings.append(
+        warnings.append(coded_warning(
+            "APPENDIX_ORDER",
             f"{', '.join(misplaced)} comes after an appendix. Put appendices after all "
-            "chapters. See guidance/Conventions.md, 'Keep chapters few'."
-        )
+            "chapters. See guidance/Conventions.md, 'Keep chapters few'.",
+            assembly,
+        ))
     return warnings
+
+
+def chapter_warnings(sections: list[dict]) -> list[str]:
+    """Warnings on the number of chapters and where the appendices are."""
+    return [warning["message"] for warning in section_warnings(sections)]
 
 
 def appendix_list(sections: list[dict]) -> list[dict]:
@@ -603,6 +639,150 @@ window.guideDiagramsReady = mermaid
 """
 
 
+def document_id(config: dict, title: str) -> str:
+    return config.get("id") or re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+
+
+def git_output(root: Path, *args: str) -> str | None:
+    try:
+        return subprocess.run(
+            ["git", *args], cwd=root, capture_output=True, text=True, check=True
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+
+def source_state(root: Path, kept_in: str) -> dict:
+    """The project's commit and whether its files differ from it.
+
+    Empty for a project kept in a workspace or outside any Git repository.
+    """
+    if kept_in == "workspace" or git_output(root, "rev-parse", "--show-toplevel") is None:
+        return {}
+    commit = (git_output(root, "rev-parse", "--short", "HEAD") or "").strip()
+    status = git_output(root, "status", "--porcelain", "--", ".")
+    if not commit or status is None:
+        return {}
+    return {"sourceCommit": commit, "sourceDirty": bool(status.strip())}
+
+
+def pandoc_version() -> str | None:
+    try:
+        result = subprocess.run(
+            pandoc_command() + ["--version"], capture_output=True, text=True, check=True
+        )
+    except (OSError, RuntimeError, subprocess.CalledProcessError):
+        return None
+    words = result.stdout.split()
+    return words[1] if len(words) > 1 else None
+
+
+def visibility(config: dict, hosting: str) -> str | None:
+    """Who may read the guide, when the settings say so.
+
+    An explicit "visibility" wins. GitHub Pages is public and InteropHub
+    hosting is access-controlled; a local guide's settings do not say.
+    """
+    if config.get("visibility") in {"public", "private"}:
+        return config["visibility"]
+    return {"github-pages": "public", "interophub": "private"}.get(hosting)
+
+
+def check_warnings(report) -> list[dict]:
+    """Coded warnings from check_content.py's findings.
+
+    CONFIRM notes are hidden comments for authors, so only their places are
+    recorded, never their text.
+    """
+    warnings = []
+    lines_by_file: dict[str, list[int]] = {}
+    for relative, line, _ in report.confirms:
+        lines_by_file.setdefault(relative, []).append(line)
+    for relative, lines in lines_by_file.items():
+        noun = "note" if len(lines) == 1 else "notes"
+        where = "line" if len(lines) == 1 else "lines"
+        warnings.append(coded_warning(
+            "CONFIRM_OPEN",
+            f"{len(lines)} CONFIRM {noun} awaiting resolution, at {where} "
+            f"{', '.join(str(line) for line in lines)}.",
+            relative,
+        ))
+    for message in report.infographic_warnings:
+        warnings.append(coded_warning("INFOGRAPHIC_WARNING", message, infographic.SPEC_PATH))
+    return warnings
+
+
+def build_manifest(
+    root: Path,
+    config: dict,
+    title: str,
+    version: str,
+    sections: list[dict],
+    has_infographic: bool,
+    assembly: str | None = None,
+) -> dict:
+    """The guide's build manifest, schema 1. See the module docstring."""
+    import check_content  # noqa: PLC0415 - check_content imports this module
+
+    kept_in = kept_in_config(config)
+    hosting = hosting_config(config)
+    document = {"id": document_id(config, title), "title": title}
+    if config.get("documentType"):
+        document["documentType"] = config["documentType"]
+    document["status"] = config.get("status", "Draft")
+    document["version"] = version
+    document["keptIn"] = kept_in
+    seen_by = visibility(config, hosting)
+    if seen_by:
+        document["visibility"] = seen_by
+    document["hosting"] = hosting
+    if config.get("interophubTopic"):
+        document["interophubTopic"] = config["interophubTopic"]
+
+    build = {"builtAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    build.update(source_state(root, kept_in))
+    build["python"] = platform.python_version()
+    pandoc = pandoc_version()
+    if pandoc:
+        build["pandoc"] = pandoc
+
+    report = check_content.run_checks(root)
+    checks: dict = {"confirmOpen": len(report.confirms)}
+    if report.open_ideas is not None:
+        checks["openIdeas"] = report.open_ideas
+    warnings = section_warnings(sections, assembly) + check_warnings(report)
+    checks["warnings"] = warnings[:MANIFEST_WARNING_LIMIT]
+
+    manifest = {
+        "schema": MANIFEST_SCHEMA,
+        "generator": MANIFEST_GENERATOR,
+        "processVersion": process_release.read_version(),
+    }
+    commit = process_release.process_commit()
+    if commit:
+        manifest["processCommit"] = commit
+    manifest.update({
+        "processReleases": process_release.read_registry(),
+        "document": document,
+        "build": build,
+        "structure": {
+            "chapters": sum(1 for section in sections if not section["appendix"]),
+            "appendices": sum(1 for section in sections if section["appendix"]),
+            "hasInfographic": has_infographic,
+        },
+        "checks": checks,
+    })
+    return manifest
+
+
+def manifest_script(manifest: dict) -> str:
+    """The manifest as a JSON script element that cannot end early."""
+    text = json.dumps(manifest, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
+    if len(text.encode("utf-8")) > MANIFEST_MAX_BYTES:
+        raise RuntimeError("The guide's build manifest is larger than 64 KB.")
+    return f'<script type="application/json" id="{MANIFEST_ID}">{text}</script>\n'
+
+
 def page(
     title: str,
     subtitle: str | None,
@@ -612,13 +792,14 @@ def page(
     body: str,
     figure: str = "",
     appendices: list[dict] | None = None,
+    manifest: dict | None = None,
 ) -> str:
     status = config.get("status", "Draft")
     status_class = STATUS_TAGS.get(status.lower(), "aira-tag--info")
     topic = config.get("interophubTopic")
     topic_url = INTEROPHUB_TOPIC_URL.format(topic=topic) if topic else None
     repository = config.get("repository")
-    doc_id = config.get("id") or re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+    doc_id = document_id(config, title)
     guide_data = {
         "id": doc_id,
         "title": title,
@@ -678,7 +859,7 @@ def page(
 {(TEMPLATE_DIR / "aira.css").read_text(encoding="utf-8")}
 {(TEMPLATE_DIR / "guide.css").read_text(encoding="utf-8")}
 </style>
-</head>
+{manifest_script(manifest) if manifest else ""}</head>
 <body>
 <div class="aira-app">
   <a class="aira-skip-link" href="#guide-main">Skip to main content</a>
@@ -801,13 +982,17 @@ def main() -> int:
     body = body_html(markdown)
     sections = guide_sections(body, config.get("navLabels", {}))
     nav = section_nav(sections)
-    for warning in chapter_warnings(sections):
-        print(f"Warning: {warning}")
+    assembly_name: str | None = Path(os.path.relpath(assembly, root)).as_posix()
+    if assembly_name.startswith("../"):
+        assembly_name = None
+    for warning in section_warnings(sections, assembly_name):
+        print(f"Warning: {warning['message']}")
 
     output = root / args.output
     output.parent.mkdir(parents=True, exist_ok=True)
     figure = infographic_figure(root, args.infographic, config, args.version)
-    document = page(title, subtitle, config, version, nav, body, figure, appendix_list(sections))
+    manifest = build_manifest(root, config, title, version, sections, bool(figure), assembly_name)
+    document = page(title, subtitle, config, version, nav, body, figure, appendix_list(sections), manifest)
     duplicates = duplicate_ids(document)
     if duplicates:
         names = ", ".join(repr(name) for name in duplicates)

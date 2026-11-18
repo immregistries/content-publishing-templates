@@ -342,6 +342,42 @@ Author uploads the built guide by hand from the topic in InteropHub, labeled
 with the `version` in `guide.json` and as `latest`, or runs the same command
 with a personal access token where the hub allows scripted upload.
 
+### Saving the build manifest
+
+Every guide carries a build manifest: the version of these templates it was
+built with, its own version and status, and the warnings from its build.
+InteropHub keeps each guide's manifests and shows every guide's status on one
+page, including which guides need to move to a newer release of these
+templates. **A guide has not been published until InteropHub has saved its
+manifest.**
+
+- A guide hosted in InteropHub saves it with the upload, whether by the
+  workflow, by `publish_guide_to_hub.py`, or by hand. `publish_guide_to_hub.py`
+  refuses a guide built without a manifest.
+- A public guide's workflow saves it after deploying to GitHub Pages, using
+  the `INTEROPHUB_TOKEN` repository secret: a personal access token with
+  `topics:write`. Without the secret, the workflow fails before deploying.
+- Every guide must be registered in InteropHub under its document key, or
+  saving the manifest fails with `not_found`. The key is `comments.document`
+  in `guide.json` when the guide uses InteropHub comments, and otherwise its
+  `id`. A guide that uses local comments may still need registering.
+- A guide built locally and shared by hand saves it when it is released:
+
+  ```powershell
+  $env:INTEROPHUB_TOKEN = "<personal access token>"
+  python process/tools/publish_guide_to_hub.py output/guide/index.html `
+      --manifest-only --label v0.4.0 --hub <hub address>
+  ```
+
+  `--hub` may be left out when `comments` in `guide.json` names an InteropHub
+  hub. `--document` overrides the document key, which is otherwise read from
+  `guide.json`.
+
+Readers can see the manifest, so it holds only what any reader of the guide
+may see. It names files by their path in the project and never holds a
+machine path, the `location` of a project kept in a shared folder, a token,
+or the text of `CONFIRM` notes.
+
 ## Releases and status
 
 - A release is a Git tag such as `v0.1.0`. In a public project, pushing the tag
@@ -418,12 +454,17 @@ and the work is meant to last.
    `output/guide/index.html`. That page, not
    `output/<AssemblyName>.html`, is the Topic Reference.
 4. Run `validate.ps1`.
-5. For a public project, create the public GitHub repository, push, and set
-   GitHub Pages to publish from the `gh-pages` branch. Tag the first release,
-   then link the release's `/latest/` address from the InteropHub topic.
+5. For a public project, create the public GitHub repository, add the
+   `INTEROPHUB_TOKEN` repository secret, push, and set GitHub Pages to publish
+   from the `gh-pages` branch. Tag the first release, then link the release's
+   `/latest/` address from the InteropHub topic. The workflow fails until the
+   secret is set, because a guide is not published until InteropHub has its
+   [build manifest](#saving-the-build-manifest).
 6. For a private project, create the private GitHub repository and push. Do
    not enable GitHub Pages. For hosted mode, add `INTEROPHUB_TOKEN`; for local
-   mode there is no publishing workflow. Tag releases as usual.
+   mode there is no publishing workflow, so save the build manifest with
+   `publish_guide_to_hub.py --manifest-only` when you release. Tag releases as
+   usual.
 
 ### Starting a private Standing Topic Reference kept in a shared folder
 

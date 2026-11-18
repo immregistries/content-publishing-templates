@@ -18,9 +18,18 @@ $tools = Join-Path $PSScriptRoot 'tools'
     (Join-Path $tools 'infographic.py') `
     (Join-Path $tools 'headless_browser.py') `
     (Join-Path $tools 'build_infographic.py') `
-    (Join-Path $tools 'insert_word_infographic.py')
+    (Join-Path $tools 'insert_word_infographic.py') `
+    (Join-Path $tools 'process_release.py') `
+    (Join-Path $tools 'publish_guide_to_hub.py')
 if ($LASTEXITCODE -ne 0) {
     throw "Python validation failed."
+}
+
+# VERSION, the newest entry in process-releases.json, and the newest CHANGELOG
+# heading must agree, and every upgrade impact must be rebuild, config, or content.
+& $python.Source (Join-Path $tools 'process_release.py')
+if ($LASTEXITCODE -ne 0) {
+    throw "VERSION, process-releases.json, and CHANGELOG.md disagree."
 }
 
 & $python.Source -m unittest discover -s (Join-Path $PSScriptRoot 'tests') -p 'test_*.py'
@@ -73,6 +82,18 @@ if ($guideText -notmatch '<tr id="fx-1" class="guide-row-block" data-guide-ancho
     $guideText -notmatch '<p data-anchor="review-item" data-block-index="\d+">Text after the table' -or
     $readingCopyText -match 'row-anchors') {
     throw "Fixture guide did not make each row of the row-anchored table its own review area."
+}
+$manifestMatch = [regex]::Match($guideText, '<script type="application/json" id="guide-build-manifest">(.*?)</script>')
+if (-not $manifestMatch.Success -or $guideText.IndexOf('id="guide-build-manifest"') -gt $guideText.IndexOf('</head>')) {
+    throw "Fixture guide has no build manifest in its head."
+}
+$manifest = $manifestMatch.Groups[1].Value | ConvertFrom-Json
+$processVersion = (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'VERSION') -Raw).Trim()
+if ($manifest.schema -ne 1 -or $manifest.processVersion -ne $processVersion -or
+    $manifest.processReleases[0].version -ne $processVersion -or
+    $manifest.document.id -ne 'example-core-document' -or
+    ($manifest.checks.warnings | Where-Object { -not $_.code }).Count -ne 0) {
+    throw "Fixture guide's build manifest does not match schema 1 or this release."
 }
 
 $remoteFixture = Join-Path $PSScriptRoot 'output/fixture-remote'

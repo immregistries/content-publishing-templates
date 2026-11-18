@@ -206,6 +206,11 @@ Build the approved source into the final format using the named template.
 Generated deliverables should be placed in an output location and should not be
 edited as though they were maintained source files.
 
+Publishing a web guide includes saving its build manifest in InteropHub, which
+records the release of these templates it was built with and the warnings from
+its build. A guide has not been published until its manifest is saved. See
+[Saving the build manifest](TopicReference.md#saving-the-build-manifest).
+
 If an emergency correction is made in PowerPoint, Word, or another output file,
 the correction is not authoritative. It must be reconciled into canonical
 Markdown or clearly identified delivery context before the next build.

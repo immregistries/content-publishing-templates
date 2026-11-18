@@ -31,6 +31,10 @@ jobs:
           python -m py_compile tools/new_topic_reference.py
           python -m py_compile tools/infographic.py tools/headless_browser.py
           python -m py_compile tools/build_infographic.py tools/insert_word_infographic.py
+          python -m py_compile tools/process_release.py tools/publish_guide_to_hub.py
+
+      - name: Check release records
+        run: python tools/process_release.py
 
       # The unit tests build guides with pandoc and check the infographic's
       # wrapping in Chrome, which needs a CJK font for its wide-text test.

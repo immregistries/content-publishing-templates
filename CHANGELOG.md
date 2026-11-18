@@ -1,5 +1,71 @@
 # Changelog
 
+## v0.21.0
+
+- **The process knows its own version.** `VERSION` holds the current release
+  label, and `process-releases.json` lists every release, newest first, with
+  its date, a one-sentence summary, and its upgrade impact: `rebuild` (move
+  `process/`, rebuild, and republish), `config` (also edit `guide.json` or a
+  workflow), or `content` (authors write or restructure content). Earlier
+  releases are backfilled, and each CHANGELOG entry now ends with its upgrade
+  impact. New `tools/process_release.py` fails when `VERSION`, the newest
+  registry entry, and the newest CHANGELOG heading disagree, when the
+  registry and the CHANGELOG list different releases, or when an impact is
+  not one of the three; `validate.ps1` and CI run it.
+- **Build manifest.** `build_guide.py` embeds a machine-readable record of
+  each build in the guide's `<head>`, as
+  `<script type="application/json" id="guide-build-manifest">` (schema 1):
+  the templates' version, commit, and the whole release registry; the
+  document's ID, title, type, status, version, where it is kept, visibility,
+  hosting, and InteropHub topic; when and from which commit it was built, and
+  with which Python and pandoc; its chapters, appendices, and whether it has
+  an infographic; and the content check findings. Warnings carry stable codes
+  (`CHAPTER_COUNT`, `APPENDIX_ORDER`, `CONFIRM_OPEN`, `INFOGRAPHIC_WARNING` in
+  this release) so InteropHub's status page can filter on them. Readers can
+  see the manifest, so it names files by their path in the project and holds
+  no machine paths, workspace location, tokens, or the text of CONFIRM notes.
+  A project kept in a workspace, or outside Git, has no source commit.
+- `check_content.py`'s checks are callable as `run_checks()`, which
+  `build_guide.py` uses to fill the manifest. The command line is unchanged.
+- **Publishing saves the manifest.** A guide is not published until its
+  manifest is saved in InteropHub.
+  - `publish_guide_to_hub.py` refuses a guide that has no manifest. Hosted
+    uploads are otherwise unchanged; InteropHub reads the manifest from the
+    page.
+  - `publish_guide_to_hub.py --manifest-only` sends only the manifest, with an
+    optional `--label`, to `/api/guide/{document}/builds`, for a guide hosted
+    elsewhere. The hub comes from `--hub` or `comments.hub`. The document key
+    is set in `guide.json`: `comments.document`, or else the project `id`;
+    `--document` overrides it. The tool explains the hub's `invalid_request`
+    and `document_inactive` errors.
+  - The public profile's `publish-guide.yml` checks for the
+    `INTEROPHUB_TOKEN` repository secret before deploying, and fails without
+    it, then saves the manifest after deploying to GitHub Pages.
+  - `new_topic_reference.py` records `visibility` in `guide.json`. The
+    manifest uses it, and infers visibility from hosting only when it is
+    missing.
+  - `Process.md`, `TopicReference.md`, and the project README's publishing
+    section list saving the manifest as a publishing step.
+- `tests/mock_hub.py` serves the builds endpoint and records the manifest of
+  each uploaded guide, as InteropHub does. `workspace_process.py` copies
+  `VERSION` and `process-releases.json` into a workspace's `process/`.
+- To adopt:
+  - Register the guide in InteropHub if it is not already, under its
+    document key (`comments.document`, or else `id`). Saving the manifest
+    fails with `not_found` for an unregistered guide, including one that
+    uses local comments.
+  - Add `"visibility": "public"` or `"private"` to `guide.json`.
+  - Move `process/` to v0.21.0, rebuild, and republish. A hosted guide's
+    upload carries the manifest.
+  - A public project also copies the "Check InteropHub token" and "Save
+    build manifest in InteropHub" steps from the skeleton's
+    `.github/workflows/publish-guide.yml`, and adds an `INTEROPHUB_TOKEN`
+    repository secret: a personal access token with `topics:write`.
+  - A private guide built locally reports with
+    `publish_guide_to_hub.py --manifest-only` when it is released.
+
+**Upgrade impact:** config
+
 ## v0.20.0
 
 - **Chapters and appendices.** The suggested size of a core document is six to
@@ -40,6 +106,8 @@
   with an appendix between chapters, or a long chapter list, see the new
   warnings.
 
+**Upgrade impact:** content
+
 ## v0.19.0
 
 - A private Standing Topic Reference can be kept in a shared folder, such as a
@@ -64,6 +132,8 @@
   how to promote a Workspace to one in place. Conventions, Process, and the
   README no longer say that Standing means Git.
 - Existing projects need no change.
+
+**Upgrade impact:** rebuild
 
 ## v0.18.0
 
@@ -93,6 +163,8 @@
 - Projects adopt this by moving their `process` submodule to v0.18.0 and
   rebuilding and republishing the guide.
 
+**Upgrade impact:** rebuild
+
 ## v0.17.0
 
 - InteropHub comment forms save an unsaved draft in the browser as the reader
@@ -115,6 +187,8 @@
 - Projects adopt this by moving their `process` submodule to v0.17.0 and
   rebuilding and republishing the guide.
 
+**Upgrade impact:** rebuild
+
 ## v0.16.0
 
 - Row anchors. A `<!-- row-anchors -->` line just before a pipe table makes
@@ -134,6 +208,8 @@
   decisions and open questions tables. Projects adopt this by adding the
   directive to those tables.
 
+**Upgrade impact:** content
+
 ## v0.15.1
 
 - The Topic Reference publishing workflows, public and private, install
@@ -143,6 +219,8 @@
   the new "Install pandoc" step into their own
   `.github/workflows/publish-guide.yml`.
 - The repository's own validation workflow installs pandoc the same way.
+
+**Upgrade impact:** config
 
 ## v0.15.0
 
@@ -157,6 +235,8 @@
 - `tests/mock_hub.py` serves the version upload and listing endpoints in the
   shape the hub returns: `uploadedBy` is a display name, and the listing is
   `{"versions": [...]}` with `historyCount` and `earlier` per label.
+
+**Upgrade impact:** rebuild
 
 ## v0.14.0
 
@@ -195,6 +275,8 @@
 - Periodic comment refreshes keep open reply, edit, and disposition forms in
   place, preserving their draft text, focus, and cursor position until the
   reader submits or closes the form.
+
+**Upgrade impact:** rebuild
 
 ## v0.13.0
 
@@ -265,6 +347,8 @@ from the skeleton's `build.ps1`; list the files in `content/README.md` and
 run `build.ps1` and `validate.ps1`. Chrome or Edge must be installed where
 `build.ps1` runs.
 
+**Upgrade impact:** content
+
 ## v0.12.1
 
 - The web guide no longer stalls wheel scrolling at section boundaries. When
@@ -274,6 +358,8 @@ run `build.ps1` and `validate.ps1`. Chrome or Edge must be installed where
   return the reader to the previous section. The guide now scrolls only the
   section bar, sideways, and only when the link is out of view. Rebuild guides
   to pick up the fix.
+
+**Upgrade impact:** rebuild
 
 ## v0.12.0
 
@@ -295,6 +381,8 @@ run `build.ps1` and `validate.ps1`. Chrome or Edge must be installed where
   build both kinds of project, and check that a private project contains no
   publishing workflow, open license, or public address.
 
+**Upgrade impact:** rebuild
+
 ## v0.11.0
 
 - New Topic References no longer include a "How this document is maintained"
@@ -302,6 +390,8 @@ run `build.ps1` and `validate.ps1`. Chrome or Edge must be installed where
   are maintained is described once, in the shared guidance and each
   repository's `README.md` and `CONTRIBUTING.md`. Existing Topic References may
   remove that section and those decisions.
+
+**Upgrade impact:** rebuild
 
 ## v0.10.0
 
@@ -315,6 +405,8 @@ run `build.ps1` and `validate.ps1`. Chrome or Edge must be installed where
   more than six top-level chapters.
 - The Topic Reference guidance allows a short related-work section to live in
   Status and Scope instead of its own chapter.
+
+**Upgrade impact:** rebuild
 
 ## v0.9.0
 
@@ -338,6 +430,8 @@ run `build.ps1` and `validate.ps1`. Chrome or Edge must be installed where
   as the `core_release` in manifests, and describes checking products after a
   new release. CI now runs the unit tests.
 
+**Upgrade impact:** config
+
 ## v0.8.0
 
 - Rapid presentations can use 15 expressive slide patterns in addition to the
@@ -355,6 +449,8 @@ run `build.ps1` and `validate.ps1`. Chrome or Edge must be installed where
 - `templates/powerpoint/example-patterns.json` shows every pattern and is built
   by validation, which fails on any fit warning.
 
+**Upgrade impact:** rebuild
+
 ## v0.7.0
 
 - Show comment review states, dispositions, change notes, closed threads, and
@@ -363,6 +459,8 @@ run `build.ps1` and `validate.ps1`. Chrome or Edge must be installed where
   orphan re-attachment, and review flags, with conflict handling.
 - Replace blocking comment confirmations with in-page prompts and expand the
   mock comments service and browser checks for author review.
+
+**Upgrade impact:** rebuild
 
 ## v0.6.0
 
@@ -373,6 +471,8 @@ run `build.ps1` and `validate.ps1`. Chrome or Edge must be installed where
   CORS, incremental refresh tombstones, edit windows, and reply depth.
 - Topic Reference guidance explains where comments are stored in each mode.
 
+**Upgrade impact:** rebuild
+
 ## v0.5.1
 
 - Reading copies remove review anchors without leaving an extra blank line
@@ -381,6 +481,8 @@ run `build.ps1` and `validate.ps1`. Chrome or Edge must be installed where
   build silently allowed. Give one of the colliding headings a unique explicit
   ID, such as `## Representations {#related-representations}`; because a heading
   ID is also an anchor name, keep it stable as content changes.
+
+**Upgrade impact:** rebuild
 
 ## v0.5.0
 
@@ -398,6 +500,8 @@ run `build.ps1` and `validate.ps1`. Chrome or Edge must be installed where
 - Topic Reference and convention guidance describes stable anchor naming and
   placement.
 
+**Upgrade impact:** rebuild
+
 ## v0.4.0
 
 - Topic References: `guidance/TopicReference.md` describes the most common kind
@@ -410,6 +514,8 @@ run `build.ps1` and `validate.ps1`. Chrome or Edge must be installed where
 - Web guide: an optional `documentType` in `guide.json`, such as
   `"Topic Reference"`, is shown above the title and in the browser tab.
 
+**Upgrade impact:** rebuild
+
 ## v0.3.0
 
 - PowerPoint support: the AIRA rapid presentation template (18 layouts, author
@@ -419,9 +525,13 @@ run `build.ps1` and `validate.ps1`. Chrome or Edge must be installed where
 - The presentation generator now accepts a subtitle on Section layouts, which
   use a body placeholder for it, and slides without a title on Blank layouts.
 
+**Upgrade impact:** rebuild
+
 ## v0.2.1
 
 - Fix: the comment box in the web guide was hidden, so typing was invisible.
+
+**Upgrade impact:** rebuild
 
 ## v0.2.0
 
@@ -432,6 +542,8 @@ run `build.ps1` and `validate.ps1`. Chrome or Edge must be installed where
 - On-page comments saved in the reader's browser, downloadable and loadable as
   JSON. `tools/import_guide_comments.py` turns downloaded files into a review
   record.
+
+**Upgrade impact:** rebuild
 
 ## v0.1.0
 
@@ -447,3 +559,5 @@ First public release, seeded from AIRA's internal content publishing process.
 - `apply_word_table_style.py`, unchanged.
 - Process and conventions guidance, with internal pilot references removed.
 - Generic product brief, manifest, and content-module templates.
+
+**Upgrade impact:** rebuild

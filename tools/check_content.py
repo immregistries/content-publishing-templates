@@ -25,6 +25,7 @@ import argparse
 import json
 import re
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -276,19 +277,35 @@ def infographic_problems(root: Path) -> tuple[list[str], list[str]]:
     return report.errors, report.warnings
 
 
-def main() -> int:
-    # Labels may hold characters the console encoding lacks; never fail on printing them.
-    sys.stdout.reconfigure(errors="backslashreplace")
-    args = arguments()
-    root = Path(args.root).resolve()
-    terms = {term: re.compile(rf"\b{re.escape(term)}\b") for term in args.report_term}
-    failures: list[str] = []
-    confirms: list[str] = []
+@dataclass
+class ContentReport:
+    """What the content checks found. Paths are relative to the project root."""
+
+    failures: list[str] = field(default_factory=list)
+    # (file, line, note) for each CONFIRM note in content/.
+    confirms: list[tuple[str, int, str]] = field(default_factory=list)
+    infographic_warnings: list[str] = field(default_factory=list)
+    # None when the project has no ideas register.
+    open_ideas: int | None = None
+    term_uses: dict[str, dict[str, int]] = field(default_factory=dict)
+
+
+def run_checks(root: Path, include: list[str] | None = None,
+               report_terms: list[str] | None = None) -> ContentReport:
+    """Run every content check on the project at root and return the findings.
+
+    The command line prints this report; build_guide.py records it in the
+    guide's build manifest.
+    """
+    report = ContentReport()
+    terms = {term: re.compile(rf"\b{re.escape(term)}\b") for term in report_terms or []}
+    failures = report.failures
     term_uses: dict[str, dict[str, int]] = {term: {} for term in terms}
+    report.term_uses = term_uses
     anchors: dict[str, tuple[str, int]] = {}
     headings: dict[str, tuple[str, int]] = {}
 
-    for path in maintained_files(root, args.include):
+    for path in maintained_files(root, include or []):
         relative = path.relative_to(root).as_posix()
         text = path.read_text(encoding="utf-8")
         failures.extend(broken_links(root, path, text))
@@ -358,7 +375,7 @@ def main() -> int:
             for match in CONFIRM_PATTERN.finditer(text):
                 line = text.count("\n", 0, match.start()) + 1
                 note = " ".join(match.group(1).split())
-                confirms.append(f"{relative}:{line}: {note}")
+                report.confirms.append((relative, line, note))
             for term, pattern in terms.items():
                 count = len(pattern.findall(text))
                 if count:
@@ -372,13 +389,11 @@ def main() -> int:
                 f"at {heading_file}:{heading_line}"
             )
 
-    idea_failures, open_ideas = ideas_problems(root)
+    idea_failures, report.open_ideas = ideas_problems(root)
     failures.extend(idea_failures)
 
-    infographic_failures, infographic_warnings = infographic_problems(root)
+    infographic_failures, report.infographic_warnings = infographic_problems(root)
     failures.extend(infographic_failures)
-    for warning in infographic_warnings:
-        confirms.append(warning)
 
     config_path = root / "guide.json"
     if config_path.is_file():
@@ -387,6 +402,19 @@ def main() -> int:
             hosting_config(config)
         except (json.JSONDecodeError, RuntimeError) as error:
             failures.append(f"guide.json: {error}")
+
+    return report
+
+
+def main() -> int:
+    # Labels may hold characters the console encoding lacks; never fail on printing them.
+    sys.stdout.reconfigure(errors="backslashreplace")
+    args = arguments()
+    report = run_checks(Path(args.root).resolve(), args.include, args.report_term)
+    confirms = [f"{relative}:{line}: {note}" for relative, line, note in report.confirms]
+    confirms.extend(report.infographic_warnings)
+    open_ideas, failures = report.open_ideas, report.failures
+    term_uses = report.term_uses
 
     if confirms:
         print(f"{len(confirms)} CONFIRM item(s) awaiting human resolution:")

@@ -93,6 +93,19 @@ class GenerateTopicReference(unittest.TestCase):
         guide = json.loads(files["guide.json"])
         self.assertEqual("Content licensed CC BY 4.0", guide["license"])
         self.assertEqual(7, guide["interophubTopic"])
+        self.assertEqual("public", guide["visibility"])
+        # Publishing fails before the Pages deploy without the secret, and saves
+        # the build manifest after it. The document key comes from guide.json.
+        workflow = files[".github/workflows/publish-guide.yml"]
+        check = workflow.index("Check InteropHub token")
+        self.assertLess(check, workflow.index("Publish to the gh-pages branch"))
+        self.assertIn('if [ -z "$INTEROPHUB_TOKEN" ]', workflow[check:workflow.index("Publish to the gh-pages branch")])
+        self.assertIn("exit 1", workflow[check:workflow.index("Publish to the gh-pages branch")])
+        self.assertLess(workflow.index("Publish to the gh-pages branch"), workflow.index("--manifest-only"))
+        self.assertIn('--hub "https://informatics.immregistries.org/hub"', workflow)
+        self.assertNotIn("--document", workflow)
+        self.assertNotIn("continue-on-error", workflow)
+        self.assertNotIn("{{", workflow.replace("${{", ""))
 
     def test_private_project(self):
         target = self.base / "sample-topic"
@@ -120,6 +133,7 @@ class GenerateTopicReference(unittest.TestCase):
         self.assertEqual("https://github.com/example-org/sample-topic", guide["repository"])
         self.assertEqual(7, guide["interophubTopic"])
         self.assertEqual("local", guide["hosting"])
+        self.assertEqual("private", guide["visibility"])
         self.assertEqual({"mode": "local"}, guide["comments"])
         self.assertEqual(
             "Restricted to readers of InteropHub topic 7; not for further distribution", guide["license"])

@@ -4,6 +4,8 @@ from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlencode, urlparse
 
+MANIFEST_PATTERN = re.compile(rb'<script type="application/json" id="guide-build-manifest">(.*?)</script>', re.DOTALL)
+MAX_MANIFEST = 64 * 1024
 DISPOSITIONS = [{"code": "PERSUASIVE", "label": "Persuasive"}, {"code": "PERSUASIVE_MOD", "label": "Persuasive with Modification"}, {"code": "NOT_PERSUASIVE", "label": "Not Persuasive"}]
 
 def now(): return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
@@ -13,6 +15,8 @@ class State:
     def __init__(self, origins):
         self.origins=set(origins); self.codes={}; self.tokens={}; self.comments={}; self.flags={}
         self.versions={}; self.hosted_documents={"document"}
+        # Every registered guide document, hosted or not, takes build records.
+        self.documents={"document","external-document"}; self.builds={}; self.next_build_id=1
         self.next_id=1; self.next_flag_id=1; self.can_view=True; self.active=True; self.lock=threading.Lock()
 
 class Handler(BaseHTTPRequestHandler):
@@ -84,6 +88,7 @@ class Handler(BaseHTTPRequestHandler):
         if not who: return
         parts=p.path.strip("/").split("/")
         if len(parts)==5 and parts[:2]==["api","guide"] and parts[3]=="versions": self.upload_version(parts[2],parts[4],who); return
+        if len(parts)==4 and parts[:2]==["api","guide"] and parts[3]=="builds": self.save_build(parts[2],who); return
         payload=self.body() or {}
         if "TEST-FIREWALL-BLOCK" in str(payload.get("text","")):
             # Stand in for a web application firewall in front of the hub: an HTML page, not the hub's JSON.
@@ -103,7 +108,43 @@ class Handler(BaseHTTPRequestHandler):
         versions=self.state.versions.setdefault(document,{})
         status=200 if label in versions else 201; stamp=now()
         value={"label":label,"sizeBytes":len(payload),"uploadedBy":who["user"]["displayName"],"uploadedAt":stamp,"viewUrl":f"http://127.0.0.1:{self.server.server_port}/guide/view/{document}/{label}/"}
-        versions.setdefault(label,[]).append(value); self.json(status,value)
+        versions.setdefault(label,[]).append(value); self.record_upload_manifest(document,label,payload,who,stamp); self.json(status,value)
+    def record_upload_manifest(self,document,label,payload,who,stamp):
+        # As the hub does: an upload is never refused over its manifest; a missing,
+        # oversized, or unreadable one is recorded on the build row instead.
+        match=MANIFEST_PATTERN.search(payload); record={"source":"UPLOAD","label":label,"manifest":None,"manifestError":None}
+        if not match: record["manifestError"]="missing"
+        elif len(match.group(1))>MAX_MANIFEST: record["manifestError"]="too_large"
+        else:
+            try:
+                manifest=json.loads(match.group(1).decode("utf-8"))
+                if not isinstance(manifest,dict) or manifest.get("schema")!=1: record["manifestError"]="unknown_schema"
+                else: record["manifest"]=manifest
+            except (UnicodeDecodeError,json.JSONDecodeError): record["manifestError"]="malformed"
+        self.add_build(document,record,who,stamp)
+    def add_build(self,document,record,who,stamp):
+        ident=self.state.next_build_id; self.state.next_build_id+=1
+        manifest=record.get("manifest") or {}
+        row=dict(record,buildId=ident,documentKey=document,processVersion=manifest.get("processVersion"),receivedAt=stamp,receivedBy=who["user"]["displayName"])
+        self.state.builds.setdefault(document,[]).append(row); return row
+    def save_build(self,document,who):
+        # The manifest-only contract: POST {hub}/api/guide/{documentKey}/builds.
+        raw=self.rfile.read(int(self.headers.get("Content-Length","0")))
+        if not who.get("isAuthor"): self.error(403,"forbidden","Only an author can publish this guide."); return
+        if document not in self.state.documents: self.error(404,"not_found","Guide document not found."); return
+        if not self.state.active: self.error(409,"document_inactive","This guide document is inactive."); return
+        if self.headers.get_content_type()!="application/json" or len(raw)>MAX_MANIFEST+1024:
+            self.error(400,"invalid_request","Send a JSON build record no larger than 64 KB."); return
+        try: payload=json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError,json.JSONDecodeError): self.error(400,"invalid_request","The body is not valid JSON."); return
+        manifest=payload.get("manifest") if isinstance(payload,dict) else None
+        label=payload.get("label") if isinstance(payload,dict) else None
+        if not isinstance(manifest,dict): self.error(400,"invalid_request","A manifest is required."); return
+        if manifest.get("schema")!=1: self.error(400,"invalid_request","Unknown manifest schema."); return
+        if len(json.dumps(manifest).encode("utf-8"))>MAX_MANIFEST: self.error(400,"invalid_request","The manifest is larger than 64 KB."); return
+        if label is not None and (not isinstance(label,str) or len(label)>64): self.error(400,"invalid_request","The label is invalid."); return
+        row=self.add_build(document,{"source":"MANIFEST","label":label,"manifest":manifest,"manifestError":None},who,now())
+        self.json(201,{k:row[k] for k in ("buildId","documentKey","processVersion","receivedAt")})
     def exchange(self,payload):
         if self.refuse_origin(): return
         r=self.state.codes.get(payload.get("code")); valid=r and not r.get("used") and payload.get("returnTo")==r["returnTo"] and challenge(payload.get("codeVerifier",""))==r["challenge"]

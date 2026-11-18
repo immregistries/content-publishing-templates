@@ -78,7 +78,8 @@ DEFAULT_SUBTITLES = {
 # Git and GitHub files a Workspace project, which has neither, does not get.
 WORKSPACE_SKIP = ("_github", "_gitignore")
 PUBLIC_OWNER = "immregistries"
-INTEROPHUB_TOPIC_URL = "https://informatics.immregistries.org/hub/es/topic/{topic}"
+INTEROPHUB_HUB_URL = "https://informatics.immregistries.org/hub"
+INTEROPHUB_TOPIC_URL = INTEROPHUB_HUB_URL + "/es/topic/{topic}"
 TEMPLATES_URL = "https://github.com/immregistries/content-publishing-templates.git"
 ID_PATTERN = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 
@@ -301,6 +302,8 @@ def standing_values(args: argparse.Namespace, project_id: str) -> dict[str, str]
     # A private file that refers to one fails as an unknown placeholder.
     if args.visibility == "public":
         values["PAGES_URL"] = f"https://{owner}.github.io/{project_id}/"
+        # The publishing workflow saves each build's manifest in this hub.
+        values["HUB_URL"] = INTEROPHUB_HUB_URL
     return values
 
 
@@ -370,14 +373,17 @@ def main() -> int:
         copy_tree(profile, staging, values, skip=tuple(profile_skip), overlay=True)
         if args.visibility == "private" and hosting == "local" and not in_workspace:
             (staging / ".github" / "workflows" / "publish-guide.yml").unlink()
-        if args.visibility == "private":
+        if not workspace:
             guide_path = staging / "guide.json"
             guide = json.loads(guide_path.read_text(encoding="utf-8"))
-            guide["hosting"] = hosting
-            if hosting == "interophub":
-                guide["comments"] = {"mode": "interophub", "hub": args.hub.rstrip("/"), "document": project_id}
-            else:
-                guide["comments"] = {"mode": "local"}
+            # Recorded so the build manifest need not infer it from hosting.
+            guide["visibility"] = args.visibility
+            if args.visibility == "private":
+                guide["hosting"] = hosting
+                if hosting == "interophub":
+                    guide["comments"] = {"mode": "interophub", "hub": args.hub.rstrip("/"), "document": project_id}
+                else:
+                    guide["comments"] = {"mode": "local"}
             guide_path.write_text(json.dumps(guide, indent=2) + "\n", encoding="utf-8", newline="\n")
         if "presentation" in args.options:
             add_presentation(staging, values)

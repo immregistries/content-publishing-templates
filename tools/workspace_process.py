@@ -28,7 +28,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # What a project uses at build time, with the license and the record of changes.
-CONTENTS = ["tools", "templates", "guidance", "requirements-pptx.txt", "README.md", "LICENSE", "CHANGELOG.md"]
+CONTENTS = ["tools", "templates", "guidance", "requirements-pptx.txt", "README.md", "LICENSE", "CHANGELOG.md",
+            "VERSION", "process-releases.json"]
 VERSION_FILE = "PROCESS-VERSION.txt"
 
 
@@ -50,7 +51,9 @@ def install(workspace: Path, ref: str | None = None) -> str:
     if commit.returncode != 0:
         raise SystemExit(f"{ref} is not a commit or tag in {REPO_ROOT}.")
     commit_id = commit.stdout.decode().strip()
-    archive = git("archive", "--format=tar", commit_id, "--", *CONTENTS)
+    # Releases before v0.21.0 have no VERSION or release registry.
+    present = [path for path in CONTENTS if git("cat-file", "-e", f"{commit_id}:{path}").returncode == 0]
+    archive = git("archive", "--format=tar", commit_id, "--", *present)
     if archive.returncode != 0:
         raise SystemExit(f"git archive failed:\n{archive.stderr.decode().strip()}")
 

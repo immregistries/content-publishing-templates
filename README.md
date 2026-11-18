@@ -101,6 +101,11 @@ python process/tools/insert_word_infographic.py output/Project.docx
 # This is the published page; the Quarto HTML build is a review copy.
 python process/tools/build_guide.py --assembly Project.qmd --version v0.1.0
 
+# Upload a hosted guide to InteropHub, or save only its build manifest there
+# for a guide hosted elsewhere. Needs INTEROPHUB_TOKEN.
+python process/tools/publish_guide_to_hub.py output/guide/index.html --label v0.1.0 --label latest
+python process/tools/publish_guide_to_hub.py output/guide/index.html --manifest-only --label v0.1.0
+
 # Turn comment files downloaded from the guide into a review record.
 python process/tools/import_guide_comments.py comments.json
 
@@ -123,6 +128,20 @@ third-party package, `python-pptx`, pinned in `requirements-pptx.txt`.
 
 Projects pin to tags such as `v0.1.0`. Changes to a template's appearance or to
 a tool's behavior get a new tag and a note in [CHANGELOG.md](CHANGELOG.md).
+
+To make a release:
+
+1. Add the CHANGELOG entry, ending with an `**Upgrade impact:**` line:
+   `rebuild` (move `process/`, rebuild, and republish), `config` (also edit
+   `guide.json` or a workflow), or `content` (authors write or restructure
+   content).
+2. Update `VERSION` and add the release to the top of `process-releases.json`
+   with its date, upgrade impact, and a one-sentence summary.
+3. Run `validate.ps1`; `tools/process_release.py` fails when these disagree.
+4. Tag the release.
+
+Every guide's build manifest carries the whole release registry, so InteropHub
+learns of a release when the first guide built with it is published.
 
 ## License
 

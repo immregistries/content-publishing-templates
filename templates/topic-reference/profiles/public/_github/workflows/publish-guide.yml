@@ -23,6 +23,18 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      - name: Check InteropHub token
+        # A guide is not published until InteropHub has saved its build
+        # manifest, so stop before deploying when the secret is missing.
+        # INTEROPHUB_TOKEN is a personal access token with topics:write.
+        env:
+          INTEROPHUB_TOKEN: ${{ secrets.INTEROPHUB_TOKEN }}
+        run: |
+          if [ -z "$INTEROPHUB_TOKEN" ]; then
+            echo "::error::Add the INTEROPHUB_TOKEN repository secret. Nothing was deployed: a guide is not published until InteropHub has saved its build manifest."
+            exit 1
+          fi
+
       - name: Check out repository and shared templates
         uses: actions/checkout@v4
         with:
@@ -94,3 +106,11 @@ jobs:
             git commit --quiet -m "Publish guide $VERSION"
             git push --quiet origin gh-pages
           fi
+
+      - name: Save build manifest in InteropHub
+        # The document key comes from guide.json (comments.document, then id).
+        env:
+          INTEROPHUB_TOKEN: ${{ secrets.INTEROPHUB_TOKEN }}
+        run: |
+          python process/tools/publish_guide_to_hub.py "$RUNNER_TEMP/guide/index.html" \
+            --manifest-only --label "${TARGETS%% *}" --hub "{{HUB_URL}}"

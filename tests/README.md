@@ -13,3 +13,10 @@ Serve a built guide at the allowed origin (for example, with
 routes under `/test/` for revoking tokens, deleting or closing comments, and
 changing document visibility.
 
+
+The service also takes build records as InteropHub does. `POST
+/api/guide/{document}/builds` saves a build manifest sent on its own (the
+documents `document` and `external-document` are registered), and each upload
+to `/api/guide/{document}/versions/{label}` records the manifest read from the
+uploaded guide, or why it could not be read. Tests read them from
+`server.state.builds`.
