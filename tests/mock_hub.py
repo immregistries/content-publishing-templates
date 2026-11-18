@@ -10,6 +10,11 @@ MAX_MANIFEST = 64 * 1024
 HOSTED_LABEL = re.compile(r"^(?:latest|main|v[0-9]+(?:\.[0-9]+)*(?:-[A-Za-z0-9][A-Za-z0-9.]*)?)$")
 DISPLAYS = ("current", "listed", "unlisted", "authors_only", "retired")
 MODES = ("open", "release", "closed")
+# The help page for authors (contract 2.1): every error carries a link to its entry.
+HELP_PAGE = "/help/topic-reference-authors"
+HELP_CODES = ("invalid_token","insufficient_scope","forbidden","not_found","document_inactive","comments_closed","invalid_request",
+              "invalid_field","invalid_state","edit_window_closed","conflict","duplicate","url_not_approved","server_error")
+SCOPE_ORDER = ("comments","topics:read","topics:write")
 DISPOSITIONS = [{"code": "PERSUASIVE", "label": "Persuasive"}, {"code": "PERSUASIVE_MOD", "label": "Persuasive with Modification"}, {"code": "NOT_PERSUASIVE", "label": "Not Persuasive"}]
 
 def now(): return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
@@ -25,6 +30,9 @@ class State:
         # Version display and comment modes (contract 5.3.1, 5.4.1, 7.5). labels: document -> label ->
         # {"display", "commentMode", "modeSetAt"}; label_urls: document -> registered URL -> label.
         self.labels={}; self.label_urls={}
+        # firewall: answer every /api/ request with an HTML page, as a firewall in front of the hub would.
+        # token_endpoint: False stands in for a hub older than GET /api/token (contract 3.7), whose 404 is HTML.
+        self.firewall=False; self.token_endpoint=True
 
 class Handler(BaseHTTPRequestHandler):
     server_version="GuideMock/2"
@@ -40,12 +48,28 @@ class Handler(BaseHTTPRequestHandler):
         for key,val in (extra or {}).items(): self.send_header(key,val)
         self.end_headers(); self.wfile.write(payload)
     def empty(self, status=204): self.send_response(status); self.cors(); self.end_headers()
-    def error(self,status,code,message,field=None,current=None):
+    def base(self): return f"http://127.0.0.1:{self.server.server_port}"
+    def html(self,status,text):
+        page=f"<html><body>{text}</body></html>".encode(); self.send_response(status); self.cors(); self.send_header("Content-Type","text/html"); self.send_header("Content-Length",str(len(page))); self.end_headers(); self.wfile.write(page)
+    def error(self,status,code,message,field=None,current=None,scope=None,extra=None):
         body={"error":code,"message":message}
         if field: body["field"]=field
         if current is not None: body["current"]=current
-        extra={"WWW-Authenticate":'Bearer realm="interophub", error="invalid_token"'} if status==401 else None
+        if scope: body["requiredScope"]=scope
+        body["help"]=self.base()+HELP_PAGE+"#troubleshooting"+("-"+code if code in HELP_CODES else "")
+        extra=dict(extra or {})
+        if status==401: extra["WWW-Authenticate"]='Bearer realm="interophub", error="invalid_token"'
+        if scope: extra["WWW-Authenticate"]=f'Bearer realm="interophub", error="insufficient_scope", scope="{scope}"'
         self.json(status,body,extra)
+    def blocked(self):
+        """Stand-ins that answer before the hub would: a firewall, or an older hub without /api/token."""
+        path=urlparse(self.path).path
+        if self.state.firewall and path.startswith("/api/"): self.html(403,"Request rejected."); return True
+        if not self.state.token_endpoint and path=="/api/token": self.html(404,"Not Found"); return True
+        return False
+    def scopes(self,who):
+        token=self.headers.get("Authorization","")[7:]
+        return who.get("scopes") or (["comments"] if token.startswith("ihg_") else ["comments","topics:write"])
     def body(self):
         try: return json.loads(self.rfile.read(int(self.headers.get("Content-Length","0"))))
         except (ValueError,json.JSONDecodeError): return None
@@ -55,7 +79,8 @@ class Handler(BaseHTTPRequestHandler):
         return False
     def identity(self):
         auth=self.headers.get("Authorization",""); record=self.state.tokens.get(auth[7:] if auth.startswith("Bearer ") else "")
-        if not record or record.get("revoked"): self.error(401,"invalid_token","The access token is invalid or expired."); return None
+        expired=record and record.get("expiresAt") and record["expiresAt"]<now()
+        if not record or record.get("revoked") or expired: self.error(401,"invalid_token","The access token is missing, invalid, expired, or revoked."); return None
         return record
     def do_OPTIONS(self):
         if self.headers.get("Origin") not in self.state.origins: self.empty(403); return
@@ -64,10 +89,11 @@ class Handler(BaseHTTPRequestHandler):
         p=urlparse(self.path)
         if p.path=="/home": self.sign_in(p); return
         if p.path.startswith("/test/"): self.test_control(p); return
-        if self.refuse_origin(): return
+        if self.blocked() or self.refuse_origin(): return
         who=self.identity()
         if not who: return
         parts=p.path.strip("/").split("/"); user=who["user"]
+        if p.path=="/api/token": self.token_info(who); return
         if len(parts)==4 and parts[:2]==["api","guide"] and parts[3]=="versions":
             self.json(200,{"versions":[dict(uploads[-1],historyCount=len(uploads),earlier=[{k:u[k] for k in ("uploadedAt","uploadedBy","sizeBytes")} for u in reversed(uploads[:-1])]) for uploads in self.state.versions.get(parts[2],{}).values()]}); return
         if len(parts)==3 and parts[:2]==["api","guide"]:
@@ -107,6 +133,21 @@ class Handler(BaseHTTPRequestHandler):
             cleared=parse_qs(p.query).get("includeCleared",["false"])[0]=="true"
             self.json(200,{"serverTime":now(),"reviewFlags":[dict(f) for f in self.state.flags.values()] if cleared else self.active_flags()}); return
         self.error(404,"not_found","Not found.")
+    def token_info(self,who):
+        # Contract 3.7: who the token acts as, its scopes and expiry, and the guides its user edits.
+        token=self.headers.get("Authorization","")[7:]; scopes=self.scopes(who)
+        expires=who.get("expiresAt") or (datetime.now(timezone.utc)+timedelta(days=30 if token.startswith("ihg_") else 90)).isoformat(timespec="milliseconds").replace("+00:00","Z")
+        left=max(0,-(-(datetime.fromisoformat(expires.replace("Z","+00:00"))-datetime.now(timezone.utc)).total_seconds()//86400))
+        guides=[{"documentKey":key,"title":"Fixture guide","topicId":1,"topicName":"Fixture topic","hosting":"HUB" if key in self.state.hosted_documents else "EXTERNAL",
+                 "active":True,"canPublish":"topics:write" in scopes} for key in sorted(self.state.documents)] if who.get("isAuthor") and self.state.active else []
+        self.json(200,{"user":{"userId":who["user"]["userId"],"displayName":who["user"]["displayName"]},"kind":"guide" if token.startswith("ihg_") else "personal",
+                       "label":who.get("label") or "Test token","scopes":[s for s in SCOPE_ORDER if s in scopes],"expiresAt":expires,"expiresInDays":int(left),
+                       "guides":guides,"help":self.base()+HELP_PAGE+"#if-you-are-an-agent"},{"Cache-Control":"no-store"})
+    def not_get(self):
+        """/api/token answers GET only (contract 3.7)."""
+        if urlparse(self.path).path!="/api/token": return False
+        if self.identity(): self.error(405,"invalid_request","Use GET.",extra={"Allow":"GET"})
+        return True
     def sign_in(self,p):
         q=parse_qs(p.query); valid=all(q.get(k) for k in ("return_to","state","code_challenge")) and q.get("code_challenge_method")==["S256"] and q.get("response_mode")==["fragment"] and not urlparse(q["return_to"][0]).fragment
         if not valid: self.error(400,"invalid_request","The sign-in request is invalid."); return
@@ -116,7 +157,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         p=urlparse(self.path)
         if p.path=="/api/guide/token": self.exchange(self.body() or {}); return
-        if self.refuse_origin(): return
+        if self.blocked() or self.refuse_origin() or self.not_get(): return
         who=self.identity()
         if not who: return
         parts=p.path.strip("/").split("/")
@@ -131,7 +172,7 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)==4 and parts[:2]==["api","guide"] and parts[3]=="review-flags": self.set_flag(parts[2],payload,who); return
         self.error(404,"not_found","Not found.")
     def upload_version(self,document,label,who):
-        if not who.get("isAuthor"): self.error(403,"forbidden","Only an author can publish this guide."); return
+        if not who.get("isAuthor"): self.error(403,"forbidden","Your account must be an editor of the topic \"Fixture topic\" to do this."); return
         if document not in self.state.hosted_documents: self.error(409,"invalid_state","This document is not set up for hosted publishing."); return
         if not HOSTED_LABEL.fullmatch(label):
             self.error(400,"invalid_field","Choose a valid version label.","label"); return
@@ -163,7 +204,7 @@ class Handler(BaseHTTPRequestHandler):
     def save_build(self,document,who):
         # The manifest-only contract: POST {hub}/api/guide/{documentKey}/builds.
         raw=self.rfile.read(int(self.headers.get("Content-Length","0")))
-        if not who.get("isAuthor"): self.error(403,"forbidden","Only an author can publish this guide."); return
+        if not who.get("isAuthor"): self.error(403,"forbidden","Your account must be an editor of the topic \"Fixture topic\" to do this."); return
         if document not in self.state.documents: self.error(404,"not_found","Guide document not found."); return
         if not self.state.active: self.error(409,"document_inactive","This guide document is inactive."); return
         if self.headers.get_content_type()!="application/json" or len(raw)>MAX_MANIFEST+1024:
@@ -219,7 +260,7 @@ class Handler(BaseHTTPRequestHandler):
         else: found["withdrawn"]=True; top["updatedAt"]=found["updatedAt"]
         self.json(200,self.thread(top,who))
     def do_PATCH(self):
-        if self.refuse_origin(): return
+        if self.blocked() or self.refuse_origin() or self.not_get(): return
         who=self.identity()
         if not who: return
         parts=urlparse(self.path).path.strip("/").split("/"); payload=self.body() or {}
@@ -262,7 +303,7 @@ class Handler(BaseHTTPRequestHandler):
             if field in payload: top[field]=payload[field]
         top["updatedAt"]=stamp; self.json(200,self.thread(top,who))
     def do_DELETE(self):
-        if self.refuse_origin(): return
+        if self.blocked() or self.refuse_origin() or self.not_get(): return
         who=self.identity()
         if not who: return
         parts=urlparse(self.path).path.strip("/").split("/")
@@ -331,8 +372,8 @@ class Handler(BaseHTTPRequestHandler):
         return row
     def patch_label(self,document,label,payload,who):
         scopes=who.get("scopes")
-        if scopes is not None and "topics:write" not in scopes: self.error(403,"insufficient_scope","This token does not allow that."); return
-        if not who.get("isAuthor"): self.error(403,"forbidden","Only an editor of this topic can change labels."); return
+        if scopes is not None and "topics:write" not in scopes: self.error(403,"insufficient_scope","This token needs the topics:write scope.",scope="topics:write"); return
+        if not who.get("isAuthor"): self.error(403,"forbidden","Your account must be an editor of the topic \"Fixture topic\" to do this."); return
         if not payload: self.error(400,"invalid_request","Send display or commentMode."); return
         for field,value in payload.items():
             allowed=DISPLAYS if field=="display" else MODES if field=="commentMode" else None

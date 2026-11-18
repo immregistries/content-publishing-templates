@@ -1,0 +1,51 @@
+This guide is published only by uploading it to InteropHub ({{HUB_URL}}),
+which hosts it for the topic's readers and keeps its comments. The upload
+carries the build manifest, which InteropHub must save before the guide
+counts as published.
+
+- **The token.** Every call to InteropHub uses a personal access token in
+  the `INTEROPHUB_TOKEN` environment variable on the author's machine. This
+  project has no repository, secret, or workflow. Never print, log, or save
+  the token in this folder, and never ask the author to paste it into the
+  conversation.
+- **First call.** Check the token, and stop to relay a step below if it
+  reports a problem:
+
+  ```powershell
+  python process/tools/publish_guide_to_hub.py --check-token
+  ```
+
+- **Publishing.** Raise `version` in `guide.json` (for example from `v0.1.0`
+  to `v0.2.0`), run `build.ps1`, then upload with that version:
+
+  ```powershell
+  python process/tools/publish_guide_to_hub.py output/guide/index.html `
+      --label v0.2.0 --label latest
+  ```
+
+  If the hub answers with an HTML page instead of JSON, something in front
+  of it stopped the upload; the author uploads the guide by hand in
+  InteropHub instead.
+- **Version settings.** Only when the author asks, add `--display` and
+  `--comment-mode` to the upload to set how InteropHub shows the release, or
+  set them on a release already uploaded with
+  `--settings-only --label v0.2.0` and no guide file. `--display` is
+  `current` (the one version readers are pointed to), `listed`, `unlisted`
+  (the default), `authors_only`, or `retired`. `--comment-mode` is `open`
+  (the default), `release` (only comments made on or before this release), or
+  `closed`.
+
+Only the author can do these steps. Pass them on as written:
+
+- No token, or it is expired or lacks `topics:write`: "Please create a
+  personal access token on your InteropHub account page
+  ({{HUB_URL}}/account, Access tokens) with the Author preset. Set it as the
+  INTEROPHUB_TOKEN environment variable yourself, then start me again from a
+  new terminal. Please don't paste it into this chat."
+- This guide is not among the account's guides: "Please ask the champions
+  of the topic {{TOPIC_NAME}} ({{TOPIC_URL}}) or its space admin to make you
+  an editor of the topic. Then register this guide on the topic's guide
+  settings page if it is not registered yet."
+
+Errors from the tool carry a link to their entry on the help page for
+authors and their agents: {{HUB_URL}}/help/topic-reference-authors.

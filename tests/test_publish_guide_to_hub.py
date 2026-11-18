@@ -5,6 +5,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import mock_hub
@@ -23,7 +24,9 @@ def guide_html(manifest=MANIFEST):
     return f"<!DOCTYPE html><html><head><title>Guide</title>{script}</head><body></body></html>"
 
 
-class PublishGuideTest(unittest.TestCase):
+class HubToolCase(unittest.TestCase):
+    """A mock hub, a guide, and its guide.json, for running the tool."""
+
     @classmethod
     def setUpClass(cls):
         cls.server = mock_hub.serve(0)
@@ -67,6 +70,11 @@ class PublishGuideTest(unittest.TestCase):
     def builds(self, document="document"):
         return self.server.state.builds.get(document, [])
 
+    def labels(self):
+        return self.server.state.labels.get("document", {})
+
+
+class PublishGuideTest(HubToolCase):
     def test_success_and_replacement(self):
         first = self.invoke(self.author); second = self.invoke(self.author)
         self.assertEqual((0, 0), (first.returncode, second.returncode))
@@ -174,9 +182,6 @@ class PublishGuideTest(unittest.TestCase):
             self.assertEqual(1, result.returncode, label)
             self.assertIn("Invalid label", result.stderr)
 
-    def labels(self):
-        return self.server.state.labels.get("document", {})
-
     def test_publish_a_release_and_make_it_current_in_release_mode(self):
         self.server.state.labels.clear()
         result = self.run_tool(self.author, "--label", "v0.4.0", "--label", "latest",
@@ -226,6 +231,164 @@ class PublishGuideTest(unittest.TestCase):
         self.assertEqual(2, bad.returncode); self.assertIn("invalid choice", bad.stderr)
 
 
+class TokenAndHelpTest(HubToolCase):
+    """--check-token, the expiry warning, help links, and HTML answers (InteropHub contract 2, 2.1, 3.7)."""
+
+    def setUp(self):
+        super().setUp()
+        self.server.state.firewall = False; self.server.state.token_endpoint = True
+        self.addCleanup(setattr, self.server.state, "firewall", False)
+        self.addCleanup(setattr, self.server.state, "token_endpoint", True)
+
+    def token(self, name, days=None, scopes=None, author=True):
+        record = {"user": {"userId": 9, "displayName": "Test Author"}, "isAuthor": author, "label": "laptop agent"}
+        if days is not None:
+            record["expiresAt"] = (datetime.now(timezone.utc) + timedelta(days=days, hours=-1)).isoformat(
+                timespec="milliseconds").replace("+00:00", "Z")
+        if scopes is not None: record["scopes"] = scopes
+        self.server.state.tokens[name] = record
+        return name
+
+    def run_alone(self, token, *args):
+        """The tool without a guide file, as --check-token and --settings-only run."""
+        env = os.environ.copy()
+        if token is None: env.pop("INTEROPHUB_TOKEN", None)
+        else: env["INTEROPHUB_TOKEN"] = token
+        return subprocess.run([sys.executable, str(TOOL), "--config", str(self.config), *args],
+                              text=True, capture_output=True, env=env)
+
+    def help(self, anchor):
+        return f"{self.base}/help/topic-reference-authors#{anchor}"
+
+    def assertSecret(self, result, *tokens):
+        for token in tokens: self.assertNotIn(token, result.stdout + result.stderr)
+
+    def test_check_token_reports_the_account_and_this_guide(self):
+        result = self.run_alone(self.author, "--check-token")
+        self.assertEqual(0, result.returncode, result.stderr)
+        for expected in ("Account: Test Author (user 9)", "scopes: comments, topics:write", "(90 days left)",
+                         "Guides this account can publish: document, external-document",
+                         "This guide, document: registered, hosting HUB; upload it with --label.",
+                         "Help for agents: " + self.help("if-you-are-an-agent")):
+            self.assertIn(expected, result.stdout)
+        self.assertEqual("", result.stderr); self.assertSecret(result, self.author)
+        # A guide hosted elsewhere, named by its id, with the hub given on the command line.
+        self.config.write_text(json.dumps({"id": "external-document", "hosting": "github-pages"}))
+        external = self.run_alone(self.author, "--check-token", "--hub", self.base)
+        self.assertEqual(0, external.returncode, external.stderr)
+        self.assertIn("hosting EXTERNAL; save its manifest with --manifest-only", external.stdout)
+
+    def test_check_token_needs_no_guide_json(self):
+        self.config.unlink()
+        result = self.run_alone(self.author, "--check-token", "--hub", self.base)
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("This guide: no document key", result.stdout)
+        self.assertIn("--hub", self.run_alone(self.author, "--check-token").stderr)
+
+    def test_check_token_says_what_to_ask_the_author(self):
+        reader = self.run_alone(self.reader, "--check-token")
+        self.assertEqual(1, reader.returncode)
+        self.assertIn("Guides this account can publish: none", reader.stdout)
+        self.assertIn("This guide, document, is not among them", reader.stderr)
+        self.assertIn(self.help("who-can-author"), reader.stderr)
+        narrow = self.run_alone(self.token("ihp_narrow", scopes=["comments"]), "--check-token")
+        self.assertEqual(1, narrow.returncode)
+        self.assertIn("lacks topics:write", narrow.stderr); self.assertIn(self.help("create-a-token"), narrow.stderr)
+        missing = self.run_alone(None, "--check-token")
+        self.assertEqual(1, missing.returncode)
+        self.assertIn("INTEROPHUB_TOKEN is not set", missing.stderr)
+        self.assertIn("don't paste the token", missing.stderr); self.assertIn(self.help("create-a-token"), missing.stderr)
+        bad = self.run_alone("ihp_not_a_real_token", "--check-token")
+        self.assertEqual(1, bad.returncode); self.assertIn("401 invalid_token", bad.stderr)
+        self.assertIn("Help: " + self.help("troubleshooting-invalid_token"), bad.stderr)
+        expired = self.run_alone(self.token("ihp_expired", days=-1), "--check-token")
+        self.assertIn("401 invalid_token", expired.stderr)
+        self.assertSecret(reader, self.reader); self.assertSecret(bad, "ihp_not_a_real_token")
+
+    def test_check_token_on_an_older_hub(self):
+        self.server.state.token_endpoint = False
+        result = self.run_alone(self.author, "--check-token")
+        self.assertEqual(1, result.returncode)
+        self.assertIn("does not offer GET /api/token", result.stderr)
+        self.assertNotIn("firewall", result.stderr)
+
+    def test_a_token_expiring_soon_is_warned_about_before_publishing(self):
+        soon = self.token("ihp_soon", days=5)
+        for result in (self.invoke(soon), self.run_tool(soon, "--manifest-only"), self.run_alone(soon, "--check-token")):
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertIn("expires in 5 days", result.stderr); self.assertIn(self.help("create-a-token"), result.stderr)
+            self.assertSecret(result, soon)
+        later = self.token("ihp_later", days=15)
+        self.assertNotIn("Warning", self.invoke(later).stderr)
+        self.assertIn("expires in 1 day", self.invoke(self.token("ihp_tomorrow", days=1)).stderr)
+
+    def test_an_older_hub_publishes_without_the_warning(self):
+        self.server.state.token_endpoint = False
+        result = self.invoke(self.token("ihp_soon_old_hub", days=3))
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual("", result.stderr); self.assertIn("latest: created", result.stdout)
+
+    def test_errors_carry_an_explanation_and_the_help_link(self):
+        reader = self.invoke(self.reader)
+        self.assertIn("latest: 403 forbidden. This account must be an editor of the guide's topic", reader.stderr)
+        self.assertIn('InteropHub: Your account must be an editor of the topic "Fixture topic"', reader.stderr)
+        self.assertIn("Help: " + self.help("troubleshooting-forbidden"), reader.stderr)
+        narrow = self.run_tool(self.token("ihp_comments", scopes=["comments"]), "--label", "v0.9.0", "--display", "listed")
+        self.assertIn("v0.9.0 settings: 403 insufficient_scope. The token lacks the topics:write scope.", narrow.stderr)
+        self.assertIn("Help: " + self.help("troubleshooting-insufficient_scope"), narrow.stderr)
+        missing = self.run_tool(self.author, "--manifest-only", "--document", "no-such-guide")
+        self.assertIn("Help: " + self.help("troubleshooting-not_found"), missing.stderr)
+        no_token = self.invoke(None)
+        self.assertIn("INTEROPHUB_TOKEN is not set", no_token.stderr); self.assertIn(self.help("create-a-token"), no_token.stderr)
+        self.assertSecret(reader, self.reader)
+
+    def test_newer_codes_are_explained(self):
+        module = load_tool()
+        closed = str(module.explain(403, {"error": "comments_closed", "help": "h"}, "fallback"))
+        self.assertIn("403 comments_closed. Comments are closed on this version", closed); self.assertIn("Help: h", closed)
+        scope = str(module.explain(403, {"error": "insufficient_scope", "requiredScope": "comments"}, "fallback"))
+        self.assertIn("lacks the comments scope", scope); self.assertNotIn("Help:", scope)
+        self.assertIn("editor of the guide's topic", str(module.explain(403, {"error": "forbidden"}, "fallback")))
+        self.assertIn("500 request_failed. fallback", str(module.explain(500, {}, "fallback")))
+
+    def test_an_html_answer_means_a_firewall(self):
+        self.server.state.firewall = True
+        for result in (self.invoke(self.author), self.run_tool(self.author, "--manifest-only"),
+                       self.run_alone(self.author, "--check-token")):
+            self.assertEqual(1, result.returncode)
+            self.assertIn("403 from", result.stderr); self.assertIn("HTML page instead of InteropHub's JSON", result.stderr)
+            self.assertIn("firewall", result.stderr); self.assertIn(self.help("troubleshooting-html-response"), result.stderr)
+            self.assertSecret(result, self.author)
+        self.assertIn("POST /api/guide/document/versions/latest", self.invoke(self.author).stderr)
+        self.assertEqual([], self.builds())
+
+    def test_settings_only_changes_a_published_label(self):
+        self.assertEqual(0, self.run_tool(self.author, "--label", "v0.4.0").returncode)
+        result = self.run_alone(self.author, "--settings-only", "--label", "v0.4.0", "--display", "current", "--comment-mode", "release")
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("v0.4.0: display current, comments release.", result.stdout)
+        self.assertEqual(1, len(self.builds()))
+        # A public guide, published by its workflow, names the hub on the command line.
+        self.config.write_text(json.dumps({"id": "document", "hosting": "github-pages"}))
+        public = self.run_alone(self.author, "--settings-only", "--hub", self.base, "--label", "v0.4.0", "--display", "listed")
+        self.assertEqual(0, public.returncode, public.stderr)
+        unknown = self.run_alone(self.author, "--settings-only", "--hub", self.base, "--label", "v9.9.9", "--display", "listed")
+        self.assertIn("does not know the label v9.9.9", unknown.stderr)
+        for extra in ([], ["--label", "v0.4.0"], ["--display", "listed"],
+                      ["--label", "v0.4.0", "--label", "latest", "--display", "listed"]):
+            self.assertIn("--settings-only needs", self.run_alone(self.author, "--settings-only", "--hub", self.base, *extra).stderr)
+        self.assertIn("leave out the guide", self.run_tool(self.author, "--settings-only", "--hub", self.base,
+                                                           "--label", "v0.4.0", "--display", "listed").stderr)
+        self.assertEqual(2, self.run_alone(self.author, "--settings-only", "--manifest-only").returncode)
+        dry = self.run_alone(None, "--settings-only", "--hub", self.base, "--label", "v0.4.0", "--comment-mode", "closed", "--dry-run")
+        self.assertEqual(0, dry.returncode); self.assertIn("Nothing was sent", dry.stdout)
+        self.assertEqual("listed", self.labels()["v0.4.0"]["display"])
+
+    def test_publishing_still_needs_the_guide(self):
+        result = self.run_alone(self.author, "--label", "latest")
+        self.assertEqual(1, result.returncode); self.assertIn("Give the built guide file", result.stderr)
+
+
 class MockBuildsEndpointTest(unittest.TestCase):
     """The mock refuses what InteropHub's builds endpoint refuses."""
 
@@ -263,11 +426,15 @@ class MockBuildsEndpointTest(unittest.TestCase):
         self.assertEqual(("document", "v0.21.0"), (body["documentKey"], body["processVersion"]))
 
 
-def mock_hub_message(code):
+def load_tool():
     import importlib.util  # noqa: PLC0415
     spec = importlib.util.spec_from_file_location("publish_guide_to_hub", TOOL)
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
-    return module.ERRORS[code]
+    return module
+
+
+def mock_hub_message(code):
+    return load_tool().ERRORS[code]
 
 
 if __name__ == "__main__": unittest.main()

@@ -81,6 +81,11 @@ PUBLIC_OWNER = "immregistries"
 INTEROPHUB_HUB_URL = "https://informatics.immregistries.org/hub"
 INTEROPHUB_TOPIC_URL = INTEROPHUB_HUB_URL + "/es/topic/{topic}"
 TEMPLATES_URL = "https://github.com/immregistries/content-publishing-templates.git"
+# Printed for every Standing project: publishing needs the author's own token.
+AUTHOR_STEPS = (
+    "Publishing needs a personal access token in INTEROPHUB_TOKEN, which only the author can create;\n"
+    "see 'Publishing to InteropHub' in AGENTS.md and {hub}/help/topic-reference-authors."
+)
 ID_PATTERN = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 
 
@@ -277,6 +282,9 @@ def standing_values(args: argparse.Namespace, project_id: str) -> dict[str, str]
         "TOPIC": str(args.topic),
         "TOPIC_NAME": args.topic_name,
         "TOPIC_URL": INTEROPHUB_TOPIC_URL.format(topic=args.topic),
+        # Every Standing guide saves its build manifest in a hub, and AGENTS.md
+        # names it in the publishing commands and the help page link.
+        "HUB_URL": (args.hub or INTEROPHUB_HUB_URL).rstrip("/"),
     }
     if args.kept_in == "workspace":
         if args.visibility != "private" or args.hosting != "interophub":
@@ -302,8 +310,6 @@ def standing_values(args: argparse.Namespace, project_id: str) -> dict[str, str]
     # A private file that refers to one fails as an unknown placeholder.
     if args.visibility == "public":
         values["PAGES_URL"] = f"https://{owner}.github.io/{project_id}/"
-        # The publishing workflow saves each build's manifest in this hub.
-        values["HUB_URL"] = INTEROPHUB_HUB_URL
     return values
 
 
@@ -405,6 +411,7 @@ def main() -> int:
         print("It has no Git repository. Next: resolve the CONFIRM notes, add topic sections to content/,")
         print("run build.ps1, and upload output/guide/index.html to the topic in InteropHub, labeled with")
         print("the version in guide.json and latest. See process/guidance/TopicReference.md.")
+        print(AUTHOR_STEPS.format(hub=values["HUB_URL"]))
         return 0
     if workspace:
         print(f"Created the Workspace Topic Reference {project_id} in {target}.")
@@ -429,6 +436,7 @@ def main() -> int:
             print("This project publishes its guide to InteropHub. Add the INTEROPHUB_TOKEN repository secret.")
         else:
             print("This project is local only. Keep its repository private and do not enable GitHub Pages.")
+    print(AUTHOR_STEPS.format(hub=values["HUB_URL"]))
     return 0
 
 
