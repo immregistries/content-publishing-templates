@@ -44,6 +44,7 @@ class PublishGuideTest(unittest.TestCase):
         self.config = self.root / "guide.json"
         self.write_config("interophub")
         self.server.state.builds.clear(); self.server.state.active = True
+        self.server.state.versions.clear(); self.server.state.labels.clear()
 
     def tearDown(self): self.temp.cleanup()
 
@@ -163,6 +164,66 @@ class PublishGuideTest(unittest.TestCase):
         result = self.run_tool(self.author, "--manifest-only", "--dry-run")
         self.assertEqual(0, result.returncode); self.assertIn("build manifest", result.stdout)
         self.assertEqual([], self.builds())
+
+    def test_labels_follow_interophubs_pattern(self):
+        for label in ("latest", "main", "v1", "v1.2.0", "v1.2.0-rc.1", "v0.3.0-panelprototype"):
+            result = self.run_tool(self.author, "--label", label, "--dry-run")
+            self.assertEqual(0, result.returncode, (label, result.stderr))
+        for label in ("v1.2.0-rc-1", "panel-prototype", "v1.2.0-", "1.2.0", "v1.2.0-.1"):
+            result = self.run_tool(self.author, "--label", label, "--dry-run")
+            self.assertEqual(1, result.returncode, label)
+            self.assertIn("Invalid label", result.stderr)
+
+    def labels(self):
+        return self.server.state.labels.get("document", {})
+
+    def test_publish_a_release_and_make_it_current_in_release_mode(self):
+        self.server.state.labels.clear()
+        result = self.run_tool(self.author, "--label", "v0.4.0", "--label", "latest",
+                               "--display", "current", "--comment-mode", "release")
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("v0.4.0: created", result.stdout)
+        self.assertIn("v0.4.0: display current, comments release.", result.stdout)
+        self.assertEqual(("current", "release"), (self.labels()["v0.4.0"]["display"], self.labels()["v0.4.0"]["commentMode"]))
+        self.assertNotIn("latest", self.labels())
+        # The next release becomes Current; InteropHub demotes the previous one to Listed.
+        result = self.run_tool(self.author, "--label", "v0.5.0", "--display", "current")
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("v0.5.0: display current, comments open; v0.4.0 is now listed.", result.stdout)
+        self.assertEqual("listed", self.labels()["v0.4.0"]["display"])
+
+    def test_manifest_only_then_label_settings(self):
+        self.server.state.labels.clear()
+        self.write_config("github-pages")
+        result = self.run_tool(self.author, "--manifest-only", "--label", "v0.6.0", "--comment-mode", "closed")
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("Build manifest saved", result.stdout)
+        self.assertIn("v0.6.0: display unlisted, comments closed.", result.stdout)
+        self.assertEqual("closed", self.labels()["v0.6.0"]["commentMode"])
+
+    def test_label_settings_errors(self):
+        self.server.state.labels.clear()
+        no_label = self.run_tool(self.author, "--manifest-only", "--display", "current")
+        self.assertEqual(1, no_label.returncode); self.assertIn("give one", no_label.stderr)
+        self.assertEqual([], self.builds())
+        # A failed upload sends no settings.
+        reader = self.run_tool(self.reader, "--label", "v0.7.0", "--display", "current")
+        self.assertEqual(1, reader.returncode); self.assertIn("403 forbidden", reader.stderr)
+        self.assertEqual({}, self.labels())
+        # A token without topics:write can upload here but not change labels.
+        narrow = "ihp_comments_only"
+        self.server.state.tokens[narrow] = {"user": {"userId": 9, "displayName": "Test Author"}, "isAuthor": True, "scopes": ["comments"]}
+        scoped = self.run_tool(narrow, "--label", "v0.7.0", "--comment-mode", "release")
+        self.assertEqual(1, scoped.returncode)
+        self.assertIn("v0.7.0: created", scoped.stdout)
+        self.assertIn("v0.7.0 settings: 403 insufficient_scope", scoped.stderr)
+        self.assertEqual({}, self.labels())
+        dry = self.run_tool(self.author, "--label", "v0.8.0", "--display", "listed", "--dry-run")
+        self.assertEqual(0, dry.returncode)
+        self.assertIn("then v0.8.0: display listed, comments unchanged", dry.stdout)
+        self.assertNotIn("v0.8.0", self.server.state.versions.get("document", {}))
+        bad = self.run_tool(self.author, "--label", "v0.8.0", "--display", "shown")
+        self.assertEqual(2, bad.returncode); self.assertIn("invalid choice", bad.stderr)
 
 
 class MockBuildsEndpointTest(unittest.TestCase):

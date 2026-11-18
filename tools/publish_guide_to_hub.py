@@ -12,10 +12,16 @@ optional version label:
 
     python process/tools/publish_guide_to_hub.py output/guide/index.html --manifest-only --label v0.4.0
 
+--display and --comment-mode then set the first label's display state and
+comment mode in InteropHub, so one command can publish a release and make it
+the Current version with comments limited to this release:
+
+    python process/tools/publish_guide_to_hub.py output/guide/index.html --label v0.4.0 --label latest --display current --comment-mode release
+
 The hub comes from --hub, or from comments.hub in guide.json. The document key
 comes from --document, or from guide.json: comments.document, then id. Both
-modes need a personal
-access token in INTEROPHUB_TOKEN and fail when the guide has no manifest.
+modes need a personal access token in INTEROPHUB_TOKEN (with topics:write for
+--display and --comment-mode) and fail when the guide has no manifest.
 """
 from __future__ import annotations
 
@@ -29,7 +35,11 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import quote, urlsplit
 
-LABEL = re.compile(r"^(?:latest|main|v\d+(?:\.\d+)*(?:-[A-Za-z0-9][A-Za-z0-9.-]*)?)$")
+# InteropHub's label pattern (GuideHtmlRules): after the first suffix character,
+# only letters, digits, and dots, so v1.2.0-rc.1 is valid and v1.2.0-rc-1 is not.
+LABEL = re.compile(r"^(?:latest|main|v[0-9]+(?:\.[0-9]+)*(?:-[A-Za-z0-9][A-Za-z0-9.]*)?)$")
+DISPLAYS = ("current", "listed", "unlisted", "authors_only", "retired")
+COMMENT_MODES = ("open", "release", "closed")
 DOCUMENT_KEY = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 MAX_SIZE = 20 * 1024 * 1024
 MAX_MANIFEST_SIZE = 64 * 1024
@@ -65,6 +75,14 @@ def arguments() -> argparse.Namespace:
     )
     parser.add_argument("--hub", help="Hub base URL. Defaults to comments.hub in guide.json.")
     parser.add_argument("--document", help="InteropHub document key. Defaults to comments.document, then id, in guide.json.")
+    parser.add_argument(
+        "--display", choices=DISPLAYS,
+        help="After publishing, set the first label's display state in InteropHub.",
+    )
+    parser.add_argument(
+        "--comment-mode", choices=COMMENT_MODES,
+        help="After publishing, set the first label's comment mode in InteropHub.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Validate locally without sending anything.")
     return parser.parse_args()
 
@@ -149,6 +167,41 @@ def send_manifest(hub: str, document: str, token: str, manifest: dict, label: st
     return 0
 
 
+def set_label(hub: str, document: str, token: str, label: str, display: str | None, mode: str | None) -> int:
+    """Set a label's display state and comment mode (contract 7.5). The label must
+    already be known to InteropHub, so this runs after the upload or manifest."""
+    body = {}
+    if display:
+        body["display"] = display
+    if mode:
+        body["commentMode"] = mode
+    url = f"{hub}/api/guide/{quote(document, safe='')}/labels/{quote(label, safe='')}"
+    request = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), method="PATCH", headers={
+        "Authorization": "Bearer " + token,
+        "Content-Type": "application/json",
+    })
+    try:
+        with urllib.request.urlopen(request) as response:
+            result = json.load(response)
+    except urllib.error.HTTPError as error:
+        message = error_message(error, "The server could not change the label.")
+        if error.code == 404:
+            message = f"{error.code} not_found. InteropHub does not know the label {label} for this guide."
+        elif error.code == 403 and "forbidden" in message:
+            message = f"{error.code} forbidden. Only an editor of the guide's topic can change its labels."
+        print(f"{label} settings: " + message, file=sys.stderr)
+        return 1
+    except urllib.error.URLError as error:
+        print(f"{label} settings: Could not reach the configured hub: {error.reason}", file=sys.stderr)
+        return 1
+    line = f"{label}: display {result.get('display')}, comments {result.get('commentMode')}"
+    demoted = result.get("demoted")
+    if isinstance(demoted, dict):
+        line += f"; {demoted.get('label')} is now {demoted.get('display')}"
+    print(line + ".")
+    return 0
+
+
 def upload(hub: str, document: str, token: str, payload: bytes, labels: list[str]) -> int:
     failed = False
     for label in labels:
@@ -197,7 +250,13 @@ def main() -> int:
         return fail(str(error))
     invalid = next((label for label in args.label if not LABEL.fullmatch(label)), None)
     if invalid:
-        return fail(f"Invalid label: {invalid}")
+        return fail(
+            f"Invalid label: {invalid}. Use latest, main, or a version such as v1.2.0 or "
+            "v1.2.0-rc.1 (after the hyphen, only letters, digits, and dots)."
+        )
+    settings = bool(args.display or args.comment_mode)
+    if settings and not args.label:
+        return fail("--display and --comment-mode set the first --label; give one.")
     guide = Path(args.guide)
     try:
         payload = guide.read_bytes()
@@ -214,11 +273,18 @@ def main() -> int:
         return fail("Set INTEROPHUB_TOKEN to a personal access token before publishing.")
     if args.dry_run:
         what = "build manifest" if args.manifest_only else f"{len(payload)} bytes, labels: {', '.join(args.label)}"
+        if settings:
+            what += f"; then {args.label[0]}: display {args.display or 'unchanged'}, comments {args.comment_mode or 'unchanged'}"
         print(f"Dry run passed: {guide} ({what}, process {manifest.get('processVersion')}). Nothing was sent.")
         return 0
     if args.manifest_only:
-        return send_manifest(hub, document, token, manifest, args.label[0] if args.label else None)
-    return upload(hub, document, token, payload, args.label)
+        result = send_manifest(hub, document, token, manifest, args.label[0] if args.label else None)
+    else:
+        result = upload(hub, document, token, payload, args.label)
+    # Settings apply only once the label is published, so InteropHub knows it.
+    if result == 0 and settings:
+        result = set_label(hub, document, token, args.label[0], args.display, args.comment_mode)
+    return result
 
 
 if __name__ == "__main__":

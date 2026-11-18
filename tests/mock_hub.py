@@ -2,10 +2,14 @@
 import argparse, base64, hashlib, json, re, secrets, threading
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import parse_qs, unquote, urlencode, urlparse
 
 MANIFEST_PATTERN = re.compile(rb'<script type="application/json" id="guide-build-manifest">(.*?)</script>', re.DOTALL)
 MAX_MANIFEST = 64 * 1024
+# InteropHub's hosted label pattern (GuideHtmlRules): no hyphen after the first suffix character.
+HOSTED_LABEL = re.compile(r"^(?:latest|main|v[0-9]+(?:\.[0-9]+)*(?:-[A-Za-z0-9][A-Za-z0-9.]*)?)$")
+DISPLAYS = ("current", "listed", "unlisted", "authors_only", "retired")
+MODES = ("open", "release", "closed")
 DISPOSITIONS = [{"code": "PERSUASIVE", "label": "Persuasive"}, {"code": "PERSUASIVE_MOD", "label": "Persuasive with Modification"}, {"code": "NOT_PERSUASIVE", "label": "Not Persuasive"}]
 
 def now(): return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
@@ -18,6 +22,9 @@ class State:
         # Every registered guide document, hosted or not, takes build records.
         self.documents={"document","external-document"}; self.builds={}; self.next_build_id=1
         self.next_id=1; self.next_flag_id=1; self.can_view=True; self.active=True; self.lock=threading.Lock()
+        # Version display and comment modes (contract 5.3.1, 5.4.1, 7.5). labels: document -> label ->
+        # {"display", "commentMode", "modeSetAt"}; label_urls: document -> registered URL -> label.
+        self.labels={}; self.label_urls={}
 
 class Handler(BaseHTTPRequestHandler):
     server_version="GuideMock/2"
@@ -68,11 +75,37 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts)==4 and parts[:2]==["api","guide"] and parts[3]=="comments":
             if not self.state.can_view: self.error(403,"forbidden","This account cannot view comments."); return
             q=parse_qs(p.query); since=q.get("since",[None])[0]; all_states=q.get("state",[None])[0]=="all"; values=[]
+            label=q.get("label",[None])[0]; page=q.get("pageUrl",[None])[0]; named=bool(label or page)
+            if not label and page: label=self.resolve_label(parts[2],page)
+            policy=self.policy(parts[2],label) if named else None
+            author=who.get("isAuthor",False); mode=policy["commentMode"] if policy else "open"
             for item in self.state.comments.values():
-                if since and item["updatedAt"]>=since: values.append(self.thread(item,who,True))
-                elif not since and not item.get("deleted") and (all_states or item["state"] in ("OPEN","DISPOSED")): values.append(self.thread(item,who))
-            self.json(200,{"serverTime":now(),"comments":values,"reviewFlags":self.active_flags()}); return
-        if len(parts)==4 and parts[:2]==["api","guide"] and parts[3]=="review-flags": self.json(200,{"serverTime":now(),"reviewFlags":self.active_flags()}); return
+                scoped=self.in_scope(item,policy)
+                if policy and (mode=="closed" or (mode=="release" and not author and not scoped)): continue
+                if since and item["updatedAt"]>=since: value=self.thread(item,who,True)
+                elif not since and not item.get("deleted") and (all_states or item["state"] in ("OPEN","DISPOSED")): value=self.thread(item,who)
+                else: continue
+                # On an Open label every item is in scope (contract 5.3.1).
+                if policy and not value.get("deleted"): value["inScope"]=scoped or mode=="open"
+                values.append(value)
+            flags=[]
+            for flag in self.active_flags():
+                scoped=self.in_scope(flag,policy)
+                if policy and (mode=="closed" or (mode=="release" and not author and not scoped)): continue
+                if policy: flag["inScope"]=scoped or mode=="open"
+                flags.append(flag)
+            body={"serverTime":now(),"comments":values,"reviewFlags":flags}
+            if named: body["labelPolicy"]=policy
+            self.json(200,body); return
+        if len(parts)==4 and parts[:2]==["api","guide"] and parts[3]=="labels":
+            author=who.get("isAuthor",False); rows=[]
+            for name in self.known_labels(parts[2]):
+                row=self.label_object(parts[2],name,author)
+                if author or row["display"] not in ("authors_only","retired"): rows.append(row)
+            self.json(200,{"documentKey":parts[2],"labels":rows}); return
+        if len(parts)==4 and parts[:2]==["api","guide"] and parts[3]=="review-flags":
+            cleared=parse_qs(p.query).get("includeCleared",["false"])[0]=="true"
+            self.json(200,{"serverTime":now(),"reviewFlags":[dict(f) for f in self.state.flags.values()] if cleared else self.active_flags()}); return
         self.error(404,"not_found","Not found.")
     def sign_in(self,p):
         q=parse_qs(p.query); valid=all(q.get(k) for k in ("return_to","state","code_challenge")) and q.get("code_challenge_method")==["S256"] and q.get("response_mode")==["fragment"] and not urlparse(q["return_to"][0]).fragment
@@ -100,7 +133,7 @@ class Handler(BaseHTTPRequestHandler):
     def upload_version(self,document,label,who):
         if not who.get("isAuthor"): self.error(403,"forbidden","Only an author can publish this guide."); return
         if document not in self.state.hosted_documents: self.error(409,"invalid_state","This document is not set up for hosted publishing."); return
-        if not (label in ("latest","main") or re.fullmatch(r"v\d+(?:\.\d+)*(?:-[A-Za-z0-9][A-Za-z0-9.-]*)?",label)):
+        if not HOSTED_LABEL.fullmatch(label):
             self.error(400,"invalid_field","Choose a valid version label.","label"); return
         payload=self.rfile.read(int(self.headers.get("Content-Length","0")))
         if self.headers.get_content_type()!="text/html" or len(payload)>20*1024*1024:
@@ -151,8 +184,18 @@ class Handler(BaseHTTPRequestHandler):
         if not valid: self.error(400,"invalid_request","Sign-in code is invalid or expired."); return
         r["used"]=True; token="ihg_"+secrets.token_urlsafe(32)[:43]; expires=(datetime.now(timezone.utc)+timedelta(days=30)).isoformat(timespec="milliseconds").replace("+00:00","Z")
         self.state.tokens[token]={"user":r["user"],"isAuthor":r.get("isAuthor",False)}; self.json(200,{"accessToken":token,"tokenType":"Bearer","expiresAt":expires,"scopes":["comments"],"user":r["user"]})
+    def written_on(self,document,payload):
+        """The label a write's pageUrl resolves to, or an error already sent (contract 5.4.1)."""
+        page=payload.get("pageUrl")
+        if page is None: return True,None
+        if not isinstance(page,str) or not page.strip() or len(page.strip())>2000: self.error(400,"invalid_field","The page address is too long.","pageUrl"); return False,None
+        label=self.resolve_label(document,page.strip())
+        if label and self.settings(document,label)["commentMode"]=="closed": self.error(403,"comments_closed","Comments are closed on this version."); return False,None
+        return True,label
     def add_comment(self,document,payload,who):
         if not self.state.active: self.error(409,"document_inactive","This document is not accepting comments."); return
+        ok,label=self.written_on(document,payload)
+        if not ok: return
         text=str(payload.get("text","")).strip()
         if not text or len(text)>4000: self.error(400,"invalid_field","Comment text must be between 1 and 4,000 characters.","text"); return
         parent_id=payload.get("parentCommentId")
@@ -163,9 +206,9 @@ class Handler(BaseHTTPRequestHandler):
                 else: self.error(404,"not_found","Comment not found.")
                 return
             if parent["state"] in ("CLOSED","WITHDRAWN") or parent.get("deleted"): self.error(409,"invalid_state","This thread cannot receive replies."); return
-            reply=self.new_item(text,who["user"],parent_id); parent["replies"].append(reply); parent["updatedAt"]=reply["updatedAt"]; self.json(201,self.thread(parent,who)); return
+            reply=self.new_item(text,who["user"],parent_id,label); parent["replies"].append(reply); parent["updatedAt"]=reply["updatedAt"]; self.json(201,self.thread(parent,who)); return
         if not payload.get("anchor") or not isinstance(payload.get("blockIndex"),int): self.error(400,"invalid_field","An anchor and block index are required.","anchor"); return
-        item=self.new_item(text,who["user"]); item.update({"documentKey":document,"anchor":payload["anchor"],"blockIndex":payload["blockIndex"],"snippet":payload.get("snippet"),"state":"OPEN","disposition":None,"changeNote":None,"disposedAt":None,"disposedBy":None,"closedAt":None,"closedBy":None,"replies":[]}); self.state.comments[item["id"]]=item; self.json(201,self.thread(item,who))
+        item=self.new_item(text,who["user"],None,label); item.update({"documentKey":document,"anchor":payload["anchor"],"blockIndex":payload["blockIndex"],"snippet":payload.get("snippet"),"state":"OPEN","disposition":None,"changeNote":None,"disposedAt":None,"disposedBy":None,"closedAt":None,"closedBy":None,"replies":[]}); self.state.comments[item["id"]]=item; self.json(201,self.thread(item,who))
     def withdraw(self,ident,who):
         found,top=self.find(ident)
         if not found: self.error(404,"not_found","Comment not found."); return
@@ -180,6 +223,7 @@ class Handler(BaseHTTPRequestHandler):
         who=self.identity()
         if not who: return
         parts=urlparse(self.path).path.strip("/").split("/"); payload=self.body() or {}
+        if len(parts)==5 and parts[:2]==["api","guide"] and parts[3]=="labels": self.patch_label(parts[2],unquote(parts[4]),payload,who); return
         if len(parts)!=4 or parts[:3]!=["api","guide","comments"]: self.error(404,"not_found","Not found."); return
         found,top=self.find(int(parts[3]))
         if not found or found.get("deleted"): self.error(404,"not_found","Comment not found."); return
@@ -241,12 +285,71 @@ class Handler(BaseHTTPRequestHandler):
         if not who.get("isAuthor"): self.error(403,"forbidden","Only an author can flag review areas."); return
         anchor=payload.get("anchor"); note=str(payload.get("note","")).strip()
         if not anchor or not note or len(note)>500: self.error(400,"invalid_field","An anchor and review note are required.","note"); return
+        ok,label=self.written_on(document,payload)
+        if not ok: return
         existing=next((f for f in self.state.flags.values() if f["documentKey"]==document and f["anchor"]==anchor and not f.get("clearedAt")),None); stamp=now()
         if existing: existing["note"]=note; existing["updatedAt"]=stamp; self.json(200,existing); return
-        ident=self.state.next_flag_id; self.state.next_flag_id+=1; flag={"id":ident,"documentKey":document,"anchor":anchor,"note":note,"createdBy":who["user"],"createdAt":stamp,"updatedAt":stamp,"clearedAt":None,"clearedBy":None}; self.state.flags[ident]=flag; self.json(201,flag)
+        ident=self.state.next_flag_id; self.state.next_flag_id+=1; flag={"id":ident,"documentKey":document,"anchor":anchor,"note":note,"createdBy":who["user"],"createdAt":stamp,"updatedAt":stamp,"clearedAt":None,"clearedBy":None,"madeOnLabel":label}; self.state.flags[ident]=flag; self.json(201,flag)
+    # ---- Labels (contract 5.3.1, 5.4.1, 7.5) ----
+    def resolve_label(self,document,page):
+        parsed=urlparse(page); address=f"{parsed.scheme.lower()}://{parsed.netloc.lower()}{parsed.path}"
+        hosted=f"http://127.0.0.1:{self.server.server_port}/guide/view/{document}/"
+        if address.startswith(hosted):
+            label=address[len(hosted):].split("/")[0]
+            return label if HOSTED_LABEL.fullmatch(label) else None
+        best=None
+        for url,label in self.state.label_urls.get(document,{}).items():
+            if (address.startswith(url) or address==url.rstrip("/")) and (best is None or len(url)>len(best[0])): best=(url,label)
+        return best[1] if best else None
+    def known_labels(self,document):
+        names=set(self.state.labels.get(document,{}))|set(self.state.versions.get(document,{}))|set(self.state.label_urls.get(document,{}).values())
+        names|={b["label"] for b in self.state.builds.get(document,[]) if b.get("label")}
+        dated={name:self.published_at(document,name) or "" for name in names}
+        return sorted(names,key=lambda n:(0 if n=="latest" else 1 if n=="main" else 2,"".join(chr(0x10FFFF-ord(c)) for c in dated[n]) if dated[n] else "\U0010FFFF",n))
+    def settings(self,document,label):
+        return self.state.labels.get(document,{}).get(label) or {"display":"unlisted","commentMode":"open","modeSetAt":None}
+    def published_at(self,document,label):
+        uploads=self.state.versions.get(document,{}).get(label)
+        if uploads: return uploads[-1]["uploadedAt"]
+        builds=[b["receivedAt"] for b in self.state.builds.get(document,[]) if b.get("label")==label]
+        if builds: return max(builds)
+        s=self.settings(document,label)
+        return s.get("modeSetAt") if s["commentMode"]=="release" else None
+    def policy(self,document,label):
+        if not label or label not in self.known_labels(document): return None
+        s=self.settings(document,label)
+        return {"label":label,"display":s["display"],"commentMode":s["commentMode"],"publishedAt":self.published_at(document,label)}
+    def in_scope(self,item,policy):
+        if not policy: return True
+        if item.get("madeOnLabel")==policy["label"]: return True
+        return bool(policy["publishedAt"]) and item["createdAt"]<policy["publishedAt"]
+    def label_object(self,document,label,author):
+        policy=self.policy(document,label); row=dict(policy)
+        if author:
+            scope=dict(policy,commentMode="release") if policy["commentMode"]!="open" else None
+            row["openInScope"]=sum(1 for c in self.state.comments.values() if not c.get("deleted") and c["state"] in ("OPEN","DISPOSED") and self.in_scope(c,scope))
+        return row
+    def patch_label(self,document,label,payload,who):
+        scopes=who.get("scopes")
+        if scopes is not None and "topics:write" not in scopes: self.error(403,"insufficient_scope","This token does not allow that."); return
+        if not who.get("isAuthor"): self.error(403,"forbidden","Only an editor of this topic can change labels."); return
+        if not payload: self.error(400,"invalid_request","Send display or commentMode."); return
+        for field,value in payload.items():
+            allowed=DISPLAYS if field=="display" else MODES if field=="commentMode" else None
+            if allowed is None or not isinstance(value,str) or value.lower() not in allowed: self.error(400,"invalid_field","Choose a valid value.",field); return
+        if label not in self.known_labels(document): self.error(404,"not_found","Label not found."); return
+        current=dict(self.settings(document,label)); demoted=None; stamp=now()
+        if "display" in payload: current["display"]=payload["display"].lower()
+        if "commentMode" in payload and payload["commentMode"].lower()!=current["commentMode"]: current["commentMode"]=payload["commentMode"].lower(); current["modeSetAt"]=stamp
+        labels=self.state.labels.setdefault(document,{})
+        if current["display"]=="current":
+            for name,other in list(labels.items()):
+                if name!=label and other["display"]=="current": other["display"]="listed"; demoted=name
+        labels[label]=current
+        self.json(200,dict(self.label_object(document,label,True),demoted=self.label_object(document,demoted,True) if demoted else None))
     def active_flags(self): return [dict(f) for f in self.state.flags.values() if not f.get("clearedAt")]
-    def new_item(self,text,user,parent=None):
-        ident=self.state.next_id; self.state.next_id+=1; stamp=now(); return {"id":ident,"parentId":parent,"text":text,"author":user,"createdAt":stamp,"editedAt":None,"editableUntil":(datetime.now(timezone.utc)+timedelta(days=14)).isoformat(timespec="milliseconds").replace("+00:00","Z"),"updatedAt":stamp,"withdrawn":False,"deleted":False}
+    def new_item(self,text,user,parent=None,label=None):
+        ident=self.state.next_id; self.state.next_id+=1; stamp=now(); return {"id":ident,"parentId":parent,"text":text,"author":user,"madeOnLabel":label,"createdAt":stamp,"editedAt":None,"editableUntil":(datetime.now(timezone.utc)+timedelta(days=14)).isoformat(timespec="milliseconds").replace("+00:00","Z"),"updatedAt":stamp,"withdrawn":False,"deleted":False}
     def expired(self,item): return datetime.fromisoformat(item["editableUntil"].replace("Z","+00:00"))<datetime.now(timezone.utc)
     def find(self,ident):
         for top in self.state.comments.values():
@@ -257,12 +360,12 @@ class Handler(BaseHTTPRequestHandler):
     def thread(self,item,who,tombstones=False):
         if item.get("deleted") and tombstones: return {"id":item["id"],"deleted":True,"updatedAt":item["updatedAt"]}
         result=dict(item); open_thread=item["state"] in ("OPEN","DISPOSED"); own=item["author"]["userId"]==who["user"]["userId"] and not self.expired(item) and open_thread; author=who.get("isAuthor",False)
-        result["permissions"]={"canEdit":own,"canWithdraw":own,"canReply":open_thread,"canDispose":author and open_thread,"canClose":author and item["state"] in ("OPEN","DISPOSED","CLOSED"),"canDelete":author,"canReattach":author}; result["replies"]=[]
+        result["mine"]=item["author"]["userId"]==who["user"]["userId"]; result["permissions"]={"canEdit":own,"canWithdraw":own,"canReply":open_thread,"canDispose":author and open_thread,"canClose":author and item["state"] in ("OPEN","DISPOSED","CLOSED"),"canDelete":author,"canReattach":author}; result["replies"]=[]
         for reply in item["replies"]:
             if reply.get("deleted"):
                 if tombstones: result["replies"].append({"id":reply["id"],"deleted":True,"updatedAt":reply["updatedAt"]})
                 continue
-            copy=dict(reply); own_reply=reply["author"]["userId"]==who["user"]["userId"] and not self.expired(reply) and not reply.get("withdrawn") and open_thread; copy["permissions"]={"canEdit":own_reply,"canWithdraw":own_reply,"canDelete":author}; result["replies"].append(copy)
+            copy=dict(reply); copy["mine"]=reply["author"]["userId"]==who["user"]["userId"]; own_reply=reply["author"]["userId"]==who["user"]["userId"] and not self.expired(reply) and not reply.get("withdrawn") and open_thread; copy["permissions"]={"canEdit":own_reply,"canWithdraw":own_reply,"canDelete":author}; result["replies"].append(copy)
         return result
     def test_control(self,p):
         q=parse_qs(p.query); action=p.path.rsplit("/",1)[-1]
@@ -279,9 +382,66 @@ class Handler(BaseHTTPRequestHandler):
             item,_=self.find(int(q.get("id",["0"])[0]))
             if item: item["editableUntil"]="2000-01-01T00:00:00.000Z"
         elif action=="can-view": self.state.can_view=q.get("value",["true"])[0]=="true"
+        elif action=="label":
+            # Set a label's display and mode directly, as an author would on the settings page.
+            document=q.get("document",["example-core-document"])[0]; label=q.get("label",[""])[0]
+            current=dict(self.state.labels.get(document,{}).get(label) or {"display":"unlisted","commentMode":"open","modeSetAt":None})
+            if "display" in q: current["display"]=q["display"][0]
+            if "mode" in q: current["commentMode"]=q["mode"][0]; current["modeSetAt"]=now()
+            self.state.labels.setdefault(document,{})[label]=current
         self.json(200,{"ok":True})
+
+# People and data for trying the annotations panel against the test fixture
+# (tests/fixture-project). The browser check signs in as AUTHOR and READER.
+AUTHOR={"userId":9,"displayName":"Test Author","organization":"Example Organization"}
+READER={"userId":10,"displayName":"Test Reader","organization":"Example Organization"}
+OTHER={"userId":11,"displayName":"Dana Reviewer","organization":"Example State IIS"}
+
+def seed_demo(state, site=None):
+    """Comments, replies, and review flags on the fixture's review areas.
+
+    With site (the static server's address, such as http://127.0.0.1:8765),
+    also three labels, each a copy of the guide served under site/output/:
+    guide/ is main (Open), release/ is v0.2.0 (Current, Release, published
+    30 hours ago), and closed/ is v0.1.0 (Retired, Closed).
+    """
+    def comment(user,anchor,index,snippet,text,ago_hours,**extra):
+        stamp=(datetime.now(timezone.utc)-timedelta(hours=ago_hours)).isoformat(timespec="milliseconds").replace("+00:00","Z")
+        ident=state.next_id; state.next_id+=1
+        item={"id":ident,"parentId":None,"text":text,"author":user,"madeOnLabel":None,"createdAt":stamp,"editedAt":None,"editableUntil":"2099-01-01T00:00:00.000Z","updatedAt":stamp,"withdrawn":False,"deleted":False,
+              "documentKey":"example-core-document","anchor":anchor,"blockIndex":index,"snippet":snippet,"state":"OPEN","disposition":None,"changeNote":None,"disposedAt":None,"disposedBy":None,"closedAt":None,"closedBy":None,"replies":[]}
+        item.update(extra); state.comments[ident]=item; return item
+    def reply(parent,user,text,ago_hours):
+        stamp=(datetime.now(timezone.utc)-timedelta(hours=ago_hours)).isoformat(timespec="milliseconds").replace("+00:00","Z")
+        ident=state.next_id; state.next_id+=1
+        parent["replies"].append({"id":ident,"parentId":parent["id"],"text":text,"author":user,"madeOnLabel":None,"createdAt":stamp,"editedAt":None,"editableUntil":"2099-01-01T00:00:00.000Z","updatedAt":stamp,"withdrawn":False,"deleted":False})
+        parent["updatedAt"]=max(parent["updatedAt"],stamp)
+    first=comment(READER,"fixture-introduction",1,"This second paragraph verifies positions within one anchor area.","Does \"position\" count list items separately, or the list as one block?",50)
+    reply(first,AUTHOR,"The list is one block. I will say so in the next version.",30)
+    second=comment(OTHER,"review-item",0,"A second section, with an open item for review.","Our program treats this as two items, not one. Can the guide allow for that?",26,madeOnLabel="main")
+    reply(second,READER,"Same in our state.",20)
+    comment(OTHER,"fx-1",0,"FX-1 A row that is a review area of its own Open","Status should be \"Proposed\" until the call decides.",12,
+            state="DISPOSED",disposition=DISPOSITIONS[1],changeNote="Status column now says Proposed.",disposedAt=now(),disposedBy=AUTHOR,madeOnLabel="v0.2.0")
+    comment(READER,"fixture-introduction",0,"This fixture exercises the shared build and check tools.","Typo in the first sentence (fixed already).",80,
+            state="CLOSED",closedAt=now(),closedBy=AUTHOR)
+    comment(OTHER,"retired-section",0,"Text from a section that was later removed.","This section contradicts chapter 3.",90)
+    def flag(anchor,note,ago_hours,cleared=False):
+        stamp=(datetime.now(timezone.utc)-timedelta(hours=ago_hours)).isoformat(timespec="milliseconds").replace("+00:00","Z")
+        ident=state.next_flag_id; state.next_flag_id+=1
+        state.flags[ident]={"id":ident,"documentKey":"example-core-document","anchor":anchor,"note":note,"createdBy":AUTHOR,"createdAt":stamp,"updatedAt":stamp,
+                            "clearedAt":now() if cleared else None,"clearedBy":AUTHOR if cleared else None,"madeOnLabel":None}
+    flag("fixture-introduction","Please check that the summary still matches the detail section.",40)
+    flag("document-start","Old flag on the opening, cleared after the October call.",200,cleared=True)
+    if site:
+        document="example-core-document"; published=(datetime.now(timezone.utc)-timedelta(hours=30)).isoformat(timespec="milliseconds").replace("+00:00","Z")
+        state.label_urls[document]={site+"/output/guide/":"main",site+"/output/release/":"v0.2.0",site+"/output/closed/":"v0.1.0"}
+        state.labels[document]={"main":{"display":"unlisted","commentMode":"open","modeSetAt":None},
+                                "v0.2.0":{"display":"current","commentMode":"release","modeSetAt":published},
+                                "v0.1.0":{"display":"retired","commentMode":"closed","modeSetAt":published}}
 
 def serve(port=0,origins=None):
     server=ThreadingHTTPServer(("127.0.0.1",port),Handler); server.state=State(origins or ["http://127.0.0.1:8765"]); return server
 if __name__=="__main__":
-    parser=argparse.ArgumentParser(); parser.add_argument("--port",type=int,default=8766); parser.add_argument("--allow-origin",action="append",default=[]); args=parser.parse_args(); server=serve(args.port,args.allow_origin or None); print(f"Mock comments service listening on http://127.0.0.1:{server.server_port}",flush=True); server.serve_forever()
+    parser=argparse.ArgumentParser(); parser.add_argument("--port",type=int,default=8766); parser.add_argument("--allow-origin",action="append",default=[]); parser.add_argument("--seed-demo",action="store_true",help="Add sample comments and review flags for the test fixture."); parser.add_argument("--site",help="With --seed-demo: the static server's address, to add the main, release, and closed labels."); args=parser.parse_args(); server=serve(args.port,args.allow_origin or None)
+    if args.seed_demo: seed_demo(server.state,args.site)
+    print(f"Mock comments service listening on http://127.0.0.1:{server.server_port}",flush=True); server.serve_forever()

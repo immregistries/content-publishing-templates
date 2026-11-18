@@ -5,7 +5,8 @@ html {
 }
 
 /* AIRA Web buttons set display, which would override the hidden attribute. */
-.guide-layout [hidden] {
+.guide-layout [hidden],
+.guide-annotations [hidden] {
   display: none !important;
 }
 
@@ -29,8 +30,15 @@ html {
   z-index: var(--aira-z-sticky);
 }
 
+.guide-context .aira-context-inner {
+  flex-direction: row;
+  align-items: center;
+}
+
 .guide-context .aira-context-nav {
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
 }
 
 .guide-header {
@@ -167,8 +175,7 @@ html {
 }
 
 .guide-subnav,
-.guide-links,
-.guide-comment-index {
+.guide-links {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -224,14 +231,6 @@ html {
 
 .guide-file-button {
   cursor: pointer;
-}
-
-.guide-comment-index a {
-  color: var(--aira-text);
-}
-
-.guide-comment-index .aira-meta {
-  display: block;
 }
 
 .guide-block {
@@ -290,8 +289,7 @@ tr.guide-row-block {
   background: var(--aira-surface);
 }
 
-.guide-row-extra:has(> td:empty),
-.guide-comments-hidden .guide-row-extra {
+.guide-row-extra:has(> td:empty) {
   display: none;
 }
 
@@ -308,11 +306,6 @@ tr.guide-row-block {
   margin: calc(-1 * var(--aira-space-2)) 0 var(--aira-space-4);
   display: grid;
   gap: var(--aira-space-2);
-}
-
-.guide-comments-hidden .guide-thread,
-.guide-comments-hidden .guide-comment-button {
-  display: none;
 }
 
 .guide-comment,
@@ -361,7 +354,8 @@ tr.guide-row-block {
   font-style: italic;
 }
 
-.guide-content .guide-comment__text {
+.guide-content .guide-comment__text,
+.guide-annotations .guide-comment__text {
   margin: 0;
   white-space: pre-wrap;
 }
@@ -435,8 +429,8 @@ tr.guide-row-block {
   --guide-flag-gutter: calc(-1 * var(--aira-space-4));
 }
 
-.guide-review-flagged:not(tr)::before,
-.guide-flag-marker:not(.guide-flag-marker--row)::before {
+.guide-lens-review .guide-review-flagged:not(tr)::before,
+.guide-lens-review .guide-flag-marker:not(.guide-flag-marker--row)::before {
   content: "";
   position: absolute;
   top: 0;
@@ -449,28 +443,36 @@ tr.guide-row-block {
 
 /* Join the bar across the margin above a block that continues the area. It
    reaches as far as the largest block margin; any overlap is the same color. */
-.guide-review-flagged--continued:not(tr)::before {
+.guide-lens-review .guide-review-flagged--continued:not(tr)::before {
   top: calc(-1 * var(--aira-space-6));
 }
 
-.guide-flag-marker:not(.guide-flag-marker--row)::before {
+.guide-lens-review .guide-flag-marker:not(.guide-flag-marker--row)::before {
   bottom: calc(-1 * var(--aira-space-2));
 }
 
 /* Blocks that scroll sideways clip the margin bar, so they carry it inside. */
-pre.guide-review-flagged,
-.aira-table-wrap.guide-review-flagged,
-tr.guide-review-flagged > td:first-child {
+.guide-lens-review pre.guide-review-flagged,
+.guide-lens-review .aira-table-wrap.guide-review-flagged,
+.guide-lens-review tr.guide-review-flagged > td:first-child {
   box-shadow: inset var(--guide-flag-bar) 0 0 var(--guide-flag);
 }
 
 .guide-flag-marker {
+  display: none;
   position: relative;
   margin: 0 0 var(--aira-space-2);
 }
 
-.guide-flag-marker--row {
+.guide-lens-review .guide-flag-marker {
+  display: block;
+}
+
+.guide-lens-review .guide-flag-marker--row {
   display: inline-block;
+}
+
+.guide-flag-marker--row {
   margin: 0 var(--aira-space-1) 0 0;
   vertical-align: top;
 }
@@ -582,11 +584,7 @@ tr.guide-review-flagged > td:first-child {
   color: var(--guide-flag);
 }
 
-.guide-comments-hidden .guide-flag-button {
-  display: none;
-}
-
-.guide-nav-flagged::after {
+.guide-lens-review .guide-nav-flagged::after {
   content: "";
   display: inline-block;
   flex: none;
@@ -598,29 +596,12 @@ tr.guide-review-flagged > td:first-child {
   vertical-align: middle;
 }
 
-.aira-context-nav a.guide-nav-flagged::after {
+.guide-lens-review .aira-context-nav a.guide-nav-flagged::after {
   background: var(--guide-flag-on-dark);
 }
 
-.aira-context-nav a.guide-nav-flagged[aria-current="page"]::after {
+.guide-lens-review .aira-context-nav a.guide-nav-flagged[aria-current="page"]::after {
   background: var(--guide-flag);
-}
-
-.guide-review-flag-heading {
-  color: var(--guide-flag);
-  font-weight: 700;
-}
-
-.guide-review-flag-entry {
-  display: flex;
-  gap: var(--aira-space-2);
-  padding-left: var(--aira-space-2);
-  border-left: 3px solid var(--guide-flag);
-}
-
-.guide-review-flag-entry a {
-  min-width: 0;
-  overflow-wrap: anywhere;
 }
 
 .guide-comment-form textarea {
@@ -689,8 +670,17 @@ tr.guide-review-flagged > td:first-child {
   .guide-flag-button,
   .guide-flag-popover,
   .guide-comment-form,
-  .guide-context {
-    display: none;
+  .guide-context,
+  .guide-annotations,
+  .guide-flag-marker,
+  .guide-change-marker,
+  .guide-comment-count {
+    display: none !important;
+  }
+
+  body.guide-panel-open .aira-main,
+  body.guide-panel-open .aira-footer {
+    margin-left: 0 !important;
   }
 }
 
@@ -729,4 +719,814 @@ tr.guide-review-flagged > td:first-child {
 
 .guide-infographic figcaption {
   margin-top: 0.5rem;
+}
+
+/* Annotations panel.
+   The strip in the section bar opens a left panel with Comments, Review, and
+   Changes tabs. The active tab is the lens: a class on body
+   (guide-lens-comments, -review, -changes, or -none when the panel is
+   closed) decides which markers the text shows. Review flags draw their bar
+   with ::before and change markers with ::after, so the two never collide. */
+:root {
+  --guide-panel-width: 21.25rem;
+  --guide-change: #4b5563;
+  --guide-change-surface: #f3f4f6;
+  --guide-tick: #b9c3ca;
+  --guide-comment-pill: #f6e7a8;
+  --guide-highlight: #fff1a8;
+}
+
+.guide-lens-strip {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.guide-lens-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0 var(--aira-space-2);
+  border: 0;
+  border-radius: var(--aira-radius-control);
+  background: none;
+  color: var(--aira-white);
+  font: inherit;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.guide-lens-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.guide-lens-button:focus-visible {
+  outline: 2px solid var(--aira-white);
+  outline-offset: 2px;
+}
+
+.guide-lens-button.is-active {
+  background: var(--aira-white);
+  color: var(--aira-navy);
+}
+
+.guide-lens-button.is-zero:not(.is-active) {
+  opacity: 0.6;
+}
+
+.guide-lens-icon {
+  font-size: 0.85rem;
+}
+
+.guide-lens-count {
+  min-width: 1.4rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  font-weight: 700;
+  text-align: center;
+}
+
+.guide-lens-button.is-active .guide-lens-count {
+  background: var(--aira-navy);
+  color: var(--aira-white);
+}
+
+.guide-lens-separator {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.guide-annotations {
+  position: fixed;
+  z-index: calc(var(--aira-z-sticky) - 1);
+  top: var(--guide-panel-top, 0);
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  width: var(--guide-panel-width);
+  border-right: 1px solid var(--aira-border);
+  background: var(--aira-surface);
+  box-shadow: 4px 0 16px rgba(28, 60, 80, 0.08);
+  animation: guide-panel-in 0.16s ease-out;
+}
+
+.guide-annotations[hidden] {
+  display: none;
+}
+
+/* The resize handle: the panel's right edge. */
+.guide-annotations__resize {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: -0.375rem;
+  bottom: 0;
+  width: 0.75rem;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.guide-annotations__resize::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(50% - 1px);
+  width: 3px;
+  background: transparent;
+  transition: background 0.12s;
+}
+
+.guide-annotations__resize:hover::after,
+.guide-annotations__resize:focus-visible::after,
+.guide-resizing .guide-annotations__resize::after {
+  background: var(--aira-focus);
+}
+
+.guide-annotations__resize:focus-visible {
+  outline: none;
+}
+
+.guide-resizing,
+.guide-resizing * {
+  cursor: col-resize !important;
+  user-select: none;
+}
+
+@keyframes guide-panel-in {
+  from { transform: translateX(-1.5rem); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+.guide-annotations__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--aira-space-2) var(--aira-space-2) 0 var(--aira-space-4);
+}
+
+.guide-annotations__title {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--aira-text-muted);
+}
+
+.guide-annotations__close {
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: var(--aira-radius-control);
+  background: none;
+  color: var(--aira-text);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.guide-annotations__close:hover {
+  background: var(--aira-surface-muted);
+}
+
+.guide-annotations__close:focus-visible {
+  outline: 2px solid var(--aira-focus);
+}
+
+.guide-annotations__tabs {
+  display: flex;
+  padding: 0 var(--aira-space-2);
+  border-bottom: 1px solid var(--aira-border);
+}
+
+.guide-annotations__tabs [role="tab"] {
+  flex: 1 1 0;
+  padding: var(--aira-space-2) 0.25rem;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: none;
+  color: var(--aira-text-muted);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.guide-annotations__tabs [role="tab"][aria-selected="true"] {
+  border-bottom-color: var(--aira-green);
+  color: var(--aira-text);
+}
+
+.guide-annotations__tabs [role="tab"]:focus-visible {
+  outline: 2px solid var(--aira-focus);
+  outline-offset: -2px;
+}
+
+.guide-tab-count {
+  margin-left: 0.15rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--aira-surface-muted);
+  font-size: 0.75rem;
+}
+
+.guide-annotations__tabs .is-zero .guide-tab-count {
+  opacity: 0.6;
+}
+
+.guide-annotations__body {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: var(--aira-space-3) var(--aira-space-4) var(--aira-space-6);
+  font-size: 0.9rem;
+}
+
+.guide-tabpanel #guide-comments-status,
+.guide-tabpanel #guide-local-identity {
+  margin-bottom: var(--aira-space-2);
+}
+
+.guide-tabpanel #guide-comments-status > p {
+  margin: 0 0 var(--aira-space-2);
+}
+
+.guide-identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--aira-space-2);
+}
+
+.guide-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--aira-space-2);
+  margin: 0 0 var(--aira-space-4);
+}
+
+.guide-filter-segment {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--aira-border-strong);
+  border-radius: 999px;
+}
+
+.guide-filter-segment button,
+.guide-filter-toggle {
+  padding: 0.15rem 0.75rem;
+  border: 0;
+  background: var(--aira-surface);
+  color: var(--aira-text);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.guide-filter-segment button + button {
+  border-left: 1px solid var(--aira-border-strong);
+}
+
+.guide-filter-toggle {
+  border: 1px solid var(--aira-border-strong);
+  border-radius: 999px;
+}
+
+.guide-filter-segment button[aria-pressed="true"],
+.guide-filter-toggle[aria-pressed="true"] {
+  background: var(--aira-surface-selected);
+  color: var(--aira-green-accessible);
+}
+
+.guide-filter-segment button:focus-visible,
+.guide-filter-toggle:focus-visible {
+  outline: 2px solid var(--aira-focus);
+  outline-offset: -2px;
+}
+
+.guide-annotation-empty {
+  margin: var(--aira-space-4) 0;
+}
+
+.guide-annotation-group {
+  margin: 0 0 var(--aira-space-4);
+}
+
+.guide-annotation-group__title {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--aira-space-2);
+  margin: 0 0 var(--aira-space-2);
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid var(--aira-border-subtle);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--aira-text-muted);
+}
+
+.guide-annotation-group__title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.guide-annotation-group__title a:hover {
+  text-decoration: underline;
+}
+
+.guide-annotation-group__count {
+  font-weight: 600;
+}
+
+.guide-annotation-group--unplaced > .aira-meta {
+  margin: 0 0 var(--aira-space-2);
+}
+
+.guide-annotation-items {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--aira-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.guide-annotation-item {
+  border-radius: var(--aira-radius-panel);
+}
+
+.guide-where {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  padding: 0 0 0.2rem;
+  border: 0;
+  background: none;
+  color: var(--aira-link);
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.guide-where:hover {
+  text-decoration: underline;
+}
+
+.guide-where:focus-visible {
+  outline: 2px solid var(--aira-focus);
+}
+
+.guide-where__arrow {
+  color: var(--aira-text-muted);
+}
+
+.guide-comment__mine {
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--aira-surface-selected);
+  color: var(--aira-green-accessible);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+/* Cards for review flags and change markers in the panel. */
+.guide-flag-card,
+.guide-change-card {
+  padding: var(--aira-space-2) var(--aira-space-3);
+  border: 1px solid var(--aira-border);
+  border-left: 4px solid var(--guide-change);
+  border-radius: var(--aira-radius-panel);
+  background: var(--guide-change-surface);
+  line-height: 1.45;
+}
+
+.guide-flag-card,
+.guide-change-card--feedback {
+  border-color: #ddd0f7;
+  border-left-color: var(--guide-flag);
+  background: var(--guide-flag-surface);
+}
+
+.guide-flag-card--cleared {
+  border-color: var(--aira-border);
+  border-left-color: var(--aira-text-muted);
+  background: var(--aira-surface-muted);
+}
+
+.guide-flag-card p,
+.guide-change-card p {
+  margin: 0 0 var(--aira-space-1);
+}
+
+.guide-card-label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--aira-space-1);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--guide-change);
+}
+
+.guide-flag-card .guide-card-label,
+.guide-change-card--feedback .guide-card-label {
+  color: var(--guide-flag);
+}
+
+.guide-card-version {
+  margin-left: auto;
+  font-weight: 600;
+}
+
+.guide-card-note {
+  white-space: pre-wrap;
+}
+
+.guide-flag-card .guide-comment__tools {
+  margin: 0;
+  justify-content: flex-end;
+}
+
+/* Brief highlight when an item is shown in the text or the panel. */
+.guide-highlight {
+  animation: guide-highlight 2s ease-out;
+}
+
+@keyframes guide-highlight {
+  0%, 35% {
+    background-color: var(--guide-highlight);
+    box-shadow: 0 0 0 0.4rem var(--guide-highlight);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0.4rem transparent;
+  }
+}
+
+/* Comments lens: a count beside each block with comments. */
+.guide-comment-count {
+  display: none;
+  position: absolute;
+  top: 0;
+  right: -2.25rem;
+  align-items: center;
+  gap: 0.1rem;
+  height: 1.6rem;
+  padding: 0 0.3rem;
+  border: 1px solid #e3c95a;
+  border-radius: 999px;
+  background: var(--guide-comment-pill);
+  color: var(--aira-text);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.guide-comment-count--row {
+  position: static;
+  height: 1.4rem;
+  margin-right: var(--aira-space-1);
+  vertical-align: top;
+}
+
+.guide-comment-count:focus-visible {
+  outline: 3px solid var(--aira-focus);
+  outline-offset: 2px;
+}
+
+.guide-lens-comments .guide-comment-count {
+  display: inline-flex;
+}
+
+.guide-content .guide-has-comments,
+.guide-content .guide-annotated,
+.guide-content section.guide-changed {
+  position: relative;
+}
+
+.guide-lens-comments .guide-has-comments > .guide-comment-button {
+  top: 2rem;
+}
+
+.guide-lens-comments .guide-has-comments > .guide-flag-button {
+  top: 4rem;
+}
+
+/* Change markers: a neutral badge and bar for "changed", purple for
+   "feedback wanted". The Changes lens shows both; Review shows feedback. */
+.guide-change-marker {
+  display: none;
+  position: relative;
+  margin: 0 0 var(--aira-space-2);
+}
+
+.guide-lens-changes .guide-change-marker,
+.guide-lens-review .guide-change-marker--feedback {
+  display: block;
+}
+
+.guide-lens-changes .guide-change-marker--row,
+.guide-lens-review .guide-change-marker--feedback.guide-change-marker--row {
+  display: inline-block;
+}
+
+.guide-change-marker--row {
+  margin: 0 var(--aira-space-1) 0 0;
+  vertical-align: top;
+}
+
+.guide-change-badge {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--aira-space-1);
+  padding: 0.1rem 0.6rem;
+  border: 1px solid var(--guide-change);
+  border-radius: 999px;
+  background: var(--aira-surface);
+  color: var(--guide-change);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.guide-change-marker--row .guide-change-badge {
+  padding: 0.05rem 0.4rem;
+}
+
+.guide-change-marker--feedback .guide-change-badge {
+  border-color: var(--guide-flag);
+  background: var(--guide-flag);
+  color: #fff;
+}
+
+.guide-change-badge:focus-visible {
+  outline: 3px solid var(--aira-focus);
+  outline-offset: 2px;
+}
+
+.guide-change-popover {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 30;
+  width: min(26rem, 85vw);
+  padding: var(--aira-space-2) var(--aira-space-4);
+  border: 2px solid var(--guide-change);
+  border-radius: var(--aira-radius-control);
+  background: var(--aira-surface);
+  box-shadow: var(--aira-shadow-dialog);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: normal;
+}
+
+.guide-change-marker--feedback .guide-change-popover {
+  border-color: var(--guide-flag);
+}
+
+.guide-change-marker:hover > .guide-change-popover,
+.guide-change-marker:focus-within > .guide-change-popover,
+.guide-change-marker.is-open > .guide-change-popover {
+  display: block;
+}
+
+.guide-change-popover p {
+  margin: 0 0 var(--aira-space-1);
+}
+
+.guide-change-popover__title {
+  font-weight: 700;
+}
+
+.guide-change-popover__note {
+  white-space: pre-wrap;
+}
+
+.guide-lens-changes .guide-changed:not(tr)::after,
+.guide-lens-changes .guide-change-marker:not(.guide-change-marker--row)::after,
+.guide-lens-review .guide-changed--feedback:not(tr)::after,
+.guide-lens-review .guide-change-marker--feedback:not(.guide-change-marker--row)::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--guide-flag-gutter);
+  width: 3px;
+  border-radius: 2px;
+  background: var(--guide-change);
+}
+
+.guide-lens-changes .guide-changed--feedback:not(tr)::after,
+.guide-lens-changes .guide-change-marker--feedback:not(.guide-change-marker--row)::after,
+.guide-lens-review .guide-changed--feedback:not(tr)::after,
+.guide-lens-review .guide-change-marker--feedback:not(.guide-change-marker--row)::after {
+  width: var(--guide-flag-bar);
+  background: var(--guide-flag);
+}
+
+.guide-lens-changes .guide-changed--continued:not(tr)::after,
+.guide-lens-review .guide-changed--feedback.guide-changed--continued:not(tr)::after {
+  top: calc(-1 * var(--aira-space-6));
+}
+
+.guide-lens-changes .guide-change-marker:not(.guide-change-marker--row)::after,
+.guide-lens-review .guide-change-marker--feedback:not(.guide-change-marker--row)::after {
+  bottom: calc(-1 * var(--aira-space-2));
+}
+
+/* A section-level marker's bar runs the height of the section, a little
+   further out than block bars so the two can be told apart. */
+.guide-lens-changes section.guide-changed::after,
+.guide-lens-review section.guide-changed--feedback::after {
+  left: calc(var(--guide-flag-gutter) - 0.5rem);
+}
+
+.guide-lens-changes pre.guide-changed,
+.guide-lens-changes .aira-table-wrap.guide-changed,
+.guide-lens-changes tr.guide-changed > td:first-child {
+  box-shadow: inset 3px 0 0 var(--guide-change);
+}
+
+.guide-lens-changes pre.guide-changed--feedback,
+.guide-lens-changes .aira-table-wrap.guide-changed--feedback,
+.guide-lens-changes tr.guide-changed--feedback > td:first-child,
+.guide-lens-review pre.guide-changed--feedback,
+.guide-lens-review .aira-table-wrap.guide-changed--feedback,
+.guide-lens-review tr.guide-changed--feedback > td:first-child {
+  box-shadow: inset var(--guide-flag-bar) 0 0 var(--guide-flag);
+}
+
+/* Panel closed: a faint tick in the margin wherever anything is annotated. */
+.guide-lens-none .guide-annotated:not(tr)::before {
+  content: "";
+  position: absolute;
+  top: 0.3rem;
+  left: var(--guide-flag-gutter);
+  width: 3px;
+  height: 1rem;
+  border-radius: 2px;
+  background: var(--guide-tick);
+}
+
+.guide-lens-none pre.guide-annotated,
+.guide-lens-none .aira-table-wrap.guide-annotated,
+.guide-lens-none tr.guide-annotated > td:first-child {
+  box-shadow: inset 3px 0 0 var(--guide-tick);
+}
+
+/* Wide screens: the panel pushes the reading column instead of covering it. */
+@media (min-width: 900px) {
+  body.guide-panel-open .aira-main,
+  body.guide-panel-open .aira-footer {
+    width: auto;
+    margin-left: var(--guide-panel-width);
+  }
+
+  body.guide-panel-open .guide-page {
+    width: min(100% - 4rem, 72rem);
+  }
+}
+
+/* When the panel leaves too little room, the right rail goes under the text.
+   guide.js sets the class from the panel's width and the window's. */
+body.guide-rail-below .guide-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body.guide-rail-below .guide-rail {
+  max-height: none;
+}
+
+@media (max-width: 64rem) {
+  .guide-comment-count {
+    top: -1.9rem;
+    right: 4rem;
+  }
+
+  .guide-lens-comments .guide-has-comments > .guide-comment-button,
+  .guide-lens-comments .guide-has-comments > .guide-flag-button {
+    top: -1.9rem;
+  }
+}
+
+/* Narrow screens: the panel is a bottom sheet. */
+@media (max-width: 899.98px) {
+  .guide-annotations {
+    z-index: var(--aira-z-overlay);
+    top: auto;
+    right: 0;
+    width: auto;
+    height: min(70vh, 36rem);
+    border-top: 1px solid var(--aira-border);
+    border-right: 0;
+    border-radius: 0.75rem 0.75rem 0 0;
+    box-shadow: 0 -8px 24px rgba(28, 60, 80, 0.18);
+    animation-name: guide-sheet-in;
+  }
+
+  .guide-annotations__resize {
+    display: none;
+  }
+
+  body.guide-panel-open .aira-app {
+    padding-bottom: min(70vh, 36rem);
+  }
+}
+
+@keyframes guide-sheet-in {
+  from { transform: translateY(2rem); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@media (max-width: 40rem) {
+  .guide-lens-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  .guide-lens-separator {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-annotations,
+  .guide-highlight {
+    animation: none;
+  }
+
+  .guide-highlight {
+    outline: 3px solid var(--aira-focus);
+  }
+}
+
+/* Version comment modes (InteropHub label settings). On a Closed version the
+   comment and flag controls go away; a form refused because comments closed
+   while it was open stays, with its message and draft. */
+.guide-comments-closed .guide-comment-button,
+.guide-comments-closed .guide-flag-button,
+.guide-comments-closed .guide-comment-count {
+  display: none !important;
+}
+
+.guide-comments-closed #guide-content .guide-comment-form:not(.guide-comment-form--refused) {
+  display: none;
+}
+
+.guide-label-note {
+  margin: 0 0 var(--aira-space-3);
+  padding: var(--aira-space-1) var(--aira-space-2);
+  border-left: 3px solid var(--aira-border-strong);
+  background: var(--aira-surface-muted);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+/* For authors: items outside this release's scope, and where items were written. */
+.guide-other-version {
+  border-style: dashed;
+  opacity: 0.88;
+}
+
+.guide-other-version__note {
+  margin: 0 0 var(--aira-space-1);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--aira-text-muted);
+}
+
+.guide-written-on {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--aira-text-muted);
+}
+
+/* In the narrow panel, an author's comment tools wrap instead of overflowing. */
+.guide-annotations .guide-comment__tools {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  column-gap: var(--aira-space-2);
+  row-gap: 0.15rem;
+}
+
+.guide-annotations .guide-comment__tools button {
+  white-space: nowrap;
 }

@@ -878,8 +878,58 @@ def page(
       <nav class="aira-context-nav" aria-label="Sections">
         {nav}
       </nav>
+      <div class="guide-lens-strip" role="group" aria-label="Annotations">
+        <button type="button" class="guide-lens-button" data-guide-lens="comments" aria-controls="guide-annotations" aria-expanded="false"><span class="guide-lens-icon" aria-hidden="true">&#x1F4AC;</span><span class="guide-lens-label">Comments</span> <span class="guide-lens-count" data-guide-count="comments">0</span></button>
+        <span class="guide-lens-separator" aria-hidden="true">&middot;</span>
+        <button type="button" class="guide-lens-button" data-guide-lens="review" aria-controls="guide-annotations" aria-expanded="false"><span class="guide-lens-icon" aria-hidden="true">&#x2691;</span><span class="guide-lens-label">Review</span> <span class="guide-lens-count" data-guide-count="review">0</span></button>
+        <span class="guide-lens-separator" aria-hidden="true">&middot;</span>
+        <button type="button" class="guide-lens-button" data-guide-lens="changes" aria-controls="guide-annotations" aria-expanded="false"><span class="guide-lens-icon" aria-hidden="true">&#x394;</span><span class="guide-lens-label">Changes</span> <span class="guide-lens-count" data-guide-count="changes">0</span></button>
+      </div>
     </div>
   </div>
+  <section class="guide-annotations" id="guide-annotations" role="region" aria-labelledby="guide-annotations-title" hidden>
+    <div class="guide-annotations__resize" id="guide-annotations-resize" role="separator" aria-orientation="vertical" aria-controls="guide-annotations" aria-label="Resize the annotations panel" title="Drag to resize. Double-click to reset." tabindex="0"></div>
+    <div class="guide-annotations__header">
+      <h2 class="guide-annotations__title" id="guide-annotations-title">Annotations</h2>
+      <button type="button" class="guide-annotations__close" id="guide-annotations-close" aria-label="Close the annotations panel">&times;</button>
+    </div>
+    <div class="guide-annotations__tabs" role="tablist" aria-label="Annotation types">
+      <button type="button" role="tab" id="guide-tab-comments" data-guide-tab="comments" aria-controls="guide-tabpanel-comments" aria-selected="true">Comments <span class="guide-tab-count" data-guide-count="comments">0</span></button>
+      <button type="button" role="tab" id="guide-tab-review" data-guide-tab="review" aria-controls="guide-tabpanel-review" aria-selected="false" tabindex="-1">Review <span class="guide-tab-count" data-guide-count="review">0</span></button>
+      <button type="button" role="tab" id="guide-tab-changes" data-guide-tab="changes" aria-controls="guide-tabpanel-changes" aria-selected="false" tabindex="-1">Changes <span class="guide-tab-count" data-guide-count="changes">0</span></button>
+    </div>
+    <div class="guide-annotations__body" id="guide-annotations-body">
+      <div class="guide-tabpanel" role="tabpanel" id="guide-tabpanel-comments" aria-labelledby="guide-tab-comments">
+        <div id="guide-comments-status"><p class="aira-meta">Comments are saved only in this browser. Download them to share.</p></div>
+        <div id="guide-local-identity" class="guide-local-control"><label class="aira-label" for="guide-commenter">Your name</label>
+        <input class="aira-input" id="guide-commenter" type="text" autocomplete="name"></div>
+        <div class="guide-comment-actions guide-local-control">
+          <button type="button" class="aira-button aira-button--secondary aira-button--small" id="guide-comments-download">Download</button>
+          <label class="aira-button aira-button--secondary aira-button--small guide-file-button">Load<input type="file" id="guide-comments-load" accept="application/json,.json" multiple hidden></label>
+          <button type="button" class="aira-button aira-button--ghost aira-button--small" id="guide-comments-clear">Clear all</button>
+        </div>
+        <p class="guide-label-note" id="guide-label-note" role="status" hidden></p>
+        <div class="guide-filters" role="group" aria-label="Filter comments">
+          <span class="guide-filter-segment" data-guide-filter="comments-state">
+            <button type="button" data-value="open" aria-pressed="true">Open</button><button type="button" data-value="all" aria-pressed="false">All</button>
+          </span>
+          <button type="button" class="guide-filter-toggle" data-guide-filter="mine" aria-pressed="false">Mine</button>
+        </div>
+        <div class="guide-annotation-list" id="guide-list-comments"></div>
+      </div>
+      <div class="guide-tabpanel" role="tabpanel" id="guide-tabpanel-review" aria-labelledby="guide-tab-review" hidden>
+        <div class="guide-filters" role="group" aria-label="Filter review flags">
+          <span class="guide-filter-segment" data-guide-filter="review-state">
+            <button type="button" data-value="open" aria-pressed="true">Open</button><button type="button" data-value="all" aria-pressed="false">All</button>
+          </span>
+        </div>
+        <div class="guide-annotation-list" id="guide-list-review"></div>
+      </div>
+      <div class="guide-tabpanel" role="tabpanel" id="guide-tabpanel-changes" aria-labelledby="guide-tab-changes" hidden>
+        <div class="guide-annotation-list" id="guide-list-changes"></div>
+      </div>
+    </div>
+  </section>
   <main class="aira-main" id="guide-main">
     <div class="guide-page aira-container--wide">
       <header class="aira-topic-header guide-header">
@@ -900,23 +950,10 @@ def page(
 <div id="{DOCUMENT_START_ANCHOR}" class="guide-anchor" data-guide-anchor="{DOCUMENT_START_ANCHOR}"></div>
 {figure}{body}
         </article>
-        <aside class="aira-right-rail guide-rail" aria-label="Page tools">
+        <aside class="aira-right-rail guide-rail" aria-label="On this page">
           <section class="aira-sidebar-section">
             <h2 class="aira-sidebar-title" id="guide-rail-title">On this page</h2>
             <ul class="guide-subnav" id="guide-subnav"></ul>
-          </section>
-          <section class="aira-sidebar-section guide-comments-panel" id="guide-comments-panel" hidden>
-            <h2 class="aira-sidebar-title">Comments <span class="aira-badge" id="guide-comment-count">0</span></h2>
-            <div id="guide-comments-status"><p class="aira-meta">Comments are saved only in this browser. Download them to share.</p></div>
-            <div id="guide-local-identity"><label class="aira-label" for="guide-commenter">Your name</label>
-            <input class="aira-input" id="guide-commenter" type="text" autocomplete="name"></div>
-            <div class="guide-comment-actions">
-              <button type="button" class="aira-button aira-button--secondary aira-button--small" id="guide-comments-toggle" aria-pressed="true">Hide comments</button>
-              <button type="button" class="aira-button aira-button--secondary aira-button--small guide-local-control" id="guide-comments-download">Download</button>
-              <label class="aira-button aira-button--secondary aira-button--small guide-file-button guide-local-control">Load<input type="file" id="guide-comments-load" accept="application/json,.json" multiple hidden></label>
-              <button type="button" class="aira-button aira-button--ghost aira-button--small guide-local-control" id="guide-comments-clear">Clear all</button>
-            </div>
-            <ol class="guide-comment-index" id="guide-comment-index"></ol>
           </section>
           <section class="aira-sidebar-section">
             <ul class="guide-links">

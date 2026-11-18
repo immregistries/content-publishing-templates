@@ -122,8 +122,8 @@ if (-not $browser) {
     $browserPath = $knownBrowsers | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 } else { $browserPath = $browser.Source }
 if ($browserPath) {
-    & $python.Source (Join-Path $PSScriptRoot 'tests/browser_check.py') --browser $browserPath --root $remoteFixture
-    if ($LASTEXITCODE -ne 0) { throw "Headless browser comments check failed." }
+    & $python.Source (Join-Path $PSScriptRoot 'tests/browser_check.py') --browser $browserPath --root $remoteFixture --local-guide $guide
+    if ($LASTEXITCODE -ne 0) { throw "Headless browser comments and annotations panel check failed." }
 } else {
     Write-Host "Chrome or Edge not installed; skipping the headless comments check."
 }
