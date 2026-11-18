@@ -25,6 +25,17 @@
 - Keep the source concise. State each fact, rule, code, and decision in one
   place and link to it from elsewhere. Do not restate tables in prose, add
   recaps, or repeat the open-questions table in a section.
+- The one exception is `content/00-executive-summary.md`, which may repeat
+  the chapters for a reader who reads nothing else. Keep it to 150–550 words;
+  the build fails above 650. `content/00-scope.md` has only In scope, Out of
+  scope, and optionally Not yet decided. See "Executive Summary and Scope" in
+  `process/guidance/TopicReference.md`.
+- When the Author asks to mark a change for readers, put
+  `<!-- changed vX.Y.Z: note -->` (add `feedback` after the version when
+  feedback is wanted) on its own line before the block, for the version
+  being prepared. Delete markers the content check reports as stale when the
+  next version starts. See "Change markers" in
+  `process/guidance/TopicReference.md`.
 - Keep the document to six to seven chapters, not counting appendices. Merge
   short or related chapters and use second-level headings within them.
   Appendix headings begin "Appendix" and come after all other chapters.
